@@ -1,0 +1,177 @@
+--- orig/src/mls.c
++++ mod/src/mls.c
+@@ -13,13 +13,16 @@
+ #include <sepol/policydb.h>
+ #include <sepol/services.h>
+ 
++#include <stdlib.h>
++
+ #include "private.h"
+ 
+ /*
+  * Remove any permissions from `allowed' that are
+  * denied by the MLS policy.
+  */
+-void mls_compute_av(context_struct_t * scontext,
++void mls_compute_av(policydb_t *policydb,
++		    context_struct_t * scontext,
+ 		    context_struct_t * tcontext,
+ 		    class_datum_t * tclass,
+ 		    access_vector_t * allowed)
+@@ -33,14 +36,14 @@
+ 
+ 	if (rel[1] != MLS_RELATION_EQ) {
+ 		if (rel[1] != MLS_RELATION_DOM &&
+-		    !ebitmap_get_bit(&policydb.trustedreaders, scontext->type - 1) &&
+-		    !ebitmap_get_bit(&policydb.trustedobjects, tcontext->type - 1)) {
++		    !ebitmap_get_bit(&policydb->trustedreaders, scontext->type - 1) &&
++		    !ebitmap_get_bit(&policydb->trustedobjects, tcontext->type - 1)) {
+ 			/* read(s,t) = (s.high >= t.high) = False */
+ 			*allowed = (*allowed) & ~(tclass->mlsperms.read);
+ 		}
+ 		if (rel[1] != MLS_RELATION_DOMBY &&
+-		    !ebitmap_get_bit(&policydb.trustedreaders, tcontext->type - 1) &&
+-		    !ebitmap_get_bit(&policydb.trustedobjects, scontext->type - 1)) {
++		    !ebitmap_get_bit(&policydb->trustedreaders, tcontext->type - 1) &&
++		    !ebitmap_get_bit(&policydb->trustedobjects, scontext->type - 1)) {
+ 			/* readby(s,t) = read(t,s) = False */
+ 			*allowed = (*allowed) & ~(tclass->mlsperms.readby);
+ 		}
+@@ -49,8 +52,8 @@
+ 	    ((!mls_level_eq(tcontext->range.level[0],
+ 			    tcontext->range.level[1])) &&
+ 	     (rel[1] != MLS_RELATION_DOM && rel[1] != MLS_RELATION_EQ))) &&
+-	    !ebitmap_get_bit(&policydb.trustedwriters, scontext->type - 1) &&
+-	    !ebitmap_get_bit(&policydb.trustedobjects, tcontext->type - 1)) {
++	    !ebitmap_get_bit(&policydb->trustedwriters, scontext->type - 1) &&
++	    !ebitmap_get_bit(&policydb->trustedobjects, tcontext->type - 1)) {
+ 		/*
+ 		 * write(s,t) = ((s.low <= t.low = t.high) or (s.low
+ 		 * <= t.low <= t.high <= s.high)) = False
+@@ -62,8 +65,8 @@
+ 	    ((!mls_level_eq(scontext->range.level[0],
+ 			    scontext->range.level[1])) &&
+ 	     (rel[1] != MLS_RELATION_DOMBY && rel[1] != MLS_RELATION_EQ))) &&
+-	    !ebitmap_get_bit(&policydb.trustedwriters, tcontext->type - 1) &&
+-	    !ebitmap_get_bit(&policydb.trustedobjects, scontext->type - 1)) {
++	    !ebitmap_get_bit(&policydb->trustedwriters, tcontext->type - 1) &&
++	    !ebitmap_get_bit(&policydb->trustedobjects, scontext->type - 1)) {
+ 		/* writeby(s,t) = write(t,s) = False */
+ 		*allowed = (*allowed) & ~(tclass->mlsperms.writeby);
+ 	}
+@@ -74,18 +77,18 @@
+  * Return the length in bytes for the MLS fields of the
+  * security context string representation of `context'.
+  */
+-int mls_compute_context_len(context_struct_t * context)
++int mls_compute_context_len(policydb_t *policydb, context_struct_t * context)
+ {
+ 	int i, l, len;
+ 
+ 
+ 	len = 0;
+ 	for (l = 0; l < 2; l++) {
+-		len += strlen(policydb.p_sens_val_to_name[context->range.level[l].sens - 1]) + 1;
++		len += strlen(policydb->p_sens_val_to_name[context->range.level[l].sens - 1]) + 1;
+ 
+ 		for (i = 1; i <= ebitmap_length(&context->range.level[l].cat); i++)
+ 			if (ebitmap_get_bit(&context->range.level[l].cat, i - 1))
+-				len += strlen(policydb.p_cat_val_to_name[i - 1]) + 1;
++				len += strlen(policydb->p_cat_val_to_name[i - 1]) + 1;
+ 
+ 		if (mls_level_relation(context->range.level[0], context->range.level[1]) == MLS_RELATION_EQ)
+ 			break;
+@@ -100,7 +103,8 @@
+  * the MLS fields of `context' into the string `*scontext'.
+  * Update `*scontext' to point to the end of the MLS fields.
+  */
+-int mls_sid_to_context(context_struct_t * context,
++int mls_sid_to_context(policydb_t *policydb,
++		       context_struct_t * context,
+ 		       char **scontext)
+ {
+ 	char *scontextp;
+@@ -111,14 +115,14 @@
+ 
+ 	for (l = 0; l < 2; l++) {
+ 		strcpy(scontextp,
+-		       policydb.p_sens_val_to_name[context->range.level[l].sens - 1]);
+-		scontextp += strlen(policydb.p_sens_val_to_name[context->range.level[l].sens - 1]);
++		       policydb->p_sens_val_to_name[context->range.level[l].sens - 1]);
++		scontextp += strlen(policydb->p_sens_val_to_name[context->range.level[l].sens - 1]);
+ 		*scontextp = ':';
+ 		scontextp++;
+ 		for (i = 1; i <= ebitmap_length(&context->range.level[l].cat); i++)
+ 			if (ebitmap_get_bit(&context->range.level[l].cat, i - 1)) {
+-				strcpy(scontextp, policydb.p_cat_val_to_name[i - 1]);
+-				scontextp += strlen(policydb.p_cat_val_to_name[i - 1]);
++				strcpy(scontextp, policydb->p_cat_val_to_name[i - 1]);
++				scontextp += strlen(policydb->p_cat_val_to_name[i - 1]);
+ 				*scontextp = ',';
+ 				scontextp++;
+ 			}
+@@ -213,7 +217,8 @@
+  * This function modifies the string in place, inserting
+  * NULL characters to terminate the MLS fields. 
+  */
+-int mls_context_to_sid(char oldc,
++int mls_context_to_sid(policydb_t *policydb,
++		       char oldc,
+ 		       char **scontext,
+ 		       context_struct_t * context)
+ {
+@@ -227,7 +232,7 @@
+ 	if (!oldc) {
+ 		/* No MLS component to the security context.  Try
+ 		   to use a default 'unclassified' value. */
+-		levdatum = (level_datum_t *) hashtab_search(policydb.p_levels.table,
++		levdatum = (level_datum_t *) hashtab_search(policydb->p_levels.table,
+ 							    (hashtab_key_t) "unclassified");
+ 		
+ 		if (!levdatum)
+@@ -248,7 +253,7 @@
+ 		*p++ = 0;
+ 
+ 	for (l = 0; l < 2; l++) {
+-		levdatum = (level_datum_t *) hashtab_search(policydb.p_levels.table,
++		levdatum = (level_datum_t *) hashtab_search(policydb->p_levels.table,
+ 					      (hashtab_key_t) scontextp);
+ 
+ 		if (!levdatum)
+@@ -266,7 +271,7 @@
+ 				if (delim != 0)
+ 					*p++ = 0;
+ 
+-				catdatum = (cat_datum_t *) hashtab_search(policydb.p_cats.table,
++				catdatum = (cat_datum_t *) hashtab_search(policydb->p_cats.table,
+ 					      (hashtab_key_t) scontextp);
+ 
+ 				if (!catdatum)
+@@ -373,7 +378,8 @@
+ 	return 0;
+ }
+ 
+-int mls_compute_sid(context_struct_t *scontext,
++int mls_compute_sid(policydb_t *policydb,
++		    context_struct_t *scontext,
+ 		    context_struct_t *tcontext,
+ 		    security_class_t tclass,
+ 		    uint32_t specified,
+@@ -655,7 +661,7 @@
+ 	return 0;
+ }
+ 
+-int sens_read(policydb_t * p, hashtab_t h, void * fp)
++int sens_read(policydb_t * p, hashtab_t h, struct policy_file * fp)
+ {
+ 	char *key = 0;
+ 	level_datum_t *levdatum;
+@@ -697,7 +703,7 @@
+ }
+ 
+ 
+-int cat_read(policydb_t * p, hashtab_t h, void * fp)
++int cat_read(policydb_t * p, hashtab_t h, struct policy_file * fp)
+ {
+ 	char *key = 0;
+ 	cat_datum_t *catdatum;

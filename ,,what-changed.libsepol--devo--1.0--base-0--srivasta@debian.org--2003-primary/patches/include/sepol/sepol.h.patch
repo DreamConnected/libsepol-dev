@@ -1,0 +1,22 @@
+--- orig/include/sepol/sepol.h
++++ mod/include/sepol/sepol.h
+@@ -2,6 +2,7 @@
+ #define _SEPOL_H_
+ 
+ #include <sys/types.h>
++#include <stdio.h>
+ 
+ /* Given an existing binary policy (starting at 'data', with length 'len')
+    and a boolean configuration file named by 'boolpath', rewrite the binary
+@@ -17,5 +18,11 @@
+    Returns 0 upon success or -1 otherwise. */
+ extern int sepol_genbools_array(void *data, size_t len, char **names, int *values, int nel);
+ 
++/* Set internal policydb from a file for subsequent service calls. */
++extern int sepol_set_policydb_from_file(FILE *fp);
++
++/* Check context validity against currently set binary policy. */
++extern int sepol_check_context(char *context);
++
+ 
+ #endif

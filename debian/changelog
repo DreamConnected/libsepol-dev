@@ -1,0 +1,55 @@
+libsepol (1.2-3) unstable; urgency=high
+
+  * Bug fix: "libsepol: FTBFS (amd64/gcc-4.0): static declaration of
+    'policydb_compat' follows non-static declaration", thanks to Andreas
+    Jochens                                             (Closes: #287447).
+  * Bug fix: "libsepol: FTBFS (amd64/gcc-4.0): static declaration of
+    'policydb_compat' follows non-static declaration", thanks to Andreas
+    Jochens                                             (Closes: #287458).
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 12 Jan 2005 23:36:08 -0600
+
+libsepol (1.2-2) unstable; urgency=low
+
+  * Update download location and copyright file, since the locations we
+    were pointing to are now forbidden (return a code 403). 
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 24 Nov 2004 14:02:32 -0600
+
+libsepol (1.2-1) unstable; urgency=low
+
+  * New upstream release. Changes:
+    * MLS build fixes.
+    * Added sepol_set_policydb_from_file and sepol_check_context for
+      setfiles. 
+  * Even though the API has changed, the soname has not been bumped
+    upstream on the grounds that no one is using this yet. Since we have
+    not yet shipped libsepol, I guess I am OK with that.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Thu,  4 Nov 2004 01:06:08 -0600
+
+libsepol (1.0-5) unstable; urgency=low
+
+  * The section 3 man pages should be in the -dev package.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 27 Oct 2004 10:59:36 -0500
+
+libsepol (1.0-3) unstable; urgency=low
+
+  * New maintainer, and new build system. Try and address the concerns of
+    the ftp master on the last upload.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 27 Oct 2004 00:45:53 -0500
+
+libsepol (1.0-2) unstable; urgency=low
+
+  * Stuffed it up.  New upload to fix dependency in -dev package.
+
+ -- Russell Coker <russell@coker.com.au>  Fri, 20 Aug 2004 18:24:00 +1000
+
+libsepol (1.0-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Russell Coker <russell@coker.com.au>  Fri, 20 Aug 2004 18:14:00 +1000
+

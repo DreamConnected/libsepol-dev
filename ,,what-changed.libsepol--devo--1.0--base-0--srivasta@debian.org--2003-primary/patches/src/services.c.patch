@@ -1,0 +1,108 @@
+--- orig/src/services.c
++++ mod/src/services.c
+@@ -56,6 +56,21 @@
+ 	return 0;
+ }
+ 
++int sepol_set_policydb_from_file(FILE *fp) 
++{
++	struct policy_file pf;
++	pf.fp = fp;
++	pf.type = PF_USE_STDIO;
++	if (policydb_read(&mypolicydb, &pf, 0)) {
++		fprintf(stderr, "Can't read binary policy:  %s\n",
++			strerror(errno));
++		return -1;
++	}
++	policydb = &mypolicydb;
++	return 0;
++}
++
++
+ /*
+  * The largest sequence number that has been used when
+  * providing an access decision to the access vector cache.
+@@ -245,7 +260,7 @@
+ 	/*
+ 	 * Remove any permissions prohibited by the MLS policy.
+ 	 */
+-	mls_compute_av(scontext, tcontext, tclass_datum, &avd->allowed);
++	mls_compute_av(policydb, scontext, tcontext, tclass_datum, &avd->allowed);
+ 
+ 	/* 
+ 	 * Remove any permissions prohibited by a constraint.
+@@ -330,7 +345,7 @@
+ 	*scontext_len += strlen(policydb->p_user_val_to_name[context->user - 1]) + 1;
+ 	*scontext_len += strlen(policydb->p_role_val_to_name[context->role - 1]) + 1;
+ 	*scontext_len += strlen(policydb->p_type_val_to_name[context->type - 1]) + 1;
+-	*scontext_len += mls_compute_context_len(context);
++	*scontext_len += mls_compute_context_len(policydb, context);
+ 
+ 	/* Allocate space for the context; caller must free this space. */
+ 	scontextp = malloc(*scontext_len+1);
+@@ -348,7 +363,7 @@
+ 		policydb->p_type_val_to_name[context->type - 1]);
+ 	scontextp += strlen(policydb->p_user_val_to_name[context->user - 1]) + 1 + strlen(policydb->p_role_val_to_name[context->role - 1]) + 1 + strlen(policydb->p_type_val_to_name[context->type - 1]) + 1;
+ 
+-	mls_sid_to_context(context, &scontextp);
++	mls_sid_to_context(policydb, context, &scontextp);
+ 
+ 	scontextp--;
+ 	*scontextp = 0;
+@@ -399,7 +414,8 @@
+ 	char *scontextp, *p, oldc;
+ 	int rc = 0;
+ 
+-	*sid = SECSID_NULL;
++	if (sid)
++		*sid = SECSID_NULL;
+ 
+ 	/* Copy the string so that we can modify the copy as we parse it.
+ 	   The string should already by null terminated, but we append a
+@@ -414,7 +430,6 @@
+ 	scontext2[scontext_len] = 0;
+ 
+ 	context_init(&context);
+-	*sid = SECSID_NULL;
+ 
+ 	/* Parse the security context. */
+ 
+@@ -469,7 +484,7 @@
+ 
+ 	context.type = typdatum->value;
+ 
+-	rc = mls_context_to_sid(oldc, &p, &context);
++	rc = mls_context_to_sid(policydb, oldc, &p, &context);
+ 	if (rc)
+ 		goto out;
+ 
+@@ -484,13 +499,19 @@
+ 		goto out;
+ 	}
+ 	/* Obtain the new sid. */
+-	rc = sepol_sidtab_context_to_sid(sidtab, &context, sid);
++	if (sid)
++		rc = sepol_sidtab_context_to_sid(sidtab, &context, sid);
+ out:
+ 	context_destroy(&context);
+ 	free(scontext2);
+ 	return rc;
+ }
+ 
++int sepol_check_context(char *context) 
++{
++	return sepol_context_to_sid(context, strlen(context)+1, NULL);
++}
++
+ static inline int compute_sid_handle_invalid_context(
+ 	context_struct_t *scontext,
+ 	context_struct_t *tcontext,
+@@ -643,7 +664,7 @@
+ 
+ 	/* Set the MLS attributes.
+ 	   This is done last because it may allocate memory. */
+-	rc = mls_compute_sid(scontext, tcontext, tclass, specified, &newcontext);
++	rc = mls_compute_sid(policydb, scontext, tcontext, tclass, specified, &newcontext);
+ 	if (rc) 
+ 		goto out;
+ 

@@ -24,7 +24,6 @@ struct policydb_compat_info {
 	int ocon_num;
 };
 
-extern struct policydb_compat_info policydb_compat[];
 extern struct policydb_compat_info *policydb_lookup_compat(int version);
 
 /* Reading from a policy "file". */

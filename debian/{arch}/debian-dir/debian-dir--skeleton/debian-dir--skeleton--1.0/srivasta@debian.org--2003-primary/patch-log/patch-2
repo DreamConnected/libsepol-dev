@@ -1,0 +1,9 @@
+Revision: debian-dir--skeleton--1.0--patch-2
+Archive: srivasta@debian.org--2003-primary
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Mon Dec  1 23:21:11 CST 2003
+Standard-date: 2003-12-02 05:21:11 GMT
+Modified-files: local-vars.mk postinst postrm preinst prerm
+New-patches: srivasta@debian.org--2003-primary/debian-dir--skeleton--1.0--patch-2
+Summary: Added more common elements, and perform common tasks learned from the last few packages
+

@@ -1,0 +1,43 @@
+--- orig/libsepol.spec
++++ mod/libsepol.spec
+@@ -1,6 +1,6 @@
+ Summary: SELinux binary policy manipulation library 
+ Name: libsepol
+-Version: 1.0
++Version: 1.2
+ Release: 1
+ License: GPL
+ Group: System Environment/Libraries
+@@ -38,7 +38,7 @@
+ %setup -q
+ 
+ %build
+-make 
++make CFLAGS="%{optflags}"
+ 
+ %install
+ rm -rf ${RPM_BUILD_ROOT}
+@@ -53,9 +53,9 @@
+ %clean
+ rm -rf ${RPM_BUILD_ROOT}
+ 
+-%post
+-# add libsepol to the cache
+-/sbin/ldconfig
++%post -p /sbin/ldconfig
++
++%postun -p /sbin/ldconfig
+ 
+ %files devel
+ %defattr(-,root,root)
+@@ -71,10 +71,3 @@
+ /%{_lib}/libsepol.so.1
+ 
+ %changelog
+-
+-* Tue Aug 11 2004 Stephen Smalley <sds@epoch.ncsc.mil> 0.4-1
+-- Updated for utils and man pages.
+-
+-* Tue Aug 10 2004 Stephen Smalley <sds@epoch.ncsc.mil> 0.3-1
+-- Initial version
+-
