@@ -25,6 +25,7 @@ struct policydb_compat_info {
 };
 
 extern struct policydb_compat_info *policydb_lookup_compat(int version);
+extern void __sepol_debug_printf(const char *fmt, ...);
 
 /* Reading from a policy "file". */
 static inline void *next_entry(struct policy_file * fp, size_t bytes)
@@ -54,3 +55,4 @@ static inline void *next_entry(struct policy_file * fp, size_t bytes)
 	return buffer;
 }
 
+extern int mls_enabled;

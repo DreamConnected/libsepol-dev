@@ -9,6 +9,7 @@ Build-Depends: file
 Package: sepol-utils
 Architecture: any
 Depends: ${shlibs:Depends}
+Conflicts: checkpolicy (<= 1.20)
 Description: Security Enhanced Linux policy utility programs
  This package provides a utility for a Security-enhanced
  Linux system to rewrite existing mandatory access control policy with

@@ -1,10 +1,16 @@
 
 /* Author : Stephen Smalley, <sds@epoch.ncsc.mil> */
 
-/* Updated: Frank Mayer <mayerf@tresys.com> and Karl MacMillan <kmacmillan@tresys.com>
+/*
+ * Updated: Trusted Computer Solutions, Inc. <dgoeddel@trustedcs.com>
+ *
+ *	Support for enhanced MLS infrastructure.
+ *
+ * Updated: Frank Mayer <mayerf@tresys.com> and Karl MacMillan <kmacmillan@tresys.com>
  *
  * 	Added conditional policy language extensions
  *
+ * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
  * Copyright (C) 2003 - 2004 Tresys Technology, LLC
  *	This program is free software; you can redistribute it and/or modify
  *  	it under the terms of the GNU General Public License as published by
@@ -40,13 +46,6 @@
 /* Permission attributes */
 typedef struct perm_datum {
 	uint32_t value;		/* permission bit + 1 */
-#ifdef CONFIG_SECURITY_SELINUX_MLS
-#define MLS_BASE_READ    1	/* MLS base permission `read' */
-#define MLS_BASE_WRITE   2	/* MLS base permission `write' */
-#define MLS_BASE_READBY  4	/* MLS base permission `readby' */
-#define MLS_BASE_WRITEBY 8	/* MLS base permission `writeby' */
-	uint32_t base_perms;		/* MLS base permission mask */
-#endif
 } perm_datum_t;
 
 /* Attributes of a common prefix for access vectors */
@@ -61,10 +60,8 @@ typedef struct class_datum {
 	char *comkey;		/* common name */
 	common_datum_t *comdatum;	/* common datum */
 	symtab_t permissions;	/* class-specific permission symbol table */
-	constraint_node_t *constraints;		/* constraints on class permissions */
-#ifdef CONFIG_SECURITY_SELINUX_MLS
-	mls_perms_t mlsperms;	/* MLS base permission masks */
-#endif
+	constraint_node_t *constraints;	/* constraints on class permissions */
+	constraint_node_t *validatetrans;	/* special transition rules */
 } class_datum_t;
 
 /* Role attributes */
@@ -101,14 +98,12 @@ typedef struct type_datum {
 typedef struct user_datum {
 	uint32_t value;		/* internal user value */
 	ebitmap_t roles;	/* set of authorized roles for user */
-#ifdef CONFIG_SECURITY_SELINUX_MLS
-	mls_range_list_t *ranges;	/* list of authorized MLS ranges for user */
-#endif
+	mls_range_t range;	/* MLS range (min. - max.) for user */
+	mls_level_t dfltlevel;	/* default login MLS level for user */
         unsigned defined;
 } user_datum_t;
 
 
-#ifdef CONFIG_SECURITY_SELINUX_MLS
 /* Sensitivity attributes */
 typedef struct level_datum {
 	mls_level_t *level;	/* sensitivity and associated categories */
@@ -120,7 +115,13 @@ typedef struct cat_datum {
 	uint32_t value;		/* internal category bit + 1 */
 	unsigned char isalias;  /* is this category an alias for another? */
 } cat_datum_t;
-#endif
+
+typedef struct range_trans {
+	uint32_t dom;			/* current process domain */
+	uint32_t type;			/* program executable type */
+	mls_range_t range;		/* new range */
+	struct range_trans *next;
+} range_trans_t;
 
 /* Boolean data type */
 typedef struct cond_bool_datum {
@@ -177,15 +178,10 @@ typedef struct genfs {
 #define SYM_ROLES   2
 #define SYM_TYPES   3
 #define SYM_USERS   4
-#ifdef CONFIG_SECURITY_SELINUX_MLS
-#define SYM_LEVELS  5
-#define SYM_CATS    6
-#define SYM_BOOLS   7
-#define SYM_NUM     8
-#else
 #define SYM_BOOLS   5
-#define SYM_NUM     6
-#endif
+#define SYM_LEVELS  6
+#define SYM_CATS    7
+#define SYM_NUM     8
 
 /* object context array indices */
 #define OCON_ISID  0	/* initial SIDs */
@@ -206,9 +202,9 @@ typedef struct policydb {
 #define p_roles symtab[SYM_ROLES]
 #define p_types symtab[SYM_TYPES]
 #define p_users symtab[SYM_USERS]
+#define p_bools symtab[SYM_BOOLS]
 #define p_levels symtab[SYM_LEVELS]
 #define p_cats symtab[SYM_CATS]
-#define p_bools symtab[SYM_BOOLS]
 
 	/* symbol names indexed by (value - 1) */
 	char **sym_val_to_name[SYM_NUM];
@@ -217,9 +213,9 @@ typedef struct policydb {
 #define p_role_val_to_name sym_val_to_name[SYM_ROLES]
 #define p_type_val_to_name sym_val_to_name[SYM_TYPES]
 #define p_user_val_to_name sym_val_to_name[SYM_USERS]
+#define p_bool_val_to_name sym_val_to_name[SYM_BOOLS]
 #define p_sens_val_to_name sym_val_to_name[SYM_LEVELS]
 #define p_cat_val_to_name sym_val_to_name[SYM_CATS]
-#define p_bool_val_to_name sym_val_to_name[SYM_BOOLS]
 
 	/* class, role, and user attributes indexed by (value - 1) */
 	class_datum_t **class_val_to_struct;
@@ -251,14 +247,8 @@ typedef struct policydb {
 	   fixed labeling behavior. */
   	genfs_t *genfs;
 
-#ifdef CONFIG_SECURITY_SELINUX_MLS
-	/* number of legitimate MLS levels */
-	uint32_t nlevels;
-  
-	ebitmap_t trustedreaders;
-	ebitmap_t trustedwriters;
-	ebitmap_t trustedobjects;
-#endif
+	/* range transitions */
+	range_trans_t *range_tr;
 
 	unsigned policyvers;
 } policydb_t;
@@ -284,6 +274,7 @@ extern int policydb_context_isvalid(policydb_t *p, context_struct_t *c);
 struct policy_file {
 #define PF_USE_MEMORY  0
 #define PF_USE_STDIO   1
+#define PF_LEN         2 /* total up length in len field */ 
 	unsigned type;
 	char *data;
 	size_t len;
@@ -301,10 +292,12 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
 #define POLICYDB_VERSION_BOOL		16
 #define POLICYDB_VERSION_IPV6		17
 #define POLICYDB_VERSION_NLCLASS	18
+#define POLICYDB_VERSION_VALIDATETRANS	19
+#define POLICYDB_VERSION_MLS		19
 
 /* Range of policy versions we understand*/
 #define POLICYDB_VERSION_MIN	POLICYDB_VERSION_BASE
-#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_NLCLASS
+#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_MLS
 
 /*
  * Set policy version for writing policies.
@@ -312,6 +305,18 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
  * If not set, then policydb_write defaults to the max.
  */
 extern int sepol_set_policyvers(unsigned int policyvers);
+
+/* Enable/Disable MLS support for the service functions.
+   MLS support is appropriately enabled/disabled when a policydb file
+   is read, according to the status of MLS support in the policy.  Use this
+   interface to enable/disable support only if you are not reading a policy,
+   such as when you build a binary policy and wish to write it to a file. */
+extern int sepol_set_mls(int enabled);
+
+/* Query the status of MLS support in the currently loaded policy.
+   A return of zero indicates a policy without MLS support,
+   non-zero indicates a policy with MLS support. */
+extern int sepol_mls_enabled(void);
 
 #define POLICYDB_CONFIG_MLS    1
 

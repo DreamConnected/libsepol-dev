@@ -1,0 +1,11 @@
+Revision: debian-dir--libsepol--1.0--patch-16
+Archive: srivasta@debian.org--2003-primary
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Sat Mar 12 14:20:37 CST 2005
+Standard-date: 2005-03-12 20:20:37 GMT
+Modified-files: local.mk
+New-patches: srivasta@debian.org--2003-primary/debian-dir--libsepol--1.0--patch-16
+Summary: Fixed a typo in the rules
+Keywords: 
+
+Don't look for shared object when looking to strip things any more.

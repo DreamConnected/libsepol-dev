@@ -9,6 +9,7 @@ install:
 	$(MAKE) -C man install
 
 relabel:
+	$(MAKE) -C src relabel
 
 clean:
 	$(MAKE) -C src clean

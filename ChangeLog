@@ -1,3 +1,34 @@
+1.4 2005-03-09
+	* Updated version for release.
+
+1.3.8 2005-03-08
+	* Cleaned up error handling in sepol_genusers and sepol_genbools.
+
+1.3.7 2005-02-28
+	* Merged sepol_debug and fclose patch from Dan Walsh.
+
+1.3.6 2005-02-22
+	* Changed sepol_genusers to also use getline and correctly handle
+	  EOL.
+
+1.3.5 2005-02-17
+	* Merged range_transition support from Darrel Goeddel (TCS).
+
+1.3.4 2005-02-16
+	* Added sepol_genusers function.
+
+1.3.3 2005-02-14
+	* Merged endianness and compute_av patches from Darrel Goeddel (TCS).
+
+1.3.2 2005-02-09
+	* Changed relabel Makefile target to use restorecon.
+
+1.3.1 2005-01-26
+	* Merged enhanced MLS support from Darrel Goeddel (TCS).
+
+1.2.1 2005-01-19
+	* Merged build fix patch from Manoj Srivastava.
+
 1.2 2004-10-07
 	* MLS build fixes.
 	* Added sepol_set_policydb_from_file and sepol_check_context for setfiles.

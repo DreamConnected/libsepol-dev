@@ -18,11 +18,20 @@ extern int sepol_genbools(void *data, size_t len, char *boolpath);
    Returns 0 upon success or -1 otherwise. */
 extern int sepol_genbools_array(void *data, size_t len, char **names, int *values, int nel);
 
+/* Given an existing binary policy (starting at 'data with length 'len')
+   and user configurations living in 'usersdir', generate a new binary
+   policy for the new user configurations.  Sets '*newdata' and '*newlen'
+   to refer to the new binary policy image. */
+extern int sepol_genusers(void *data, size_t len,
+			  const char *usersdir,
+			  void **newdata, size_t *newlen);
+
 /* Set internal policydb from a file for subsequent service calls. */
 extern int sepol_set_policydb_from_file(FILE *fp);
 
 /* Check context validity against currently set binary policy. */
 extern int sepol_check_context(char *context);
 
-
+/* Turn on or off sepol error messages. */
+extern void sepol_debug(int on);
 #endif

@@ -19,9 +19,12 @@ CC = cc
 CFLAGS = -O2
 PREFIX    := /usr
 
-ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
-  CFLAGS += -g
-endif
+# Policy 10.1 says to make this the default
+CFLAGS += -g
+
+## ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
+## endif
+
 ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
   STRIP += -s
   LDFLAGS += -s

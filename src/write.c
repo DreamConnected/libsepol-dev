@@ -1,10 +1,16 @@
 
 /* Author : Stephen Smalley, <sds@epoch.ncsc.mil> */
 
-/* Updated: Frank Mayer <mayerf@tresys.com> and Karl MacMillan <kmacmillan@tresys.com>
+/*
+ * Updated: Trusted Computer Solutions, Inc. <dgoeddel@trustedcs.com>
+ *
+ *	Support for enhanced MLS infrastructure.
+ *
+ * Updated: Frank Mayer <mayerf@tresys.com> and Karl MacMillan <kmacmillan@tresys.com>
  *
  * 	Added conditional policy language extensions
  *
+ * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
  * Copyright (C) 2003 - 2004 Tresys Technology, LLC
  *	This program is free software; you can redistribute it and/or modify
  *  	it under the terms of the GNU General Public License as published by
@@ -26,6 +32,11 @@ int sepol_set_policyvers(unsigned int version)
 	if (version < POLICYDB_VERSION_MIN ||
 	    version > POLICYDB_VERSION_MAX)
 		return -EINVAL;
+
+	/* MLS backwards compatibility to mainline inclusion */
+	if (mls_enabled && (version < POLICYDB_VERSION_MLS))
+		return -EINVAL;
+
 	policyvers = version;
 	return 0;
 }
@@ -46,6 +57,9 @@ static inline size_t put_entry(const void *ptr, size_t size, size_t n, struct po
 		memcpy(fp->data, ptr, bytes);
 		fp->data += bytes;
 		fp->len -= bytes;
+		return n;
+	case PF_LEN:
+		fp->len += bytes;
 		return n;
 	default:
 		return 0;
@@ -151,7 +165,6 @@ int avtab_write(avtab_t * a, struct policy_file * fp)
 	return 0;
 }
 
-#ifdef CONFIG_SECURITY_SELINUX_MLS
 /*
  * Write a MLS level structure to a policydb binary 
  * representation file.
@@ -183,13 +196,13 @@ static int mls_write_range_helper(mls_range_t * r,
 {
 	uint32_t buf[3];
 	size_t items, items2;
-	int rel;
+	int eq;
 
-	rel = mls_level_relation(r->level[1], r->level[0]);
+	eq = mls_level_eq(&r->level[1], &r->level[0]);
 
 	items = 1;		/* item 0 is used for the item count */
 	buf[items++] = cpu_to_le32(r->level[0].sens);
-	if (rel != MLS_RELATION_EQ)
+	if (!eq)
 		buf[items++] = cpu_to_le32(r->level[1].sens);
 	buf[0] = cpu_to_le32(items - 1);
 
@@ -199,87 +212,10 @@ static int mls_write_range_helper(mls_range_t * r,
 
 	if (ebitmap_write(&r->level[0].cat, fp))
 		return -1;
-	if (rel != MLS_RELATION_EQ)
+	if (!eq)
 		if (ebitmap_write(&r->level[1].cat, fp))
 			return -1;
 
-	return 0;
-}
-
-int mls_write_range(context_struct_t * c,
-		    struct policy_file * fp)
-{
-	return mls_write_range_helper(&c->range, fp);
-}
-
-
-/*
- * Write a MLS perms structure to a policydb binary 
- * representation file.
- */
-int mls_write_class(class_datum_t * cladatum,
-		    struct policy_file * fp)
-{
-	mls_perms_t *p = &cladatum->mlsperms;
-	uint32_t buf[32];
-	size_t items, items2;
-
-	items = 0;
-	buf[items++] = cpu_to_le32(p->read);
-	buf[items++] = cpu_to_le32(p->readby);
-	buf[items++] = cpu_to_le32(p->write);
-	buf[items++] = cpu_to_le32(p->writeby);
-	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
-	if (items2 != items)
-		return -1;
-
-	return 0;
-}
-
-#define mls_write_perm(buf, items, perdatum) \
-	buf[items++] = cpu_to_le32(perdatum->base_perms);
-
-int mls_write_user(user_datum_t *usrdatum, struct policy_file *fp)
-{
-	mls_range_list_t *r;
-	uint32_t nel;
-	uint32_t buf[32];
-	int items;
-
-	nel = 0;
-	for (r = usrdatum->ranges; r; r = r->next)
-		nel++;
-	buf[0] = cpu_to_le32(nel);
-	items = put_entry(buf, sizeof(uint32_t), 1, fp);
-	if (items != 1)
-		return -1;
-	for (r = usrdatum->ranges; r; r = r->next) {
-		if (mls_write_range_helper(&r->range, fp))
-			return -1;
-	}
-	return 0;
-}
-
-int mls_write_nlevels(policydb_t *p, struct policy_file *fp)
-{
-	uint32_t buf[32];
-	size_t items;
-
-	buf[0] = cpu_to_le32(p->nlevels);
-	items = put_entry(buf, sizeof(uint32_t), 1, fp);
-	if (items != 1)
-		return -1;
-	return 0;
-}
-
-int mls_write_trusted(policydb_t *p, struct policy_file *fp)
-{
-	if (ebitmap_write(&p->trustedreaders, fp))
-		return -1;
-	if (ebitmap_write(&p->trustedwriters, fp))
-		return -1;
-	if (ebitmap_write(&p->trustedobjects, fp))
-		return -1;
 	return 0;
 }
 
@@ -335,15 +271,6 @@ int cat_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 
 	return 0;
 }
-#else
-#define mls_write_range(c, fp) 0
-#define mls_write_class(c, fp) 0
-#define mls_write_perm(buf, items, perdatum) 
-#define mls_write_user(u, fp) 0
-#define mls_write_nlevels(p, fp) 0
-#define mls_write_trusted(p, fp) 0
-#endif
-
 
 int cond_write_bool(hashtab_key_t key, hashtab_datum_t datum, void *p)
 {
@@ -480,8 +407,9 @@ static int context_write(context_struct_t * c, struct policy_file * fp)
 	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
 	if (items2 != items)
 		return -1;
-	if (mls_write_range(c, fp))
-		return -1;
+	if (policyvers >= POLICYDB_VERSION_MLS)
+		if (mls_write_range_helper(&c->range, fp))
+			return -1;
 
 	return 0;
 }
@@ -506,7 +434,6 @@ static int perm_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	items = 0;
 	buf[items++] = cpu_to_le32(len);
 	buf[items++] = cpu_to_le32(perdatum->value);
-	mls_write_perm(buf, items, perdatum);
 	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
 	if (items != items2)
 		return -1;
@@ -548,13 +475,54 @@ static int common_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	return 0;
 }
 
+static int write_cons_helper(constraint_node_t *node, int allowxtarget,
+                             struct policy_file *fp)
+{
+	constraint_node_t *c;
+	constraint_expr_t *e;
+	uint32_t buf[3], nexpr;
+	int items;
+
+	for (c = node; c; c = c->next) {
+		nexpr = 0;
+		for (e = c->expr; e; e = e->next) {
+			nexpr++;
+		}
+		buf[0] = cpu_to_le32(c->permissions);
+		buf[1] = cpu_to_le32(nexpr);
+		items = put_entry(buf, sizeof(uint32_t), 2, fp);
+		if (items != 2)
+			return -1;
+		for (e = c->expr; e; e = e->next) {
+			items = 0;
+			buf[0] = cpu_to_le32(e->expr_type);
+			buf[1] = cpu_to_le32(e->attr);
+			buf[2] = cpu_to_le32(e->op);
+			items = put_entry(buf, sizeof(uint32_t), 3, fp);
+			if (items != 3)
+				return -1;
+
+			switch (e->expr_type) {
+			case CEXPR_NAMES:
+				if (!allowxtarget && (e->attr & CEXPR_XTARGET))
+					return -1;
+				if (ebitmap_write(&e->names, fp))
+					return -1;
+				break;
+			default:
+				break;
+			}
+		}
+	}
+
+	return 0;
+}
 
 static int class_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 {
 	class_datum_t *cladatum;
 	constraint_node_t *c;
-	constraint_expr_t *e;
-	uint32_t buf[32], ncons, nexpr;
+	uint32_t buf[32], ncons;
 	size_t items, items2, len, len2;
 	struct policy_file *fp = p;
 
@@ -597,38 +565,22 @@ static int class_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	if (hashtab_map(cladatum->permissions.table, perm_write, fp))
 		return -1;
 
-	for (c = cladatum->constraints; c; c = c->next) {
-		nexpr = 0;
-		for (e = c->expr; e; e = e->next) {
-			nexpr++;
-		}
-		buf[0] = cpu_to_le32(c->permissions);
-		buf[1] = cpu_to_le32(nexpr);
-		items = put_entry(buf, sizeof(uint32_t), 2, fp);
-		if (items != 2)
-			return -1;
-		for (e = c->expr; e; e = e->next) {
-			items = 0;
-			buf[items++] = cpu_to_le32(e->expr_type);
-			buf[items++] = cpu_to_le32(e->attr);
-			buf[items++] = cpu_to_le32(e->op);
-			items2 = put_entry(buf, sizeof(uint32_t), items, fp);
-			if (items != items2)
-				return -1;
-
-			switch (e->expr_type) {
-			case CEXPR_NAMES:
-				if (ebitmap_write(&e->names, fp))
-					return -1;
-				break;
-			default:
-				break;
-			}
-		}
-	}
-
-	if (mls_write_class(cladatum, fp))
+	if (write_cons_helper(cladatum->constraints, 0, fp))
 		return -1;
+
+	if (policyvers >= POLICYDB_VERSION_VALIDATETRANS) {
+		/* write out the validatetrans rule */
+		ncons = 0;
+		for (c = cladatum->validatetrans; c; c = c->next) {
+			ncons++;
+		}
+		buf[0] = cpu_to_le32(ncons);
+		items = put_entry(buf, sizeof(uint32_t), 1, fp);
+		if (items != 1)
+			return -1;
+		if (write_cons_helper(cladatum->validatetrans, 1, fp))
+			return -1;
+	}
 
 	return 0;
 }
@@ -713,7 +665,14 @@ static int user_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	if (ebitmap_write(&usrdatum->roles, fp))
 		return -1;
 
-	return mls_write_user(usrdatum, fp);
+	if (policyvers >= POLICYDB_VERSION_MLS) {
+		if (mls_write_range_helper(&usrdatum->range, fp))
+			return -1;
+		if (mls_write_level(&usrdatum->dfltlevel, fp))
+			return -1;
+	}
+
+	return 0;
 }
 
 
@@ -724,8 +683,9 @@ static int (*write_f[SYM_NUM]) (hashtab_key_t key, hashtab_datum_t datum, void *
 	role_write,
 	type_write,
 	user_write,
-	mls_write_f
-	cond_write_bool
+	cond_write_bool,
+	sens_write,
+	cat_write,
 };
 
 
@@ -738,6 +698,7 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
 {
 	struct role_allow *ra;
 	struct role_trans *tr;
+	struct range_trans *rt;
 	ocontext_t *c;
 	genfs_t *genfs;
 	int i, j, num_syms;
@@ -747,7 +708,8 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
 	char *policydb_str = POLICYDB_STRING;
 
 	config = 0;
-	mls_set_config(config);
+	if (mls_enabled)
+		config |= POLICYDB_CONFIG_MLS;
 
 	/* Write the magic number and string identifiers. */
 	items = 0;
@@ -776,9 +738,6 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
 	
 	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
 	if (items != items2)
-		return -1;
-
-	if (mls_write_nlevels(p, fp))
 		return -1;
 
 	num_syms = info->sym_num;
@@ -959,8 +918,24 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
 		}
 	}
 
-	if (mls_write_trusted(p, fp))
-		return -1;
+	if (policyvers >= POLICYDB_VERSION_MLS) {
+		nel = 0;
+		for (rt = p->range_tr; rt; rt = rt->next)
+			nel++;
+		buf[0] = cpu_to_le32(nel);
+		items = put_entry(buf, sizeof(uint32_t), 1, fp);
+		if (items != 1)
+			return -1;
+		for (rt = p->range_tr; rt; rt = rt->next) {
+			buf[0] = cpu_to_le32(rt->dom);
+			buf[1] = cpu_to_le32(rt->type);
+			items = put_entry(buf, sizeof(uint32_t), 2, fp);
+			if (items != 2)
+				return -1;
+			if (mls_write_range_helper(&rt->range, fp))
+				return -1;
+		}
+	}
 
 	return 0;
 }

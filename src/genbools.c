@@ -87,8 +87,9 @@ int sepol_genbools(void *data, size_t len, char *booleans)
 	pf.data = data;
 	pf.len = len;
 	if (policydb_read(&policydb,&pf, 0)) {
-		fprintf(stderr, "Can't read binary policy:  %s\n",
-			strerror(errno));
+		__sepol_debug_printf("%s:  binary policy image is invalid\n",
+			__FUNCTION__);
+		errno = EINVAL;
 		return -1;
 	}
 
@@ -97,25 +98,33 @@ int sepol_genbools(void *data, size_t len, char *booleans)
 	sepol_set_policyvers(policydb.policyvers);
 
 	if (load_booleans(&policydb, booleans) < 0) {
-		fprintf(stderr, "Warning!  Error while reading %s:  %s\n",
-			booleans, strerror(errno));
+		__sepol_debug_printf("%s:  Warning!  Error while reading %s\n",
+				     __FUNCTION__, booleans);
 	}
 
 	if (evaluate_conds(&policydb) < 0) {
-		fprintf(stderr, "Error while re-evaluating conditionals: %s\n",
-			strerror(errno));
-		return -1;
+		__sepol_debug_printf("%s:  Error while re-evaluating conditionals\n",
+				     __FUNCTION__);
+		errno = EINVAL;
+		goto err;
 	}
 
 	pf.data = data;
 	pf.len = len;
 	rc = policydb_write(&policydb, &pf);
 	if (rc) {
-		fprintf(stderr, "Can't write binary policy:  %s\n",
-			strerror(errno));
-		return -1;
+		__sepol_debug_printf("%s: Can't write new binary policy image\n",
+				     __FUNCTION__);
+		errno = EINVAL;
+		goto err;
 	}
+
+	policydb_destroy(&policydb);
 	return 0;
+
+ err:
+	policydb_destroy(&policydb);
+	return -1;
 }
 
 int sepol_genbools_array(void *data, size_t len, char **names, int *values, int nel)
@@ -129,8 +138,9 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 	pf.data = data;
 	pf.len = len;
 	if (policydb_read(&policydb,&pf, 0)) {
-		fprintf(stderr, "Can't read binary policy:  %s\n",
-			strerror(errno));
+		__sepol_debug_printf("%s:  binary policy image is invalid\n",
+				     __FUNCTION__);
+		errno = EINVAL;
 		return -1;
 	}
 
@@ -141,7 +151,8 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 	for (i = 0; i < nel; i++) {
 		datum = hashtab_search(policydb.p_bools.table, names[i]);
 		if (!datum) {
-			fprintf(stderr,"unknown boolean %s\n", names[i]);
+			__sepol_debug_printf("%s:  unknown boolean %s\n", 
+					     __FUNCTION__, names[i]);
 			errors++;
 			continue;
 		}
@@ -154,24 +165,31 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 	}
 
 	if (evaluate_conds(&policydb) < 0) {
-		fprintf(stderr, "Error while re-evaluating conditionals: %s\n",
-			strerror(errno));
-		return -1;
+		__sepol_debug_printf("%s:  Error while re-evaluating conditionals: %s\n",
+				     __FUNCTION__);
+		errno = EINVAL;
+		goto err;
 	}
 
 	pf.data = data;
 	pf.len = len;
 	rc = policydb_write(&policydb, &pf);
 	if (rc) {
-		fprintf(stderr, "Can't write binary policy:  %s\n",
-			strerror(errno));
-		return -1;
+		__sepol_debug_printf("%s:  Can't write binary policy\n",
+				     __FUNCTION__);
+		errno = EINVAL;
+		goto err;
 	}
 	if (errors) {
 		errno = EINVAL;
-		return -1;
+		goto err;
 	}
+
+	policydb_destroy(&policydb);
 	return 0;
+err:
+	policydb_destroy(&policydb);
+	return -1;
 }
 
 

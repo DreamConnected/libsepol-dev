@@ -1,0 +1,10 @@
+Revision: debian-dir--libsepol--1.0--patch-14
+Archive: srivasta@debian.org--2003-primary
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Fri Mar 11 10:46:41 CST 2005
+Standard-date: 2005-03-11 16:46:41 GMT
+Modified-files: changelog local.mk
+New-patches: srivasta@debian.org--2003-primary/debian-dir--libsepol--1.0--patch-14
+Summary: New upstream release
+Keywords: 
+

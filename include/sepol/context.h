@@ -20,7 +20,7 @@
 #define _CONTEXT_H_
 
 #include <sepol/ebitmap.h>
-
+#include <sepol/sepol.h>
 #include <sepol/mls_types.h>
 
 /*
@@ -31,13 +31,9 @@ typedef struct context_struct {
 	uint32_t user;
 	uint32_t role;
 	uint32_t type;
-#ifdef CONFIG_SECURITY_SELINUX_MLS
 	mls_range_t range;
-#endif
 } context_struct_t;
 
-
-#ifdef CONFIG_SECURITY_SELINUX_MLS
 
 static inline void mls_context_init(context_struct_t * c)
 {
@@ -48,7 +44,10 @@ static inline int mls_context_cpy(context_struct_t * dst,
 				  context_struct_t * src)
 {
 	int rc;
-	
+
+	if (!sepol_mls_enabled())
+		return 0;
+
 	dst->range.level[0].sens = src->range.level[0].sens;
 	rc = ebitmap_cpy(&dst->range.level[0].cat, &src->range.level[0].cat);
 	if (rc)
@@ -65,6 +64,9 @@ out:
 static inline int mls_context_cmp(context_struct_t * c1,
                                   context_struct_t * c2)
 {
+	if (!sepol_mls_enabled())
+		return 1;
+
 	return ((c1->range.level[0].sens == c2->range.level[0].sens) &&
 		ebitmap_cmp(&c1->range.level[0].cat,&c2->range.level[0].cat) &&
 		(c1->range.level[1].sens == c2->range.level[1].sens) &&
@@ -73,28 +75,13 @@ static inline int mls_context_cmp(context_struct_t * c1,
 
 static inline void mls_context_destroy(context_struct_t * c)
 {
+	if (!sepol_mls_enabled())
+		return;
+
 	ebitmap_destroy(&c->range.level[0].cat);
 	ebitmap_destroy(&c->range.level[1].cat);
 	mls_context_init(c);
 }
-
-#else
-
-static inline void mls_context_init(context_struct_t *c __attribute__ ((unused)))
-{ }
-
-static inline int mls_context_cpy(context_struct_t * dst __attribute__ ((unused)), 
-				  context_struct_t * src __attribute__ ((unused)))
-{ return 0; }
-
-static inline int mls_context_cmp(context_struct_t * c1 __attribute__ ((unused)),
-                                  context_struct_t * c2 __attribute__ ((unused)))
-{ return 1; }
-
-static inline void mls_context_destroy(context_struct_t * c __attribute__ ((unused)))
-{ }
-
-#endif
 
 static inline void context_init(context_struct_t * c)
 {

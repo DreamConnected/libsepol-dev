@@ -1,0 +1,13 @@
+Revision: debian-dir--libsepol--1.0--patch-17
+Archive: srivasta@debian.org--2003-primary
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Sat Mar 12 16:06:15 CST 2005
+Standard-date: 2005-03-12 22:06:15 GMT
+Modified-files: control
+New-patches: srivasta@debian.org--2003-primary/debian-dir--libsepol--1.0--patch-17
+Summary: Conflict with older checkpolicy version
+Keywords: 
+
+Since the utility genpolusers was moved from checkpolicy to sepol-utils,
+the latter now conflicts with older versions of checkpolicy.
+

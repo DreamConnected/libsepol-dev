@@ -1,3 +1,10 @@
+libsepol (1.4-1) unstable; urgency=low
+
+  * New upstream release. Added enhanced MLS support, and the
+    sepol_genusers function. Numerous small bug fixes as well.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Fri, 11 Mar 2005 10:45:32 -0600
+
 libsepol (1.2-3) unstable; urgency=high
 
   * Bug fix: "libsepol: FTBFS (amd64/gcc-4.0): static declaration of
