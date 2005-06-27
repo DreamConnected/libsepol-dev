@@ -58,7 +58,7 @@ typedef struct constraint_expr {
 
 
 typedef struct constraint_node {
-	access_vector_t permissions;	/* constrained permissions */
+	sepol_access_vector_t permissions;	/* constrained permissions */
 	constraint_expr_t *expr;	/* constraint on permissions */
 	struct constraint_node *next;	/* next constraint */
 } constraint_node_t;

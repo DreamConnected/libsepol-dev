@@ -1,3 +1,42 @@
+1.6 2005-06-20
+	* Updated version for release.
+
+1.5.10 2005-05-19
+	* License changed to LGPL v2.1, see COPYING.
+
+1.5.9 2005-05-16
+	* Added sepol_genbools_policydb and sepol_genusers_policydb for
+	  audit2why.
+
+1.5.8 2005-05-13
+	* Added sepol_ prefix to Flask types to avoid 
+	  namespace collision with libselinux.
+
+1.5.7 2005-05-13
+	* Added sepol_compute_av_reason() for audit2why.
+
+1.5.6 2005-04-25
+	* Fixed bug in role hierarchy checker.
+
+1.5.5 2005-04-13
+	* Merged hierarchical type/role patch from Tresys Technology.
+	* Merged MLS fixes from Darrel Goeddel of TCS.
+
+1.5.4 2005-04-13
+	* Changed sepol_genusers to not delete users by default,
+	and added a sepol_set_delusers function to enable deletion.
+	Also, removed special case handling of system_u and user_u.
+	
+1.5.3 2005-03-29
+	* Merged booleans.local patch from Dan Walsh.
+
+1.5.2 2005-03-16
+	* Added man page for sepol_check_context.
+
+1.5.1 2005-03-15
+	* Added man page for sepol_genusers function.
+	* Merged man pages for genpolusers and chkcon from Manoj Srivastava.
+
 1.4 2005-03-09
 	* Updated version for release.
 

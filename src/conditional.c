@@ -2,10 +2,21 @@
  *          Frank Mayer <mayerf@tresys.com>
  *          David Caplan <dac@tresys.com>
  *
- * Copyright (C) 2003 - 2004 Tresys Technology, LLC
- *	This program is free software; you can redistribute it and/or modify
- *  	it under the terms of the GNU General Public License as published by
- *	the Free Software Foundation, version 2.
+ * Copyright (C) 2003 - 2005 Tresys Technology, LLC
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2.1 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 #include <stdlib.h>
@@ -47,7 +58,7 @@ void cond_optimize_lists(cond_list_t* cl) {
 }
 
 
-static int bool_present(int target, int bools[], int num_bools) {
+static int bool_present(int target, unsigned int bools[], int num_bools) {
 	int i = 0;
 	int ret = 1;
 
@@ -694,7 +705,7 @@ err:
 /* Determine whether additional permissions are granted by the conditional
  * av table, and if so, add them to the result 
  */
-void cond_compute_av(avtab_t *ctab, avtab_key_t *key, struct av_decision *avd)
+void cond_compute_av(avtab_t *ctab, avtab_key_t *key, struct sepol_av_decision *avd)
 {
 	avtab_ptr_t node;
 	
@@ -721,3 +732,20 @@ void cond_compute_av(avtab_t *ctab, avtab_key_t *key, struct av_decision *avd)
 	return;	
 }
 
+avtab_datum_t *cond_av_list_search(avtab_key_t *key, cond_av_list_t *cond_list)
+{
+	
+	cond_av_list_t *cur_av;
+
+	for(cur_av = cond_list; cur_av != NULL; cur_av = cur_av->next) {
+		
+		if (cur_av->node->key.source_type == key->source_type &&
+		    cur_av->node->key.target_type == key->target_type && 
+		    cur_av->node->key.target_class == key->target_class)
+			
+			return &cur_av->node->datum;
+
+	}
+	return NULL;
+
+}

@@ -23,7 +23,7 @@
  * interpreted by any application or user with an 
  * understanding of the security policy.
  */
-typedef char* security_context_t;
+typedef char* sepol_security_context_t;
 
 /*
  * An access vector (AV) is a collection of related permissions
@@ -34,7 +34,7 @@ typedef char* security_context_t;
  * for permissions are defined in the automatically generated
  * header file av_permissions.h.
  */
-typedef uint32_t access_vector_t;
+typedef uint32_t sepol_access_vector_t;
 
 /*
  * Each object class is identified by a fixed-size value.
@@ -42,19 +42,19 @@ typedef uint32_t access_vector_t;
  * with the corresponding constants defined in the automatically 
  * generated header file flask.h.
  */
-typedef uint16_t security_class_t;
-#define SECCLASS_NULL			0x0000 /* no class */
+typedef uint16_t sepol_security_class_t;
+#define SEPOL_SECCLASS_NULL			0x0000 /* no class */
 
 #define SELINUX_MAGIC 0xf97cff8c 
 
-typedef uint32_t security_id_t;
-#define SECSID_NULL 0
+typedef uint32_t sepol_security_id_t;
+#define SEPOL_SECSID_NULL 0
 
-struct av_decision {
-	access_vector_t allowed;
-	access_vector_t decided;
-	access_vector_t auditallow;
-	access_vector_t auditdeny;
+struct sepol_av_decision {
+	sepol_access_vector_t allowed;
+	sepol_access_vector_t decided;
+	sepol_access_vector_t auditallow;
+	sepol_access_vector_t auditdeny;
 	uint32_t seqno;
 };
 

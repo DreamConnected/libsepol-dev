@@ -1,8 +1,0 @@
---- orig/src/libsepol.map
-+++ mod/src/libsepol.map
-@@ -1,4 +1,4 @@
- {
--  global: sepol_genbools*;
-+  global: sepol_genbools*; sepol_set_policydb_from_file; sepol_check_context;
-   local: *;
- };

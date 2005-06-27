@@ -1,8 +1,8 @@
 Summary: SELinux binary policy manipulation library 
 Name: libsepol
-Version: 1.4
+Version: 1.6
 Release: 1
-License: GPL
+License: LGPL
 Group: System Environment/Libraries
 Source: http://www.nsa.gov/selinux/archives/%{name}-%{version}.tgz
 Prefix: %{_prefix}

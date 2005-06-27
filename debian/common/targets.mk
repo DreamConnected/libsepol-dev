@@ -4,9 +4,9 @@
 ## Created On       : Sat Nov 15 01:10:05 2003
 ## Created On Node  : glaurung.green-gryphon.com
 ## Last Modified By : Manoj Srivastava
-## Last Modified On : Tue Nov 18 14:31:47 2003
-## Last Machine Used: glaurung.green-gryphon.com
-## Update Count     : 44
+## Last Modified On : Mon Apr 11 13:11:54 2005
+## Last Machine Used: glaurung.internal.golden-gryphon.com
+## Update Count     : 46
 ## Status           : Unknown, Use with caution!
 ## HISTORY          : 
 ## Description      : 
@@ -40,6 +40,8 @@ source diff:
 testroot:
 	@test $$(id -u) = 0 || (echo need root priviledges; exit 1)
 
+checkpo:
+	$(CHECKPO)
 
 # arch-buildpackage likes to call this
 prebuild: 
@@ -251,5 +253,5 @@ clean: stamp-clean
         $(patsubst %,INST/%,  $(DEB_INDEP_PACKAGES)) $(patsubst %,INST/%,  $(DEB_ARCH_PACKAGES)) \
         $(patsubst %,BIN/%,   $(DEB_INDEP_PACKAGES)) $(patsubst %,BIN/%,   $(DEB_ARCH_PACKAGES)) \
         $(patsubst %,CLEAN/%, $(DEB_INDEP_PACKAGES)) $(patsubst %,CLEAN/%, $(DEB_ARCH_PACKAGES)) \
-        implode explode prebuild
+        implode explode prebuild checkpo
 

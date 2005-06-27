@@ -1,3 +1,27 @@
+libsepol (1.6-1) unstable; urgency=low
+
+  * New upstream release
+        * Updated version for release.
+        * License changed to LGPL v2.1, see COPYING.
+        * Added sepol_genbools_policydb and sepol_genusers_policydb for
+          audit2why.
+        * Added sepol_ prefix to Flask types to avoid 
+          namespace collision with libselinux.
+        * Added sepol_compute_av_reason() for audit2why.
+        * Fixed bug in role hierarchy checker.
+        * Merged hierarchical type/role patch from Tresys Technology.
+        * Merged MLS fixes from Darrel Goeddel of TCS.
+        * Changed sepol_genusers to not delete users by default,
+          and added a sepol_set_delusers function to enable deletion.
+          Also, removed special case handling of system_u and user_u.
+        * Merged booleans.local patch from Dan Walsh.
+        * Added man page for sepol_check_context.
+        * Added man page for sepol_genusers function.
+        * Merged man pages for genpolusers and chkcon from Manoj Srivastava.
+
+
+ -- Manoj Srivastava <srivasta@debian.org>  Mon, 27 Jun 2005 13:40:28 -0500
+
 libsepol (1.4-1) unstable; urgency=low
 
   * New upstream release. Added enhanced MLS support, and the

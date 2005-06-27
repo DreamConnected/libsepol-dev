@@ -10,12 +10,29 @@
  * Updated: Frank Mayer <mayerf@tresys.com> and Karl MacMillan <kmacmillan@tresys.com>
  *
  * 	Added conditional policy language extensions
+ * 
+ * Updated: Red Hat, Inc.  James Morris <jmorris@redhat.com>
+ *      Fine-grained netlink support
+ *      IPv6 support
+ *      Code cleanup
  *
  * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
  * Copyright (C) 2003 - 2004 Tresys Technology, LLC
- *	This program is free software; you can redistribute it and/or modify
- *  	it under the terms of the GNU General Public License as published by
- *	the Free Software Foundation, version 2.
+ * Copyright (C) 2003 - 2004 Red Hat, Inc.
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2.1 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 /* FLASK */
@@ -439,7 +456,6 @@ int policydb_index_others(policydb_t * p, unsigned verbose)
 
 	return 0;
 }
-
 
 /*
  * The following *_destroy functions are used to
@@ -1731,6 +1747,31 @@ int policydb_read(policydb_t * p, struct policy_file * fp, unsigned verbose)
 bad:
 	policydb_destroy(p);
 	return -1;
+}
+
+int policydb_reindex_users(policydb_t * p)
+{
+	unsigned int i = SYM_USERS;
+
+	if (p->user_val_to_struct)
+		free(p->user_val_to_struct);
+	if (p->sym_val_to_name[i])
+		free(p->sym_val_to_name[i]);
+
+	p->user_val_to_struct = (user_datum_t **)
+	    malloc(p->p_users.nprim * sizeof(user_datum_t *));
+	if (!p->user_val_to_struct)
+		return -1;
+
+	p->sym_val_to_name[i] = (char **)
+		malloc(p->symtab[i].nprim * sizeof(char *));
+	if (!p->sym_val_to_name[i])
+		return -1;
+
+	if (hashtab_map(p->symtab[i].table, index_f[i], p))
+		return -1;
+
+	return 0;
 }
 
 

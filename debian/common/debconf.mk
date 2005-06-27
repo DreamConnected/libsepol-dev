@@ -4,9 +4,9 @@
 ## Created On       : Fri Mar 12 11:11:31 2004
 ## Created On Node  : glaurung.internal.golden-gryphon.com
 ## Last Modified By : Manoj Srivastava
-## Last Modified On : Fri Mar 12 13:51:21 2004
+## Last Modified On : Mon Apr 11 13:19:10 2005
 ## Last Machine Used: glaurung.internal.golden-gryphon.com
-## Update Count     : 14
+## Update Count     : 20
 ## Status           : Unknown, Use with caution!
 ## HISTORY          : 
 ## Description      : 
@@ -87,3 +87,15 @@ define INSTALL_TEMPLATE
 	@echo using old template
 endef
 endif
+
+# the tool podebconf-report-po is also a great friend to have in such
+# circumstances 
+define CHECKPO
+	@for i in po/*.po; do                         \
+	  if [ -f $$i ]; then                        \
+	    echo \"Checking: $$i\";                  \
+	    msgmerge -U $$i po/templates.pot;        \
+	    msgfmt -o /dev/null -c --statistics $$i; \
+	  fi;                                        \
+	done
+endef
