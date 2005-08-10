@@ -1,3 +1,10 @@
+libsepol (1.6-2) unstable; urgency=low
+
+  * Modify sections of generated binaries. sepol-utils belongs in admin,
+    really. 
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 10 Aug 2005 13:28:02 -0500
+
 libsepol (1.6-1) unstable; urgency=low
 
   * New upstream release

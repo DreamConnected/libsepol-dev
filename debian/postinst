@@ -163,7 +163,7 @@ case "$1" in
       # there is a most recently configured version.
       :
 
-    elif test -z "$2" -o "$2" = "<unknown>"; then
+    elif test -z "$2" | test "$2" = "<unknown>"; then
       # The package has not ever been configured on this system, or was
       # purged since it was last configured.
       :
@@ -192,7 +192,7 @@ case "$1" in
 
     ;;
   abort-deconfigure)
-    if test "$2" != in-favour -o "$5" != removing; then
+    if test "$2" != in-favour | test "$5" != removing; then
       echo "$0: undocumented call to \`postinst $*'" 1>&2
       exit 0
     fi

@@ -1,12 +1,13 @@
 Source: libsepol
 Priority: optional
-Section: misc
+Section: libs
 Maintainer: Manoj Srivastava <srivasta@debian.org>
 Standards-Version: 3.6.2.0
 Build-Depends-Indep: 
 Build-Depends: file
 
 Package: sepol-utils
+Section: admin
 Architecture: any
 Depends: ${shlibs:Depends}
 Conflicts: checkpolicy (<= 1.20)

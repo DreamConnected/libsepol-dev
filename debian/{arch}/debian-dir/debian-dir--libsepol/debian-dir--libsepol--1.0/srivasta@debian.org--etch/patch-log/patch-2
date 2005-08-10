@@ -1,0 +1,13 @@
+Revision: debian-dir--libsepol--1.0--patch-2
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Aug 10 13:25:55 CDT 2005
+Standard-date: 2005-08-10 18:25:55 GMT
+Modified-files: control
+New-patches: srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-2
+Summary: Change sections of binary packages generated
+Keywords: 
+
+* control (Section): The section for the source was moved from misc to
+  libs, since that is the main part, as evidenced by the name. Also,
+  sepol-utils clearly belongs in admin
