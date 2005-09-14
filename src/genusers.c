@@ -9,12 +9,21 @@
 #include <sepol/mls.h>
 #include <stdarg.h>
 
+#include "debug.h"
 #include "private.h"
 
 static int gdebug=1;
 
-void sepol_debug(int on) { gdebug=on; };
+void sepol_debug(int on) { 
+	gdebug=on; 
 
+	/* New debug system */
+	sepol_debug_compat(on);
+};
+
+#ifdef __GNUC__
+__attribute__ ((format (printf, 1, 2)))
+#endif
 void __sepol_debug_printf(const char *fmt, ...) {
 	if (gdebug) {
 		va_list ap;
@@ -24,12 +33,7 @@ void __sepol_debug_printf(const char *fmt, ...) {
 	}
 }
 
-static int delusers = 0;
-
-void sepol_set_delusers(int on)
-{
-	delusers = on;
-}
+extern int selinux_delusers;
 
 #undef BADLINE
 #define BADLINE() { \
@@ -42,20 +46,22 @@ static int load_users(struct policydb *policydb, const char *path) {
 	FILE *fp;
 	char *buffer = NULL, *p, *q, oldc;
 	size_t len = 0;
+	ssize_t nread;
 	int rc;
 	unsigned lineno = 0, islist = 0, bit;
 	user_datum_t *usrdatum;
 	role_datum_t *roldatum;
+	ebitmap_node_t *rnode;
 
 	fp = fopen(path,"r");
 	if (fp == NULL) 
 		return -1;
 	__fsetlocking(fp, FSETLOCKING_BYCALLER);
 
-        while (getline(&buffer, &len, fp) > 0) {
+        while ((nread = getline(&buffer, &len, fp)) > 0) {
 		lineno++;
-		if (buffer[len - 1] == '\n')
-			buffer[len - 1] = 0;
+		if (buffer[nread - 1] == '\n')
+			buffer[nread - 1] = 0;
 		p = buffer;
 		while (*p && isspace(*p))
 			p++;
@@ -81,7 +87,8 @@ static int load_users(struct policydb *policydb, const char *path) {
 		usrdatum = hashtab_search(policydb->p_users.table, q);
 		if (usrdatum) {
 			/* Replacing an existing user definition. */
-			ebitmap_init(&usrdatum->roles);
+			ebitmap_destroy(&usrdatum->roles.roles);
+			ebitmap_init(&usrdatum->roles.roles);
 			usrdatum->defined = 1;
 		} else {
 			char *id = strdup(q);
@@ -98,7 +105,7 @@ static int load_users(struct policydb *policydb, const char *path) {
 			}
 			memset(usrdatum, 0, sizeof(user_datum_t));
 			usrdatum->value = ++policydb->p_users.nprim;
-			ebitmap_init(&usrdatum->roles);
+			ebitmap_init(&usrdatum->roles.roles);
 			usrdatum->defined = 1;
 			rc = hashtab_insert(policydb->p_users.table,
 					    id, (hashtab_datum_t) usrdatum);
@@ -156,9 +163,9 @@ static int load_users(struct policydb *policydb, const char *path) {
 				continue;
 			}
 			/* Set the role and every role it dominates */
-			for (bit = ebitmap_startbit(&roldatum->dominates); bit < ebitmap_length(&roldatum->dominates); bit++) {
-				if (ebitmap_get_bit(&roldatum->dominates, bit))
-					if (ebitmap_set_bit(&usrdatum->roles, bit, 1)) {
+			ebitmap_for_each_bit(&roldatum->dominates, rnode, bit) {
+				if (ebitmap_node_get_bit(rnode, bit))
+					if (ebitmap_set_bit(&usrdatum->roles.roles, bit, 1)) {
 						__sepol_debug_printf("%s:  out of memory for %s on line %u\n",
 							path, buffer, lineno);
 						errno = ENOMEM;
@@ -280,7 +287,7 @@ static int load_users(struct policydb *policydb, const char *path) {
 
 /* Select users for removal based on whether they were defined in the
    new users configuration. */
-static int select_user(hashtab_key_t key, hashtab_datum_t datum, void *datap)
+static int select_user(hashtab_key_t key __attribute__ ((unused)), hashtab_datum_t datum, void *datap __attribute__ ((unused)))
 {
 	user_datum_t *usrdatum = datum;
 	
@@ -309,7 +316,7 @@ static void kill_user(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	usrdatum = (user_datum_t *) datum;
 	ebitmap_set_bit(free_users, usrdatum->value - 1, 1);
 
-	ebitmap_destroy(&usrdatum->roles);
+	ebitmap_destroy(&usrdatum->roles.roles);
 	free(datum);
 	pol->p_users.nprim--;
 }
@@ -318,17 +325,18 @@ static void kill_user(hashtab_key_t key, hashtab_datum_t datum, void *p)
    As the SID table is remapped by the kernel upon a policy reload,
    this is safe for existing SIDs.  But it could be a problem for
    constraints if they refer to the particular user.  */
-static int remap_users(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int remap_users(hashtab_key_t key __attribute__ ((unused)), hashtab_datum_t datum, void *p)
 {
 	user_datum_t *usrdatum = datum;
 	struct kill_user_data *kud = p;
 	struct policydb *pol = kud->policydb;
 	ebitmap_t *free_users = kud->free_users;
-	int i;
+	ebitmap_node_t *node;
+	unsigned int i;
 
 	if (usrdatum->value > pol->p_users.nprim) {
-		for (i = ebitmap_startbit(free_users); i < ebitmap_length(free_users); i++) {
-			if (ebitmap_get_bit(free_users, i)) {
+		ebitmap_for_each_bit(free_users, node, i) {
+			if (ebitmap_node_get_bit(node, i)) {
 				usrdatum->value = i+1;
 				ebitmap_set_bit(free_users, i, 0);
 				return 0;
@@ -343,29 +351,20 @@ int sepol_genusers(void *data, size_t len,
 		   void **newdata, size_t *newlen)
 {
 	struct policydb policydb;
-	struct policy_file pf;
 	struct ebitmap free_users;
 	struct kill_user_data kud;
 	char path[PATH_MAX];
-	int rc;
 
-	/* Parse the original binary policy image into a struct policydb. */
-	pf.type = PF_USE_MEMORY;
-	pf.data = data;
-	pf.len = len;
-	if (policydb_read(&policydb,&pf, 0)) {
-		__sepol_debug_printf("%s:  binary policy image is invalid\n",
-				     __FUNCTION__);
-		errno = EINVAL;
-		return -1;
-	}
+	/* Construct policy database */
+	if (policydb_from_image(data, len, &policydb) < 0)
+		goto err;
 
 	/* Load base set of system users from the policy package. */
 	snprintf(path, sizeof path, "%s/system.users", usersdir);
 	if (load_users(&policydb, path) < 0) {
 		__sepol_debug_printf("%s: Can't load system.users:  %s\n",
 				     __FUNCTION__, strerror(errno));
-		goto err;
+		goto err_destroy;
 	}
 
 	/* Load locally defined users. */
@@ -373,10 +372,10 @@ int sepol_genusers(void *data, size_t len,
 	if (load_users(&policydb, path) < 0) {
 		__sepol_debug_printf("%s:  Can't load local.users:  %s\n",
 				     __FUNCTION__, strerror(errno));
-		goto err;
+		goto err_destroy;
 	}
 
-	if (delusers) {
+	if (selinux_delusers) {
 		/* Kill unused users and remap to avoid holes. */
 		ebitmap_init(&free_users);
 		kud.policydb = &policydb;
@@ -386,62 +385,17 @@ int sepol_genusers(void *data, size_t len,
 		ebitmap_destroy(&free_users);
 	}
 
-	/* Set the policy version for the new binary policy image we are
-	   about to generate so that it stays the same as the original,
-	   even if we support a newer one. */
-	sepol_set_policyvers(policydb.policyvers);
-
-	/* Compute the length for the new binary policy image. */
-	pf.type = PF_LEN;
-	pf.data = NULL;
-	pf.len = 0;
-	rc = policydb_write(&policydb, &pf);
-	if (rc) {
-		__sepol_debug_printf("%s: Can't compute length of binary policy\n",
-				     __FUNCTION__);
-		errno = EINVAL;
-		goto err;
-	}
-
-	/* Allocate the new binary policy image. */
-	pf.type = PF_USE_MEMORY;	
-	pf.data = malloc(pf.len);
-	if (!pf.data) {
-		__sepol_debug_printf("%s:  out of memory\n", __FUNCTION__);
-		goto err;
-	}
-
-	/* Need to save len and data prior to modification by policydb_write. */
-	*newlen = pf.len;
-	*newdata = pf.data;
-
-	/* Write out the new binary policy image. */
-	rc = policydb_write(&policydb, &pf);
-	if (rc) {
-		__sepol_debug_printf("%s:  Can't write binary policy\n",
-				     __FUNCTION__);
-		free(pf.data);
-		errno = EINVAL;
-		goto err;
-	}
-	policydb_destroy(&policydb);
-
-	/* Verify the new binary policy image. */
-	pf.type = PF_USE_MEMORY;
-	pf.data = *newdata;
-	pf.len = *newlen;
-	if (policydb_read(&policydb,&pf, 0)) {
-		__sepol_debug_printf("%s:  new binary policy image is invalid\n",
-				     __FUNCTION__);
-		errno = EINVAL;
-		return -1;
-	}
+	/* Write policy database */
+	if (policydb_to_image(&policydb, newdata, newlen) < 0)
+		goto err_destroy;
 
 	policydb_destroy(&policydb);
 	return 0;
 
-err:
+	err_destroy:
 	policydb_destroy(&policydb);
+
+	err:
 	return -1;
 }
 

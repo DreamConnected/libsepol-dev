@@ -45,7 +45,8 @@ typedef uint32_t sepol_access_vector_t;
 typedef uint16_t sepol_security_class_t;
 #define SEPOL_SECCLASS_NULL			0x0000 /* no class */
 
-#define SELINUX_MAGIC 0xf97cff8c 
+#define SELINUX_MAGIC 0xf97cff8c
+#define SELINUX_MOD_MAGIC 0xf97cff8d
 
 typedef uint32_t sepol_security_id_t;
 #define SEPOL_SECSID_NULL 0

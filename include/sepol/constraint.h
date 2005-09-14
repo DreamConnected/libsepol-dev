@@ -19,9 +19,13 @@
 #ifndef _CONSTRAINT_H_
 #define _CONSTRAINT_H_
 
+#include <sepol/policydb.h>
 #include <sepol/ebitmap.h>
+#include <sepol/flask_types.h>
 
 #define CEXPR_MAXDEPTH 5
+
+struct type_set;
 
 typedef struct constraint_expr {
 #define CEXPR_NOT		1 /* not expr */
@@ -52,6 +56,7 @@ typedef struct constraint_expr {
 	uint32_t op;		/* operator */
 	
 	ebitmap_t names;	/* names */
+        struct type_set *type_names;
 
 	struct constraint_expr *next;   /* next expression */
 } constraint_expr_t;
@@ -62,6 +67,11 @@ typedef struct constraint_node {
 	constraint_expr_t *expr;	/* constraint on permissions */
 	struct constraint_node *next;	/* next constraint */
 } constraint_node_t;
+
+struct policydb;
+
+extern int constraint_expr_init(constraint_expr_t *expr);
+extern void constraint_expr_destroy(constraint_expr_t *expr);
 
 #endif	/* _CONSTRAINT_H_ */
 

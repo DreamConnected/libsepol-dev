@@ -1,0 +1,11 @@
+Revision: libsepol--debian--1.0--base-0
+Archive: srivasta@debian.org--2003-primary
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Oct 27 00:15:33 CDT 2004
+Standard-date: 2004-10-27 05:15:33 GMT
+New-patches: srivasta@debian.org--2003-primary/libsepol--debian--1.0--base-0
+    srivasta@debian.org--2003-primary/libsepol--upstream--1.0--base-0
+Continuation-of: srivasta@debian.org--2003-primary/libsepol--upstream--1.0--base-0
+Summary: tag of srivasta@debian.org--2003-primary/libsepol--upstream--1.0--base-0
+
+(automatically generated log message)

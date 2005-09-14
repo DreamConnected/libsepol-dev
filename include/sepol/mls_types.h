@@ -33,7 +33,6 @@
 
 #include <stdint.h>
 #include <sepol/ebitmap.h>
-#include <sepol/sepol.h>
 #include <sepol/flask_types.h>
 
 typedef struct mls_level {

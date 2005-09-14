@@ -1,0 +1,104 @@
+Revision: libsepol--devo--1.8--patch-1
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Sep 14 15:12:36 CDT 2005
+Standard-date: 2005-09-14 20:12:36 GMT
+New-files: include/sepol/.arch-ids/avrule_block.h.id
+    include/sepol/.arch-ids/booleans.h.id
+    include/sepol/.arch-ids/context_record.h.id
+    include/sepol/.arch-ids/debug.h.id
+    include/sepol/.arch-ids/expand.h.id
+    include/sepol/.arch-ids/interfaces.h.id
+    include/sepol/.arch-ids/link.h.id
+    include/sepol/.arch-ids/module.h.id
+    include/sepol/.arch-ids/port_record.h.id
+    include/sepol/.arch-ids/ports.h.id
+    include/sepol/.arch-ids/user_record.h.id
+    include/sepol/.arch-ids/users.h.id
+    include/sepol/avrule_block.h include/sepol/booleans.h
+    include/sepol/context_record.h include/sepol/debug.h
+    include/sepol/expand.h include/sepol/interfaces.h
+    include/sepol/link.h include/sepol/module.h
+    include/sepol/port_record.h include/sepol/ports.h
+    include/sepol/user_record.h include/sepol/users.h
+    src/.arch-ids/assertion.c.id
+    src/.arch-ids/avrule_block.c.id
+    src/.arch-ids/booleans.c.id
+    src/.arch-ids/constraint.c.id
+    src/.arch-ids/context.c.id
+    src/.arch-ids/context_record.c.id
+    src/.arch-ids/debug.c.id src/.arch-ids/debug.h.id
+    src/.arch-ids/expand.c.id src/.arch-ids/interfaces.c.id
+    src/.arch-ids/link.c.id src/.arch-ids/module.c.id
+    src/.arch-ids/policydb_convert.c.id
+    src/.arch-ids/port_record.c.id src/.arch-ids/ports.c.id
+    src/.arch-ids/user_record.c.id src/.arch-ids/users.c.id
+    src/.arch-ids/util.c.id src/assertion.c
+    src/avrule_block.c src/booleans.c src/constraint.c
+    src/context.c src/context_record.c src/debug.c
+    src/debug.h src/expand.c src/interfaces.c src/link.c
+    src/module.c src/policydb_convert.c src/port_record.c
+    src/ports.c src/user_record.c src/users.c src/util.c
+Removed-files: .arch-ids/libsepol.spec.id libsepol.spec
+    utils/.arch-ids/genpolbools.c.id
+    utils/.arch-ids/genpolusers.c.id utils/genpolbools.c
+    utils/genpolusers.c
+Modified-files: ChangeLog VERSION include/sepol/avtab.h
+    include/sepol/conditional.h include/sepol/constraint.h
+    include/sepol/context.h include/sepol/ebitmap.h
+    include/sepol/flask_types.h include/sepol/hashtab.h
+    include/sepol/hierarchy.h include/sepol/mls.h
+    include/sepol/mls_types.h include/sepol/policydb.h
+    include/sepol/services.h include/sepol/sidtab.h
+    include/sepol/symtab.h src/Makefile src/avtab.c
+    src/conditional.c src/ebitmap.c src/genbools.c
+    src/genusers.c src/hierarchy.c src/mls.c src/policydb.c
+    src/private.h src/services.c src/write.c utils/Makefile
+New-patches: srivasta@debian.org--2003-primary/libsepol--debian--1.0--base-0
+    srivasta@debian.org--2003-primary/libsepol--debian--1.0--patch-1
+    srivasta@debian.org--2003-primary/libsepol--debian--1.0--version-0
+    srivasta@debian.org--etch/libsepol--debian--1.0--base-0
+    srivasta@debian.org--etch/libsepol--debian--1.0--patch-1
+    srivasta@debian.org--etch/libsepol--debian--1.0--patch-2
+    srivasta@debian.org--etch/libsepol--debian--1.8--base-0
+    srivasta@debian.org--etch/libsepol--debian--1.8--patch-1
+    srivasta@debian.org--etch/libsepol--devo--1.8--patch-1
+    srivasta@debian.org--etch/libsepol--upstream--1.8--base-0
+    srivasta@debian.org--etch/libsepol--upstream--1.8--patch-1
+Summary: Synch with upstream and other branches
+Keywords: 
+
+Synch with upstream and other branches
+
+Patches applied:
+
+ * srivasta@debian.org--2003-primary/libsepol--debian--1.0--base-0
+   tag of srivasta@debian.org--2003-primary/libsepol--upstream--1.0--base-0
+
+ * srivasta@debian.org--2003-primary/libsepol--debian--1.0--patch-1
+   Synchronized with the new upstream version
+
+ * srivasta@debian.org--2003-primary/libsepol--debian--1.0--version-0
+   libsepol--debian is frozen for Sarge, look at srivasta@debian.org--etch/libsepol--debian
+
+ * srivasta@debian.org--etch/libsepol--debian--1.0--base-0
+   tag of srivasta@debian.org--2003-primary/libsepol--debian--1.0--version-0
+
+ * srivasta@debian.org--etch/libsepol--debian--1.0--patch-1
+   Sync with upstream
+
+ * srivasta@debian.org--etch/libsepol--debian--1.0--patch-2
+   New upstream version, sync
+
+ * srivasta@debian.org--etch/libsepol--debian--1.8--base-0
+   tag of srivasta@debian.org--etch/libsepol--debian--1.0--patch-2
+
+ * srivasta@debian.org--etch/libsepol--debian--1.8--patch-1
+   Synch with upstream
+
+ * srivasta@debian.org--etch/libsepol--upstream--1.8--base-0
+   tag of srivasta@debian.org--etch/libsepol--upstream--1.0--patch-1
+
+ * srivasta@debian.org--etch/libsepol--upstream--1.8--patch-1
+   Imported libsepol-1.8
+

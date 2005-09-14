@@ -2,6 +2,12 @@
 /* Author : Stephen Smalley, <sds@epoch.ncsc.mil> */
 
 /*
+ * Updated: Joshua Brindle <jbrindle@tresys.com>
+ *	    Karl MacMillan <kmacmillan@tresys.com>
+ *	    Jason Tang <jtang@tresys.com>
+ *	    
+ *	Module support
+ *
  * Updated: Trusted Computer Solutions, Inc. <dgoeddel@trustedcs.com>
  *
  *	Support for enhanced MLS infrastructure.
@@ -63,6 +69,22 @@
  * users, roles, types, sensitivities, categories, etc.
  */
 
+/* type set preserves data needed by modules such as *, ~ and attributes */
+typedef struct type_set {
+	ebitmap_t types;
+	ebitmap_t negset;
+#define TYPE_STAR 1
+#define TYPE_COMP 2
+	uint32_t flags;
+} type_set_t;
+
+typedef struct role_set {
+	ebitmap_t roles;
+#define ROLE_STAR 1
+#define ROLE_COMP 2
+	uint32_t flags;
+} role_set_t;
+
 /* Permission attributes */
 typedef struct perm_datum {
 	uint32_t value;		/* permission bit + 1 */
@@ -88,7 +110,8 @@ typedef struct class_datum {
 typedef struct role_datum {
 	uint32_t value;		/* internal role value */
 	ebitmap_t dominates;	/* set of roles dominated by this role */
-	ebitmap_t types;	/* set of authorized types for role */
+	type_set_t types;	/* set of authorized types for role */
+	ebitmap_t cache; /* This is an expanded set used for context validation during parsing */
 } role_datum_t;
 
 typedef struct role_trans {
@@ -108,19 +131,18 @@ typedef struct role_allow {
 typedef struct type_datum {
 	uint32_t value;		/* internal type value */
 	unsigned char primary;	/* primary name? */
-#ifndef __KERNEL__
 	unsigned char isattr;   /* is this a type attribute? */
 	ebitmap_t types;        /* types with this attribute */
-#endif
 } type_datum_t;
 
 /* User attributes */
 typedef struct user_datum {
 	uint32_t value;		/* internal user value */
-	ebitmap_t roles;	/* set of authorized roles for user */
+	role_set_t roles;	/* set of authorized roles for user */
 	mls_range_t range;	/* MLS range (min. - max.) for user */
 	mls_level_t dfltlevel;	/* default login MLS level for user */
         unsigned defined;
+	ebitmap_t cache; /* This is an expanded set used for context validation during parsing */
 } user_datum_t;
 
 
@@ -152,6 +174,50 @@ typedef struct cond_bool_datum {
 struct cond_node;
 
 typedef struct cond_node cond_list_t;
+struct cond_av_list;
+
+typedef struct class_perm_node {
+	uint32_t class;
+	uint32_t data; /* permissions or new type */
+	struct class_perm_node *next;
+} class_perm_node_t; 
+
+typedef struct avrule {
+/* these typedefs are almost exactly the same as those in avtab.h - they are
+ * here because of the need to include neverallow and dontaudit messages */
+#define AVRULE_ALLOWED     1
+#define AVRULE_AUDITALLOW  2
+#define AVRULE_AUDITDENY   4
+#define AVRULE_DONTAUDIT   8
+#define AVRULE_AV         (AVRULE_ALLOWED | AVRULE_AUDITALLOW | AVRULE_AUDITDENY | AVRULE_DONTAUDIT)
+#define AVRULE_TRANSITION 16
+#define AVRULE_MEMBER     32
+#define AVRULE_CHANGE     64
+#define AVRULE_TYPE       (AVRULE_TRANSITION | AVRULE_MEMBER | AVRULE_CHANGE)
+#define AVRULE_NEVERALLOW 128
+        uint32_t specified;
+#define RULE_SELF 1
+        uint32_t flags;
+        type_set_t stypes;
+        type_set_t ttypes;
+        class_perm_node_t *perms;
+        unsigned long line;  /* line number from policy.conf where
+                              * this rule originated  */
+        struct avrule *next;
+} avrule_t;
+
+typedef struct role_trans_rule {
+        role_set_t roles; /* current role */
+        type_set_t types; /* program executable type */
+        uint32_t new_role;              /* new role */
+        struct role_trans_rule *next;
+} role_trans_rule_t;
+
+typedef struct role_allow_rule {
+        role_set_t roles; /* current role */
+        role_set_t new_roles; /* new roles */
+        struct role_allow_rule *next;
+} role_allow_rule_t;
 
 /*
  * The configuration data includes security contexts for 
@@ -213,8 +279,87 @@ typedef struct genfs {
 #define OCON_NODE6 6	/* IPv6 nodes */
 #define OCON_NUM   7
 
+/* section: module information */
+
+/* scope_index_t holds all of the symbols that are in scope in a
+ * particular situation.  The bitmaps are indices (and thus must
+ * subtract one) into the global policydb->scope array. */
+typedef struct scope_index {
+        ebitmap_t scope[SYM_NUM];
+#define p_classes_scope scope[SYM_CLASSES]
+#define p_roles_scope scope[SYM_ROLES]
+#define p_types_scope scope[SYM_TYPES]
+#define p_users_scope scope[SYM_USERS]
+#define p_bools_scope scope[SYM_BOOLS]
+#define p_sens_scope scope[SYM_LEVELS]
+#define p_cat_scope scope[SYM_CATS]
+
+        /* this array maps from class->value to the permissions within
+         * scope.  if bit (perm->value - 1) is set in map
+         * class_perms_map[class->value - 1] then that permission is
+         * enabled for this class within this decl.  */
+        ebitmap_t *class_perms_map;
+        /* total number of classes in class_perms_map array */
+        uint32_t class_perms_len;
+} scope_index_t;
+
+/* a list of declarations for a particular avrule_decl */
+
+/* These two structs declare a block of policy that has TE and RBAC
+ * statements and declarations.  The root block (the global policy)
+ * can never have an ELSE branch. */
+typedef struct avrule_decl {
+        uint32_t decl_id;
+        int enabled;    /* flag set during linking if this decl is enabled;
+                           parent avrule_block->enabled will point to me */
+        cond_list_t *cond_list;
+        avrule_t *avrules;
+        role_trans_rule_t *role_tr_rules;
+        role_allow_rule_t *role_allow_rules;
+        scope_index_t required;    /* symbols needed to activate this block */
+        scope_index_t declared;    /* symbols declared within this block */
+
+        /* for additive statements (type attribute, roles, and users) */
+    	symtab_t symtab[SYM_NUM];
+
+        struct avrule_decl *next;
+} avrule_decl_t;
+
+typedef struct avrule_block {
+        avrule_decl_t *branch_list;
+        avrule_decl_t *enabled; /* pointer to which branch is enabled.  this is
+                                   used in linking and never written to disk */
+        struct avrule_block *next;
+} avrule_block_t;
+
+/* Every identifier has its own scope datum.  The datum describes if
+ * the item is to be included into the final policy during
+ * expansion. */
+typedef struct scope_datum {
+/* Required for this decl */
+#define SCOPE_REQ  1
+/* Declared in this decl */
+#define SCOPE_DECL 2
+        uint32_t scope;
+        uint32_t *decl_ids;
+        uint32_t decl_ids_len;
+        /* decl_ids is a list of avrule_decl's that declare/require
+         * this symbol.  If scope==SCOPE_DECL then this is a list of
+         * declarations.  If the symbol may only be declared once
+         * (types, bools) then decl_ids_len will be exactly 1.  For
+         * implicitly declared things (roles, users) then decl_ids_len
+         * will be at least 1. */
+} scope_datum_t;
+
 /* The policy database */
 typedef struct policydb {
+#define POLICY_KERN 0
+#define POLICY_BASE 1
+#define POLICY_MOD 2
+	uint32_t policy_type;
+	char *name;
+	char *version;
+
 	/* symbol tables */
 	symtab_t symtab[SYM_NUM];
 #define p_commons symtab[SYM_COMMONS]
@@ -241,7 +386,23 @@ typedef struct policydb {
 	class_datum_t **class_val_to_struct;
 	role_datum_t **role_val_to_struct;
 	user_datum_t **user_val_to_struct;
+	type_datum_t **type_val_to_struct;
 
+        
+        /* module stuff section -- used in parsing and for modules */
+
+        /* keep track of the scope for every identifier.  these are
+         * hash tables, where the key is the identifier name and value
+         * a scope_datum_t.  as a convenience, one may use the
+         * p_*_macros (cf. struct scope_index_t declaration). */
+        symtab_t scope[SYM_NUM];
+
+        /* module rule storage */
+        avrule_block_t *global;
+
+        
+	/* compiled storage of rules - use for the kernel policy */
+        
 	/* type enforcement access vectors and transitions */
 	avtab_t te_avtab;
 
@@ -270,10 +431,18 @@ typedef struct policydb {
 	/* range transitions */
 	range_trans_t *range_tr;
 
+	ebitmap_t *type_attr_map;
+
+	ebitmap_t *attr_type_map; /* not saved in the binary policy */
+
 	unsigned policyvers;
 } policydb_t;
 
-extern int policydb_init(policydb_t * p);
+extern int policydb_init(policydb_t * p, int policy_type);
+
+extern int policydb_from_image(void* data, size_t len, policydb_t* policydb);
+
+extern int policydb_to_image(policydb_t* policydb, void **newdata, size_t *newlen);
 
 extern int policydb_index_classes(policydb_t * p);
 
@@ -283,17 +452,52 @@ extern int policydb_index_others(policydb_t * p, unsigned int verbose);
 
 extern int policydb_reindex_users(policydb_t * p);
 
-extern int constraint_expr_destroy(constraint_expr_t * expr);
-
 extern void policydb_destroy(policydb_t * p);
 
 extern int policydb_load_isids(policydb_t *p, sidtab_t *s);
 
-extern int policydb_context_isvalid(policydb_t *p, context_struct_t *c);
+/* Deprecated */
+static inline int policydb_context_isvalid(policydb_t *p, context_struct_t *c) {
+	return sepol_ctx_struct_is_valid(p,c);
+}
+
+extern void symtabs_destroy(symtab_t *symtab);
+extern int scope_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p);
+typedef void (*hashtab_destroy_func_t) (hashtab_key_t k, hashtab_datum_t d, void *args);
+extern hashtab_destroy_func_t get_symtab_destroy_func(int sym_num);
+
+extern void class_perm_node_init(class_perm_node_t *x);
+extern void type_set_init(type_set_t *x);
+extern void type_set_destroy(type_set_t *x);
+extern int type_set_cpy(type_set_t *dst, type_set_t *src);
+extern int type_set_or_eq(type_set_t *dst, type_set_t *other);
+extern void role_set_init(role_set_t *x);
+extern void role_set_destroy(role_set_t *x);
+extern void avrule_init(avrule_t *x);
+extern void avrule_destroy(avrule_t *x);
+extern void avrule_list_destroy(avrule_t *x);
+extern void role_trans_rule_init(role_trans_rule_t *x);
+extern void role_trans_rule_list_destroy(role_trans_rule_t *x);
+
+extern void role_datum_init(role_datum_t *x);
+extern void role_datum_destroy(role_datum_t *x);
+extern void role_allow_rule_init(role_allow_rule_t *x);
+extern void role_allow_rule_destroy(role_allow_rule_t *x);
+extern void role_allow_rule_list_destroy(role_allow_rule_t *x);
+extern void type_datum_init(type_datum_t *x);
+extern void type_datum_destroy(type_datum_t *x);
+extern void user_datum_init(user_datum_t *x);
+extern void user_datum_destroy(user_datum_t *x);
+
+extern int check_assertions(policydb_t *p, avrule_t *avrules);
+extern int symtab_insert(policydb_t *x, uint32_t sym,
+                  hashtab_key_t key, hashtab_datum_t datum,
+                  uint32_t scope, uint32_t avrule_decl_id,
+                  uint32_t *value);
 
 /* A policy "file" may be a memory region referenced by a (data, len) pair
    or a file referenced by a FILE pointer. */
-struct policy_file {
+typedef struct policy_file {
 #define PF_USE_MEMORY  0
 #define PF_USE_STDIO   1
 #define PF_LEN         2 /* total up length in len field */ 
@@ -301,9 +505,11 @@ struct policy_file {
 	char *data;
 	size_t len;
 	FILE *fp;
-};
+        unsigned char buffer[BUFSIZ];
+} policy_file_t;
 
 extern int policydb_read(policydb_t * p, struct policy_file * fp, unsigned int verbose);
+extern int avrule_read_list(policydb_t *p, avrule_t **avrules, struct policy_file *fp);
 
 extern int policydb_write(struct policydb *p, struct policy_file *pf);
 
@@ -316,17 +522,24 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
 #define POLICYDB_VERSION_NLCLASS	18
 #define POLICYDB_VERSION_VALIDATETRANS	19
 #define POLICYDB_VERSION_MLS		19
+#define POLICYDB_VERSION_AVTAB		20
 
 /* Range of policy versions we understand*/
 #define POLICYDB_VERSION_MIN	POLICYDB_VERSION_BASE
-#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_MLS
+#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_AVTAB
+
+/* Module versions and specific changes*/
+#define MOD_POLICYDB_VERSION_BASE	4
+
+#define MOD_POLICYDB_VERSION_MIN MOD_POLICYDB_VERSION_BASE
+#define MOD_POLICYDB_VERSION_MAX MOD_POLICYDB_VERSION_BASE
 
 /*
  * Set policy version for writing policies.
  * May be any value from POLICYDB_VERSION_MIN to POLICYDB_VERSION_MAX.
  * If not set, then policydb_write defaults to the max.
  */
-extern int sepol_set_policyvers(unsigned int policyvers);
+extern int sepol_set_policyvers(unsigned int policy_type, unsigned int policyvers);
 
 /* Enable/Disable MLS support for the service functions.
    MLS support is appropriately enabled/disabled when a policydb file
@@ -347,6 +560,8 @@ extern int sepol_mls_enabled(void);
 
 #define POLICYDB_MAGIC SELINUX_MAGIC
 #define POLICYDB_STRING "SE Linux"
+#define POLICYDB_MOD_MAGIC SELINUX_MOD_MAGIC
+#define POLICYDB_MOD_STRING "SE Linux Module"
 
 #endif	/* _POLICYDB_H_ */
 

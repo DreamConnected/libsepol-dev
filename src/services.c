@@ -57,11 +57,12 @@
 #include <sepol/conditional.h>
 #include <sepol/flask.h>
 
+#include "debug.h"
 #include "private.h"
 #include "av_permissions.h"
 
-#define BUG() do { printf("Badness in %s at %s:%d\n", __FUNCTION__, __FILE__, __LINE__); } while (0)
-#define BUG_ON(x) do { if (x) printf("Badness in %s at %s:%d\n", __FUNCTION__, __FILE__, __LINE__); } while (0)
+#define BUG() do { DEBUG(__FUNCTION__, "Badness at %s:%d\n", __FILE__, __LINE__); } while (0)
+#define BUG_ON(x) do { if (x) DEBUG(__FUNCTION__, "Badness at %s:%d\n", __FILE__, __LINE__); } while (0)
 
 static int selinux_enforcing = 1;
 
@@ -86,7 +87,7 @@ int sepol_set_policydb_from_file(FILE *fp)
 	pf.fp = fp;
 	pf.type = PF_USE_STDIO;
 	if (policydb_read(&mypolicydb, &pf, 0)) {
-		fprintf(stderr, "Can't read binary policy:  %s\n",
+		DEBUG(__FUNCTION__, "can't read binary policy: %s\n",
 			strerror(errno));
 		return -1;
 	}
@@ -303,12 +304,14 @@ static int context_struct_compute_av(context_struct_t *scontext,
 	constraint_node_t *constraint;
 	struct role_allow *ra;
 	avtab_key_t avkey;
-	avtab_datum_t *avdatum;
 	class_datum_t *tclass_datum;
+	avtab_ptr_t node;
+	ebitmap_t *sattr, *tattr;
+	ebitmap_node_t *snode, *tnode;
+	unsigned int i, j;
 
 	if (!tclass || tclass > policydb->p_classes.nprim) {
-		printf("security_compute_av:  unrecognized class %d\n",
-		       tclass);
+		DEBUG(__FUNCTION__, "unrecognized class %d\n", tclass);
 		return -EINVAL;
 	}
 	tclass_datum = policydb->class_val_to_struct[tclass - 1];
@@ -327,21 +330,34 @@ static int context_struct_compute_av(context_struct_t *scontext,
 	 * If a specific type enforcement rule was defined for
 	 * this permission check, then use it.
 	 */
-	avkey.source_type = scontext->type;
-	avkey.target_type = tcontext->type;
 	avkey.target_class = tclass;
-	avdatum = avtab_search(&policydb->te_avtab, &avkey, AVTAB_AV);
-	if (avdatum) {
-		if (avdatum->specified & AVTAB_ALLOWED)
-			avd->allowed = avtab_allowed(avdatum);
-		if (avdatum->specified & AVTAB_AUDITDENY)
-			avd->auditdeny = avtab_auditdeny(avdatum);
-		if (avdatum->specified & AVTAB_AUDITALLOW)
-			avd->auditallow = avtab_auditallow(avdatum);
-	}
+	avkey.specified = AVTAB_AV;
+	sattr = &policydb->type_attr_map[scontext->type - 1];
+	tattr = &policydb->type_attr_map[tcontext->type - 1];
+	ebitmap_for_each_bit(sattr, snode, i) {
+		if (!ebitmap_node_get_bit(snode, i))
+			continue;
+		ebitmap_for_each_bit(tattr, tnode, j) {
+			if (!ebitmap_node_get_bit(tnode, j))
+				continue;
+			avkey.source_type = i + 1;
+			avkey.target_type = j + 1;
+			for (node = avtab_search_node(&policydb->te_avtab, &avkey);
+			     node != NULL;
+			     node = avtab_search_node_next(node, avkey.specified)) {
+				if (node->key.specified == AVTAB_ALLOWED)
+					avd->allowed |= node->datum.data;
+				else if (node->key.specified == AVTAB_AUDITALLOW)
+					avd->auditallow |= node->datum.data;
+				else if (node->key.specified == AVTAB_AUDITDENY)
+					avd->auditdeny &= node->datum.data;
+			}
 
-	/* Check conditional av table for additional permissions */
-	cond_compute_av(&policydb->te_cond_avtab, &avkey, avd);
+			/* Check conditional av table for additional permissions */
+			cond_compute_av(&policydb->te_cond_avtab, &avkey, avd);
+
+		}
+	}
 
 	if (requested & ~avd->allowed) {
 		*reason |= SEPOL_COMPUTEAV_TE;
@@ -403,30 +419,26 @@ int sepol_validate_transition(sepol_security_id_t oldsid, sepol_security_id_t ne
 	constraint_node_t *constraint;
 
 	if (!tclass || tclass > policydb->p_classes.nprim) {
-		printf("sepol_validate_transition:  "
-		       "unrecognized class %d\n", tclass);
+		DEBUG(__FUNCTION__, "unrecognized class %d\n", tclass);
 		return -EINVAL;
 	}
 	tclass_datum = policydb->class_val_to_struct[tclass - 1];
 
 	ocontext = sepol_sidtab_search(sidtab, oldsid);
 	if (!ocontext) {
-		printf("sepol_validate_transition: "
-		       " unrecognized SID %d\n", oldsid);
+		DEBUG(__FUNCTION__, "unrecognized SID %d\n", oldsid);
 		return -EINVAL;
 	}
 
 	ncontext = sepol_sidtab_search(sidtab, newsid);
 	if (!ncontext) {
-		printf("sepol_validate_transition: "
-		       " unrecognized SID %d\n", newsid);
+		DEBUG(__FUNCTION__, "unrecognized SID %d\n", newsid);
 		return -EINVAL;
 	}
 
 	tcontext = sepol_sidtab_search(sidtab, tasksid);
 	if (!tcontext) {
-		printf("sepol_validate_transition: "
-		       " unrecognized SID %d\n", tasksid);
+		DEBUG(__FUNCTION__, "unrecognized SID %d\n", tasksid);
 		return -EINVAL;
 	}
 
@@ -454,13 +466,13 @@ int sepol_compute_av_reason(sepol_security_id_t ssid,
 
 	scontext = sepol_sidtab_search(sidtab, ssid);
 	if (!scontext) {
-		printf("security_compute_av:  unrecognized SID %d\n", ssid);
+		DEBUG(__FUNCTION__, "unrecognized SID %d\n", ssid);
 		rc = -EINVAL;
 		goto out;
 	}
 	tcontext = sepol_sidtab_search(sidtab, tsid);
 	if (!tcontext) {
-		printf("security_compute_av:  unrecognized SID %d\n", tsid);
+		DEBUG(__FUNCTION__, "unrecognized SID %d\n", tsid);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -481,51 +493,14 @@ int sepol_compute_av(sepol_security_id_t ssid,
 	return sepol_compute_av_reason(ssid, tsid, tclass, requested, avd, &reason);
 }
 
-/*
- * Write the security context string representation of 
- * the context structure `context' into a dynamically
- * allocated string of the correct size.  Set `*scontext'
- * to point to this string and set `*scontext_len' to
- * the length of the string.
- */
-int context_struct_to_string(context_struct_t * context,
-			     sepol_security_context_t * scontext,
-			     size_t *scontext_len)
-{
-	char *scontextp;
+/* Deprecated */
+static inline int context_struct_to_string(
+        context_struct_t* context,
+        char ** result,
+        size_t *result_len) {
 
-	*scontext = 0;
-	*scontext_len = 0;
-
-	/* Compute the size of the context. */
-	*scontext_len += strlen(policydb->p_user_val_to_name[context->user - 1]) + 1;
-	*scontext_len += strlen(policydb->p_role_val_to_name[context->role - 1]) + 1;
-	*scontext_len += strlen(policydb->p_type_val_to_name[context->type - 1]) + 1;
-	*scontext_len += mls_compute_context_len(policydb, context);
-
-	/* Allocate space for the context; caller must free this space. */
-	scontextp = malloc(*scontext_len);
-	if (!scontextp) {
-		return -ENOMEM;
-	}
-	*scontext = (sepol_security_context_t) scontextp;
-
-	/*
-	 * Copy the user name, role name and type name into the context.
-	 */
-	sprintf(scontextp, "%s:%s:%s",
-		policydb->p_user_val_to_name[context->user - 1],
-		policydb->p_role_val_to_name[context->role - 1],
-		policydb->p_type_val_to_name[context->type - 1]);
-	scontextp += strlen(policydb->p_user_val_to_name[context->user - 1]) + 1 + strlen(policydb->p_role_val_to_name[context->role - 1]) + 1 + strlen(policydb->p_type_val_to_name[context->type - 1]);
-
-	mls_sid_to_context(policydb, context, &scontextp);
-
-	*scontextp = 0;
-
-	return 0;
+        return sepol_ctx_struct_to_string(policydb, context, result, result_len);
 }
-
 
 /*
  * Write the security context string representation of 
@@ -543,7 +518,7 @@ int sepol_sid_to_context(sepol_security_id_t sid,
 
 	context = sepol_sidtab_search(sidtab, sid);
 	if (!context) {
-		printf("security_sid_to_context:  unrecognized SID %d\n", sid);
+		DEBUG(__FUNCTION__, "unrecognized SID %d\n", sid);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -561,105 +536,28 @@ int sepol_context_to_sid(sepol_security_context_t scontext,
 			    size_t scontext_len,
 			    sepol_security_id_t * sid)
 {
-	sepol_security_context_t scontext2;
-	context_struct_t context;
-	role_datum_t *role;
-	type_datum_t *typdatum;
-	user_datum_t *usrdatum;
-	char *scontextp, *p, oldc;
-	int rc = 0;
+	context_struct_t* context = NULL;
 
-	if (sid)
-		*sid = SEPOL_SECSID_NULL;
+	/* First, create the context */
+	if (sepol_ctx_struct_from_string(policydb, &context, 
+		scontext, scontext_len) < 0)
+		goto err;
 
-	/* Copy the string so that we can modify the copy as we parse it.
-	   The string should already by null terminated, but we append a
-	   null suffix to the copy to avoid problems with the existing
-	   attr package, which doesn't view the null terminator as part
-	   of the attribute value. */
-	scontext2 = malloc(scontext_len+1);
-	if (!scontext2) {
-		return -ENOMEM;
-	}
-	memcpy(scontext2, scontext, scontext_len);
-	scontext2[scontext_len] = 0;
+	/* Obtain the new sid */
+	if (sid && (sepol_sidtab_context_to_sid(sidtab, context, sid) < 0))
+		goto err;		
 
-	context_init(&context);
+	context_destroy(context);
+        free(context);
+	return STATUS_SUCCESS;
 
-	/* Parse the security context. */
-
-	rc = -EINVAL;
-	scontextp = (char *) scontext2;
-
-	/* Extract the user. */
-	p = scontextp;
-	while (*p && *p != ':')
-		p++;
-
-	if (*p == 0)
-		goto out;
-
-	*p++ = 0;
-
-	usrdatum = (user_datum_t *) hashtab_search(policydb->p_users.table,
-					      (hashtab_key_t) scontextp);
-	if (!usrdatum)
-		goto out;
-
-	context.user = usrdatum->value;
-
-	/* Extract role. */
-	scontextp = p;
-	while (*p && *p != ':')
-		p++;
-
-	if (*p == 0)
-		goto out;
-
-	*p++ = 0;
-
-	role = (role_datum_t *) hashtab_search(policydb->p_roles.table,
-					       (hashtab_key_t) scontextp);
-	if (!role)
-		goto out;
-	context.role = role->value;
-
-	/* Extract type. */
-	scontextp = p;
-	while (*p && *p != ':')
-		p++;
-	oldc = *p;
-	*p++ = 0;
-
-	typdatum = (type_datum_t *) hashtab_search(policydb->p_types.table,
-					      (hashtab_key_t) scontextp);
-
-	if (!typdatum)
-		goto out;
-
-	context.type = typdatum->value;
-
-	rc = mls_context_to_sid(policydb, oldc, &p, &context);
-	if (rc)
-		goto out;
-
-	if ((p - scontext2) < scontext_len) {
-		rc = -EINVAL;
-		goto out;
-	}
-
-	/* Check the validity of the new context. */
-	if (!policydb_context_isvalid(policydb, &context)) {
-		rc = -EINVAL;
-		goto out;
-	}
-	/* Obtain the new sid. */
-	if (sid)
-		rc = sepol_sidtab_context_to_sid(sidtab, &context, sid);
-out:
-	context_destroy(&context);
-	free(scontext2);
-	return rc;
+	err:
+	if (context) {
+		context_destroy(context);
+                free(context);
+        }
+	DEBUG(__FUNCTION__, "could not convert %s to sid\n", scontext);
+	return STATUS_ERR;
 }
 
 int sepol_check_context(char *context) 
@@ -682,10 +580,9 @@ static inline int compute_sid_handle_invalid_context(
 		context_struct_to_string(scontext, &s, &slen);
 		context_struct_to_string(tcontext, &t, &tlen);
 		context_struct_to_string(newcontext, &n, &nlen);
-		printf("security_compute_sid:  invalid context %s", n);
-		printf(" for scontext=%s", s);
-		printf(" tcontext=%s", t);
-		printf(" tclass=%s\n", policydb->p_class_val_to_name[tclass-1]);
+		DEBUG(__FUNCTION__, "invalid context %s for "
+			"scontext=%s tcontext=%s tclass=%s\n",
+			n, s, t, policydb->p_class_val_to_name[tclass-1]);
 		free(s);
 		free(t);
 		free(n);
@@ -704,18 +601,17 @@ static int sepol_compute_sid(sepol_security_id_t ssid,
 	avtab_key_t avkey;
 	avtab_datum_t *avdatum;
 	avtab_ptr_t node;
-	unsigned int type_change = 0;
 	int rc = 0;
 
 	scontext = sepol_sidtab_search(sidtab, ssid);
 	if (!scontext) {
-		printf("security_compute_sid:  unrecognized SID %d\n", ssid);
+		DEBUG(__FUNCTION__, "unrecognized SID %d\n", ssid);
 		rc = -EINVAL;
 		goto out;
 	}
 	tcontext = sepol_sidtab_search(sidtab, tsid);
 	if (!tcontext) {
-		printf("security_compute_sid:  unrecognized SID %d\n", tsid);
+		DEBUG(__FUNCTION__, "unrecognized SID %d\n", tsid);
 		rc = -EINVAL;
 		goto out;
 	}
@@ -753,33 +649,23 @@ static int sepol_compute_sid(sepol_security_id_t ssid,
 	avkey.source_type = scontext->type;
 	avkey.target_type = tcontext->type;
 	avkey.target_class = tclass;
-	avdatum = avtab_search(&policydb->te_avtab, &avkey, AVTAB_TYPE);
+	avkey.specified = specified;
+	avdatum = avtab_search(&policydb->te_avtab, &avkey);
 
 	/* If no permanent rule, also check for enabled conditional rules */
 	if(!avdatum) {
-		node = avtab_search_node(&policydb->te_cond_avtab, &avkey, specified);
+		node = avtab_search_node(&policydb->te_cond_avtab, &avkey);
 		for (; node != NULL; node = avtab_search_node_next(node, specified)) {
-			if (node->datum.specified & AVTAB_ENABLED) {
+			if (node->key.specified & AVTAB_ENABLED) {
 				avdatum = &node->datum;
 				break;
 			}
 		}
 	}
 
-	type_change = (avdatum && (avdatum->specified & specified));
-	if (type_change) {
+	if (avdatum) {
 		/* Use the type from the type transition/member/change rule. */
-		switch (specified) {
-		case AVTAB_TRANSITION:
-			newcontext.type = avtab_transition(avdatum);
-			break;
-		case AVTAB_MEMBER:
-			newcontext.type = avtab_member(avdatum);
-			break;
-		case AVTAB_CHANGE:
-			newcontext.type = avtab_change(avdatum);
-			break;
-		}
+		newcontext.type = avdatum->data;
 	}
 
 	/* Check for class-specific changes. */
@@ -880,11 +766,12 @@ static int validate_perm(hashtab_key_t key, hashtab_datum_t datum, void *p)
 
 	perdatum2 = (perm_datum_t *) hashtab_search(h, key);
 	if (!perdatum2) {
-		printf("security:  permission %s disappeared", key);
+		DEBUG(__FUNCTION__, "permission %s disappeared\n", key);
 		return -1;
 	}
 	if (perdatum->value != perdatum2->value) {
-		printf("security:  the value of permission %s changed", key);
+		DEBUG(__FUNCTION__, "the value of permissions "
+			"%s changed\n", key);
 		return -1;
 	}
 	return 0;
@@ -906,28 +793,31 @@ static int validate_class(hashtab_key_t key, hashtab_datum_t datum, void *p)
 
 	cladatum2 = (class_datum_t *) hashtab_search(newp->p_classes.table, key);
 	if (!cladatum2) {
-		printf("security:  class %s disappeared\n", key);
+		DEBUG(__FUNCTION__, "class %s disappeared\n", key);
 		return -1;
 	}
 	if (cladatum->value != cladatum2->value) {
-		printf("security:  the value of class %s changed\n", key);
+		DEBUG(__FUNCTION__, "the value of class %s changed\n", key);
 		return -1;
 	}
 	if ((cladatum->comdatum && !cladatum2->comdatum) ||
 	    (!cladatum->comdatum && cladatum2->comdatum)) {
-		printf("security:  the inherits clause for the access vector definition for class %s changed\n", key);
+		DEBUG(__FUNCTION__, "the inherits clause for the access "
+			"vector definition for class %s changed", key);
 		return -1;
 	}
 	if (cladatum->comdatum) {
 		if (hashtab_map(cladatum->comdatum->permissions.table, validate_perm,
 				cladatum2->comdatum->permissions.table)) {
-			printf(" in the access vector definition for class %s\n", key);
+			DEBUG(__FUNCTION__, " in the access vector definition "
+				"for class %s\n", key);
 			return -1;
 		}
 	}
 	if (hashtab_map(cladatum->permissions.table, validate_perm,
 			cladatum2->permissions.table)) {
-		printf(" in access vector definition for class %s\n", key);
+		DEBUG(__FUNCTION__, " in access vector definition "
+			"for class %s\n", key);
 		return -1;
 	}
 	return 0;
@@ -953,7 +843,7 @@ static inline int convert_context_handle_invalid_context(
 		size_t len;
 
 		context_struct_to_string(context, &s, &len);
-		printf("security:  context %s is invalid\n", s);
+		DEBUG(__FUNCTION__, "context %s is invalid\n", s);
 		free(s);
 		return 0;
 	}
@@ -1032,7 +922,7 @@ static int convert_context(sepol_security_id_t key __attribute__ ((unused)),
       bad:
 	context_struct_to_string(&oldc, &s, &len);
 	context_destroy(&oldc);
-	printf("security:  invalidating context %s\n", s);
+	DEBUG(__FUNCTION__, "invalidating context %s\n", s);
 	free(s);
 	return rc;
 }
@@ -1061,7 +951,11 @@ int sepol_load_policy(void * data, size_t len)
 	convert_context_args_t args;
 	uint32_t seqno;
 	int rc = 0;
-	struct policy_file file = { 0, data, len }, *fp = &file;
+	struct policy_file file = { 
+	  .type = PF_USE_MEMORY, 
+	  .data = data, 
+	  .len = len,
+	  .fp = NULL }, *fp = &file;
 
 	if (policydb_read(&newpolicydb, fp, 1)) {
 		return -EINVAL;
@@ -1070,8 +964,10 @@ int sepol_load_policy(void * data, size_t len)
 	sepol_sidtab_init(&newsidtab);
 
 	/* Verify that the existing classes did not change. */
-	if (hashtab_map(policydb->p_classes.table, validate_class, &newpolicydb)) {
-		printf("security:  the definition of an existing class changed\n");
+	if (hashtab_map(
+		policydb->p_classes.table, validate_class, &newpolicydb)) {
+		DEBUG(__FUNCTION__, "the definition of an existing "
+			"class changed\n");
 		rc = -EINVAL;
 		goto err;
 	}
@@ -1348,6 +1244,7 @@ int sepol_get_user_sids(sepol_security_id_t fromsid,
 	struct sepol_av_decision avd;
 	int rc = 0;
 	unsigned int i, j, reason;
+	ebitmap_node_t *rnode, *tnode;
 
 	fromcon = sepol_sidtab_search(sidtab, fromsid);
 	if (!fromcon) {
@@ -1370,13 +1267,13 @@ int sepol_get_user_sids(sepol_security_id_t fromsid,
 	}
 	memset(mysids, 0, maxnel*sizeof(sepol_security_id_t));
 
-	for (i = ebitmap_startbit(&user->roles); i < ebitmap_length(&user->roles); i++) {
-		if (!ebitmap_get_bit(&user->roles, i)) 
+	ebitmap_for_each_bit(&user->roles.roles, rnode, i) {
+		if (!ebitmap_node_get_bit(rnode, i)) 
 			continue;		
 		role = policydb->role_val_to_struct[i];
 		usercon.role = i+1;
-		for (j = ebitmap_startbit(&role->types); j < ebitmap_length(&role->types); j++) {
-			if (!ebitmap_get_bit(&role->types, j)) 
+		ebitmap_for_each_bit(&role->types.types, tnode, j) {
+			if (!ebitmap_node_get_bit(tnode, j)) 
 				continue;	
 			usercon.type = j+1;
 			if (usercon.type == fromcon->type)

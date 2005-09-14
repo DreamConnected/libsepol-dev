@@ -24,6 +24,7 @@ Description: Security Enhanced Linux policy utility programs
 
 Package: libsepol1
 Section: libs
+Priority: required
 Architecture: any
 Depends: ${shlibs:Depends}
 Description: Security Enhanced Linux policy library for changing policy binaries

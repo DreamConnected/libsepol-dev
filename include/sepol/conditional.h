@@ -74,36 +74,60 @@ typedef struct cond_av_list {
 typedef struct cond_node {
 	int cur_state;
 	cond_expr_t *expr;
+	/* these true/false lists point into te_avtab when that is used */
+	cond_av_list_t *true_list;
+	cond_av_list_t *false_list;
+	/* and these are using during parsing and for modules */
+	avrule_t *avtrue_list;
+	avrule_t *avfalse_list;
 	/* these fields are not written to binary policy */
-	int nbools;
+	unsigned int nbools;
 	uint32_t bool_ids[COND_MAX_BOOLS];
 	uint32_t expr_pre_comp;
 	/*                                               */
-	cond_av_list_t *true_list;
-	cond_av_list_t *false_list;
 	struct cond_node *next;
 } cond_node_t;
 
-int cond_evaluate_expr(policydb_t *p, cond_expr_t *expr);
+extern int cond_evaluate_expr(policydb_t *p, cond_expr_t *expr);
+extern cond_expr_t *cond_copy_expr(cond_expr_t *expr);
 
-int cond_normalize_expr(policydb_t *p, cond_node_t *cn);
-cond_node_t *cond_node_search(policydb_t *p,cond_node_t *cn);
-int evaluate_conds(policydb_t *p);
-avtab_datum_t *cond_av_list_search(avtab_key_t *key, cond_av_list_t *cond_list);
+extern int cond_normalize_expr(policydb_t *p, cond_node_t *cn);
+extern void cond_node_destroy(cond_node_t *node);
 
-void cond_optimize_lists(cond_list_t *cl);
+extern cond_node_t *cond_node_find(
+	policydb_t *p, 
+	cond_node_t *needle, cond_node_t *haystack,
+	int *was_created);
 
-int cond_policydb_init(policydb_t* p);
-void cond_policydb_destroy(policydb_t* p);
+extern cond_node_t *cond_node_search(
+	policydb_t *p, cond_node_t *list, cond_node_t *cn);
 
-int cond_init_bool_indexes(policydb_t* p);
-int cond_destroy_bool(hashtab_key_t key, hashtab_datum_t datum, void *p);
+extern int evaluate_conds(policydb_t *p);
 
-int cond_index_bool(hashtab_key_t key, hashtab_datum_t datum, void *datap);
+extern avtab_datum_t *cond_av_list_search(
+	avtab_key_t *key, cond_av_list_t *cond_list);
 
-int cond_read_bool(policydb_t *p, hashtab_t h, struct policy_file *fp);
-int cond_read_list(policydb_t *p, void *fp);
+extern void cond_av_list_destroy(cond_av_list_t *list);
 
-void cond_compute_av(avtab_t *ctab, avtab_key_t *key, struct sepol_av_decision *avd);
+extern void cond_optimize_lists(cond_list_t *cl);
+
+extern int cond_policydb_init(policydb_t* p);
+extern void cond_policydb_destroy(policydb_t* p);
+extern void cond_list_destroy(cond_list_t *list);
+
+extern int cond_init_bool_indexes(policydb_t* p);
+extern int cond_destroy_bool(
+	hashtab_key_t key, hashtab_datum_t datum, void *p);
+
+extern int cond_index_bool(
+	hashtab_key_t key, hashtab_datum_t datum, void *datap);
+
+extern int cond_read_bool(
+	policydb_t *p, hashtab_t h, struct policy_file *fp);
+
+extern int cond_read_list(policydb_t *p, cond_list_t **list, void *fp);
+
+extern void cond_compute_av(avtab_t *ctab, avtab_key_t *key, 
+	struct sepol_av_decision *avd);
 
 #endif /* _CONDITIONAL_H_ */

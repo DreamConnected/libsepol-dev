@@ -4,13 +4,18 @@
 
 #include <byteswap.h>
 #include <endian.h>
+#include <sepol/policydb.h>
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
+#define cpu_to_le16(x) (x)
+#define le16_to_cpu(x) (x)
 #define cpu_to_le32(x) (x)
 #define le32_to_cpu(x) (x)
 #define cpu_to_le64(x) (x)
 #define le64_to_cpu(x) (x)
 #else
+#define cpu_to_le16(x) bswap_16(x)
+#define le16_to_cpu(x) bswap_16(x)
 #define cpu_to_le32(x) bswap_32(x)
 #define le32_to_cpu(x) bswap_32(x)
 #define cpu_to_le64(x) bswap_64(x)
@@ -19,12 +24,16 @@
 
 /* Policy compatibility information. */
 struct policydb_compat_info {
-	int version;
-	int sym_num;
-	int ocon_num;
+	unsigned int type;
+        unsigned int version;
+	unsigned int sym_num;
+	unsigned int ocon_num;
 };
 
-extern struct policydb_compat_info *policydb_lookup_compat(int version);
+extern struct policydb_compat_info *policydb_lookup_compat(unsigned int version, unsigned int type);
+#ifdef __GNUC__
+__attribute__ ((format (printf, 1, 2)))
+#endif
 extern void __sepol_debug_printf(const char *fmt, ...);
 
 /* Reading from a policy "file". */
@@ -53,6 +62,32 @@ static inline void *next_entry(struct policy_file * fp, size_t bytes)
 		return NULL;
 	}
 	return buffer;
+}
+
+static inline size_t put_entry(const void *ptr, size_t size, size_t n, struct policy_file *fp)
+{
+	size_t bytes = size * n;
+
+	switch (fp->type) {
+	case PF_USE_STDIO:
+		return fwrite(ptr, size, n, fp->fp);
+	case PF_USE_MEMORY:
+		if (bytes > fp->len) {
+			errno = ENOSPC;
+			return 0;
+		}
+
+		memcpy(fp->data, ptr, bytes);
+		fp->data += bytes;
+		fp->len -= bytes;
+		return n;
+	case PF_LEN:
+		fp->len += bytes;
+		return n;
+	default:
+		return 0;
+	}
+	return 0;
 }
 
 extern int mls_enabled;

@@ -1,3 +1,65 @@
+libsepol (1.8-1) unstable; urgency=low
+
+  * New upstream release
+      * Updated version for release.
+      * Fixed symtab_insert return value for duplicate declarations.
+      * Merged fix for memory error in policy_module_destroy from
+        Jason Tang (Tresys).
+      * Merged fix for memory leak in sepol_context_to_sid from
+        Jason Tang (Tresys).
+      * Merged fixes for resource leaks on error paths and
+        change to scope_destroy from Joshua Brindle (Tresys).
+      * Merged more fixes for resource leaks on error paths 
+        from Serge Hallyn (IBM).  Bugs found by Coverity. 
+      * Changed to treat all type conflicts as fatal errors.
+      * Merged several error handling fixes from 
+        Serge Hallyn (IBM).  Bugs found by Coverity.	
+      * Fixed further memory leaks found by valgrind.
+      * Fixed several memory leaks found by valgrind.
+      * Fixed empty list test in cond_write_av_list.  Bug found by
+        Coverity, reported by Serge Hallyn (IBM).
+      * Merged patch to policydb_write to check errors 
+        when writing the type->attribute reverse map from
+        Serge Hallyn (IBM).  Bug found by Coverity.
+      * Fixed policydb_destroy to properly handle NULL type_attr_map
+        or attr_type_map.
+      * Fixed use of uninitialized data by expand_avtab_node by
+        clearing type_val_to_struct in policydb_index_others.
+      * Improved memory use by SELinux by both reducing the avtab 
+        node size and reducing the number of avtab nodes (by not
+        expanding attributes in TE rules when possible).  Added
+        expand_avtab and expand_cond_av_list functions for use by
+        assertion checker, hierarchy checker, compatibility code,
+        and dispol.  Added new inline ebitmap operators and converted
+        existing users of ebitmaps to the new operators for greater 
+        efficiency.
+        Note:  The binary policy format version has been incremented to 
+        version 20 as a result of these changes.
+      * Fixed bug in constraint_node_clone handling of name sets.
+      * Fix range_trans_clone to map the type values properly.
+      * Merged patch to move module read/write code from libsemanage
+        to libsepol from Jason Tang (Tresys).
+      * Enabled further compiler warning flags and fixed them.
+      * Merged user, context, port records patch from Ivan Gyurdiev.
+      * Merged key extract function patch from Ivan Gyurdiev.
+      * Merged mls_context_to_sid bugfix from Ivan Gyurdiev.
+      * Merged context reorganization, memory leak fixes, 
+        port and interface loading, replacements for genusers and
+        genbools, debug traceback, and bugfix patches from Ivan Gyurdiev.
+      * Merged uninitialized variable bugfix from Dan Walsh.
+      * Merged debug support, policydb conversion functions from Ivan
+        Gyurdiev (Red Hat). 
+      * Removed genpolbools and genpolusers utilities.
+      * Merged hierarchy check fix from Joshua Brindle (Tresys).
+      * Merged header file cleanup and memory leak fix from Ivan Gyurdiev
+       (Red Hat). 
+      * Merged genbools debugging message cleanup from Red Hat.
+      * Merged loadable module support from Tresys Technology.
+  * libsepol1: Priority should be required, thanks to Matt Kraai.
+                                                                      (Closes: 328041)
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 14 Sep 2005 15:36:54 -0500
+
 libsepol (1.6-2) unstable; urgency=low
 
   * Modify sections of generated binaries. sepol-utils belongs in admin,
