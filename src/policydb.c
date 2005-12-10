@@ -17,7 +17,7 @@
  *      Code cleanup
  *
  * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
- * Copyright (C) 2003 - 2004 Tresys Technology, LLC
+ * Copyright (C) 2003 - 2005 Tresys Technology, LLC
  * Copyright (C) 2003 - 2004 Red Hat, Inc.
  *
  *  This library is free software; you can redistribute it and/or
@@ -44,13 +44,14 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include <sepol/policydb.h>
-#include <sepol/expand.h>
-#include <sepol/mls.h>
-#include <sepol/conditional.h>
-#include <sepol/avrule_block.h>
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/expand.h>
+#include <sepol/policydb/conditional.h>
+#include <sepol/policydb/avrule_block.h>
 
 #include "private.h"
+#include "debug.h"
+#include "mls.h"
 
 /* These need to be updated if SYM_NUM or OCON_NUM changes */
 static struct policydb_compat_info policydb_compat[] = {
@@ -92,13 +93,25 @@ static struct policydb_compat_info policydb_compat[] = {
 	},
 	{
 		.type		= POLICY_BASE,
-		.version 	= POLICYDB_VERSION_MAX,
+		.version 	= MOD_POLICYDB_VERSION_BASE,
+		.sym_num	= SYM_NUM,
+		.ocon_num	= OCON_NODE6 + 1,
+        },
+	{
+		.type		= POLICY_BASE,
+		.version 	= MOD_POLICYDB_VERSION_MLS,
 		.sym_num	= SYM_NUM,
 		.ocon_num	= OCON_NODE6 + 1,
         },
 	{
 		.type		= POLICY_MOD,
 		.version	= MOD_POLICYDB_VERSION_BASE,
+		.sym_num	= SYM_NUM,
+		.ocon_num	= 0,
+        },
+	{
+		.type		= POLICY_MOD,
+		.version	= MOD_POLICYDB_VERSION_MLS,
 		.sym_num	= SYM_NUM,
 		.ocon_num	= 0,
         }
@@ -127,19 +140,6 @@ static unsigned int symtab_sizes[SYM_NUM] = {
 	16,
 	16,
 };
-
-int mls_enabled = 0;
-
-int sepol_set_mls(int enabled)
-{
-	mls_enabled = enabled ? 1 : 0;
-	return 0;
-}
-
-int sepol_mls_enabled(void)
-{
-	return mls_enabled;
-}
 
 struct policydb_compat_info *policydb_lookup_compat(unsigned int version, 
 						    unsigned int type)
@@ -370,12 +370,11 @@ out_free_role:
 /*
  * Initialize a policy database structure.
  */
-int policydb_init(policydb_t * p, int policy_type)
+int policydb_init(policydb_t * p)
 {
 	int i, rc;
 
 	memset(p, 0, sizeof(policydb_t));
-        p->policy_type = policy_type;
 
 	for (i = 0; i < SYM_NUM; i++) {
 		p->sym_val_to_name[i] = NULL;
@@ -655,24 +654,24 @@ int policydb_index_bools(policydb_t * p)
  * Define the other val_to_name and val_to_struct arrays
  * in a policy database structure.  
  */
-int policydb_index_others(policydb_t * p, unsigned verbose)
+int policydb_index_others(sepol_handle_t *handle, 
+			  policydb_t * p, unsigned verbose)
 {
 	int i;
 
 
 	if (verbose) {
-		printf("security:  %d users, %d roles, %d types, %d bools",
-		       p->p_users.nprim, p->p_roles.nprim, p->p_types.nprim,
-		       p->p_bools.nprim);
+		INFO(handle, "security:  %d users, %d roles, %d types, %d bools",
+		     p->p_users.nprim, p->p_roles.nprim, p->p_types.nprim,
+		     p->p_bools.nprim);
 
-		if (mls_enabled)
-			printf(", %d sens, %d cats", p->p_levels.nprim,
-			       p->p_cats.nprim);
+		if (p->mls)
+			INFO(handle, "security: %d sens, %d cats", 
+			     p->p_levels.nprim,
+			     p->p_cats.nprim);
 
-		printf("\n");
-
-		printf("security:  %d classes, %d rules, %d cond rules\n",
-		       p->p_classes.nprim, p->te_avtab.nel, p->te_cond_avtab.nel);
+		INFO(handle, "security:  %d classes, %d rules, %d cond rules",
+		     p->p_classes.nprim, p->te_avtab.nel, p->te_cond_avtab.nel);
 	}
 
 #if 0
@@ -893,7 +892,8 @@ void policydb_destroy(policydb_t * p)
 		hashtab_destroy(p->scope[i].table);
         }
         avrule_block_list_destroy(p->global);
-
+        free(p->name);
+        free(p->version);
 
 	avtab_destroy(&p->te_avtab);
 
@@ -981,7 +981,7 @@ void symtabs_destroy(symtab_t *symtab) {
 int scope_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p __attribute__ ((unused)))
 {
         scope_datum_t *cur = (scope_datum_t *) datum;
-	free(key);
+        free(key);
         if (cur != NULL) {
                 free (cur->decl_ids);
         }
@@ -1005,20 +1005,18 @@ int policydb_load_isids(policydb_t *p, sidtab_t *s)
 	ocontext_t *head, *c;
 
 	if (sepol_sidtab_init(s)) {
-		printf("security:  out of memory on SID table init\n");
+		ERR(NULL, "out of memory on SID table init");
 		return -1;
 	}
 
 	head = p->ocontexts[OCON_ISID];
 	for (c = head; c; c = c->next) {
 		if (!c->context[0].user) {
-			printf("security:  SID %s was never defined.\n", 
-			       c->u.name);
+			ERR(NULL, "SID %s was never defined", c->u.name);
 			return -1;
 		}
 		if (sepol_sidtab_insert(s, c->sid[0], &c->context[0])) {
-			printf("security:  unable to load initial SID %s.\n", 
-			       c->u.name);
+			ERR(NULL, "unable to load initial SID %s", c->u.name);
 			return -1;
 		}
 	}
@@ -1066,7 +1064,7 @@ static int type_set_read(type_set_t *t, struct policy_file *fp)
  * Read a MLS range structure from a policydb binary 
  * representation file.
  */
-static int mls_read_range_helper(mls_range_t *r, void *fp)
+static int mls_read_range_helper(mls_range_t *r, struct policy_file *fp)
 {
 	uint32_t *buf;
 	int items, rc = -EINVAL;
@@ -1078,7 +1076,7 @@ static int mls_read_range_helper(mls_range_t *r, void *fp)
 	items = le32_to_cpu(buf[0]);
 	buf = next_entry(fp, sizeof(uint32_t)*items);
 	if (!buf) {
-		printf("security: mls:  truncated range\n");
+		ERR(fp->handle, "truncated range");
 		goto out;
 	}
 	r->level[0].sens = le32_to_cpu(buf[0]);
@@ -1089,19 +1087,19 @@ static int mls_read_range_helper(mls_range_t *r, void *fp)
 
 	rc = ebitmap_read(&r->level[0].cat, fp);
 	if (rc) {
-		printf("security: mls:  error reading low categories\n");
+		ERR(fp->handle, "error reading low categories");
 		goto out;
 	}
 	if (items > 1) {
 		rc = ebitmap_read(&r->level[1].cat, fp);
 		if (rc) {
-			printf("security: mls:  error reading high categories\n");
+			ERR(fp->handle, "error reading high categories");
 			goto bad_high;
 		}
 	} else {
 		rc = ebitmap_cpy(&r->level[1].cat, &r->level[0].cat);
 		if (rc) {
-			printf("security: mls:  out of memory\n");
+			ERR(fp->handle, "out of memory");
 			goto bad_high;
 		}
 	}
@@ -1127,22 +1125,23 @@ static int context_read_and_validate(context_struct_t * c,
 
 	buf = next_entry(fp, sizeof(uint32_t)*3);
 	if (!buf) {
-		printf("security: context truncated\n");
+		ERR(fp->handle, "context truncated");
 		return -1;
 	}
 	c->user = le32_to_cpu(buf[0]);
 	c->role = le32_to_cpu(buf[1]);
 	c->type = le32_to_cpu(buf[2]);
-	if (p->policyvers >= POLICYDB_VERSION_MLS) {
+	if ((p->policy_type == POLICY_KERN && p->policyvers >= POLICYDB_VERSION_MLS) ||
+	    (p->policy_type == POLICY_BASE && p->policyvers >= MOD_POLICYDB_VERSION_MLS)) {
 		if (mls_read_range_helper(&c->range, fp)) {
-			printf("security: error reading MLS range of "
-			       "context\n");
+			ERR(fp->handle, "error reading MLS range "
+				"of context");
 			return -1;
 		}
 	}
 
 	if (!policydb_context_isvalid(p, c)) {
-		printf("security:  invalid security context\n");
+		ERR(fp->handle, "invalid security context");
 		context_destroy(c);
 		return -1;
 	}
@@ -1246,7 +1245,7 @@ static int common_read(policydb_t * p, hashtab_t h, struct policy_file * fp)
 
 static int read_cons_helper(policydb_t *p, constraint_node_t **nodep, 
 			    unsigned int ncons,
-                            int allowxtarget, void *fp)
+                            int allowxtarget, struct policy_file *fp)
 {
 	constraint_node_t *c, *lc;
 	constraint_expr_t *e, *le;
@@ -1402,7 +1401,8 @@ static int class_read(policydb_t * p, hashtab_t h, struct policy_file * fp)
 		cladatum->comdatum = hashtab_search(p->p_commons.table,
 						    cladatum->comkey);
 		if (!cladatum->comdatum) {
-			printf("security:  unknown common %s\n", cladatum->comkey);
+			ERR(fp->handle, "unknown common %s",
+				cladatum->comkey);
 			goto bad;
 		}
 	}
@@ -1414,7 +1414,8 @@ static int class_read(policydb_t * p, hashtab_t h, struct policy_file * fp)
 	if (read_cons_helper(p, &cladatum->constraints, ncons, 0, fp))
 		goto bad;
 
-	if (p->policyvers >= POLICYDB_VERSION_VALIDATETRANS) {
+	if ((p->policy_type == POLICY_KERN && p->policyvers >= POLICYDB_VERSION_VALIDATETRANS) ||
+	    (p->policy_type == POLICY_BASE && p->policyvers >= MOD_POLICYDB_VERSION_VALIDATETRANS)) {
 		/* grab the validatetrans rules */
 		buf = next_entry(fp, sizeof(uint32_t));
 		if (!buf)
@@ -1477,8 +1478,8 @@ static int role_read(policydb_t * p __attribute__ ((unused)), hashtab_t h, struc
 
 	if (strcmp(key, OBJECT_R) == 0) {
 		if (role->value != OBJECT_R_VAL) {
-			printf("Role %s has wrong value %d\n",
-			       OBJECT_R, role->value);
+			ERR(fp->handle, "role %s has wrong value %d",
+				OBJECT_R, role->value);
 			role_destroy(key, role, NULL);
 			return -1;
 		}
@@ -1758,7 +1759,8 @@ static int genfs_read (policydb_t *p, struct policy_file *fp) {
                 for (genfs_p = NULL, genfs = p->genfs; genfs;
                      genfs_p = genfs, genfs = genfs->next) {
                         if (strcmp(newgenfs->fstype, genfs->fstype) == 0) {
-                                printf("security:  dup genfs fstype %s\n", newgenfs->fstype);
+				ERR(fp->handle, "dup genfs fstype %s", 
+					newgenfs->fstype);
                                 goto bad;
                         }       
                         if (strcmp(newgenfs->fstype, genfs->fstype) < 0)
@@ -1801,8 +1803,11 @@ static int genfs_read (policydb_t *p, struct policy_file *fp) {
                         for (l = NULL, c = newgenfs->head; c;
                              l = c, c = c->next) {
                                 if (!strcmp(newc->u.name, c->u.name) &&
-                                    (!c->v.sclass || !newc->v.sclass || newc->v.sclass == c->v.sclass)) {
-                                        printf("security:  dup genfs entry (%s,%s)\n", newgenfs->fstype, c->u.name);
+                                    (!c->v.sclass || !newc->v.sclass || 
+				     newc->v.sclass == c->v.sclass)) {
+					ERR(fp->handle, "dup genfs entry "
+						"(%s,%s)", newgenfs->fstype, 
+							c->u.name);
                                         goto bad;
                                 }
                                 len = strlen(newc->u.name);
@@ -1828,7 +1833,7 @@ bad:
  * Read a MLS level structure from a policydb binary 
  * representation file.
  */
-static int mls_read_level(mls_level_t *lp, void *fp)
+static int mls_read_level(mls_level_t *lp, struct policy_file *fp)
 {
 	uint32_t *buf;
 
@@ -1836,13 +1841,13 @@ static int mls_read_level(mls_level_t *lp, void *fp)
 
 	buf = next_entry(fp, sizeof(uint32_t));
 	if (!buf) {
-		printf("security: mls: truncated level\n");
+		ERR(fp->handle, "truncated level");
 		goto bad;
 	}
 	lp->sens = le32_to_cpu(buf[0]);
 
 	if (ebitmap_read(&lp->cat, fp)) {
-		printf("security: mls:  error reading level categories\n");
+		ERR(fp->handle, "error reading level categories");
 		goto bad;
 	}
 	return 0;
@@ -1887,7 +1892,8 @@ static int user_read(policydb_t * p, hashtab_t h, struct policy_file * fp)
 			goto bad;
 	}
 
-	if (p->policyvers >= POLICYDB_VERSION_MLS) {
+	if ((p->policy_type == POLICY_KERN && p->policyvers >= POLICYDB_VERSION_MLS) ||
+	    (p->policy_type == POLICY_BASE && p->policyvers >= MOD_POLICYDB_VERSION_MLS)) {
 		if (mls_read_range_helper(&usrdatum->range, fp))
 			goto bad;
 		if (mls_read_level(&usrdatum->dfltlevel, fp))
@@ -2332,13 +2338,15 @@ static int avrule_block_read(policydb_t *p,
         return 0;
 }
 
-static int scope_read(policydb_t * p, hashtab_t h, struct policy_file * fp)
+
+static int scope_read(policydb_t * p, int symnum, struct policy_file * fp)
 {
 	scope_datum_t *scope = NULL;
 	uint32_t *buf;
         char *key = NULL;
         size_t key_len;
         unsigned int i;
+        hashtab_t h = p->scope[symnum].table;
 
         if ((buf = next_entry(fp, sizeof(uint32_t))) == NULL) {
                 goto cleanup;
@@ -2352,6 +2360,11 @@ static int scope_read(policydb_t * p, hashtab_t h, struct policy_file * fp)
         }
         memcpy(key, buf, key_len);
         key[key_len] = '\0';
+        
+        /* ensure that there already exists a symbol with this key */
+        if (hashtab_search(p->symtab[symnum].table, key) == NULL) {
+                goto cleanup;
+        }
                 
 	if ((scope = calloc(1, sizeof(*scope))) == NULL) {
                 goto cleanup;
@@ -2422,31 +2435,35 @@ int policydb_read(policydb_t * p, struct policy_file * fp, unsigned verbose)
                 target_str = POLICYDB_MOD_STRING;
         }
         else {
-                printf("security:  policydb magic number %#08x does not match expected magic number %#08x or %#08x\n",
+		ERR(fp->handle, "policydb magic number %#08x does not "
+			"match expected magic number %#08x or %#08x",
 			buf[0], POLICYDB_MAGIC, POLICYDB_MOD_MAGIC);
 		return -1;
 	}
 
         len = buf[1];
         if (len != strlen(target_str)) {
-                printf("security:  policydb string length %zu does not match expected length %zu\n", len, strlen(target_str));
+		ERR(fp->handle, "policydb string length %zu does not match "
+			"expected length %zu", len, strlen(target_str));
                 return -1;
         }
 
 	buf = next_entry(fp, len);
 	if (!buf) {
-		printf("security:  truncated policydb string identifier\n");
+		ERR(fp->handle, "truncated policydb string identifier");
 		return -1;
 	}
 	policydb_str = malloc(len + 1);
 	if (!policydb_str) {
-		printf("security:  unable to allocate memory for policydb string of length %zu\n", len);
+		ERR(fp->handle, "unable to allocate memory for policydb "
+			"string of length %zu", len);
 		return -1;
 	}
 	memcpy(policydb_str, buf, len);
 	policydb_str[len] = 0;
 	if (strcmp(policydb_str, target_str)) {
-		printf("security:  policydb string %s does not match my string %s\n", policydb_str, target_str);
+		ERR(fp->handle, "policydb string %s does not match "
+			"my string %s", policydb_str, target_str);
 		free(policydb_str);
 		return -1;
 	}
@@ -2474,27 +2491,30 @@ int policydb_read(policydb_t * p, struct policy_file * fp, unsigned verbose)
 		   tells us which. */
 		policy_type = buf[bufindex];
                 if (policy_type != POLICY_MOD && policy_type != POLICY_BASE) {
-                        printf("Unknown module type: %#08x\n", policy_type);
+			ERR(fp->handle, "unknown module type: %#08x",
+				policy_type);
                         return -1;
                 }
 		bufindex++;
 	}
 
 	r_policyvers = buf[bufindex];
-        if (policy_type == POLICY_KERN || policy_type == POLICY_BASE) {
+        if (policy_type == POLICY_KERN) {
                 if (r_policyvers < POLICYDB_VERSION_MIN ||
                     r_policyvers > POLICYDB_VERSION_MAX) {
-                        printf("security:  policydb version %d does not match "
-                               "my version range %d-%d\n", buf[bufindex], POLICYDB_VERSION_MIN, POLICYDB_VERSION_MAX);
+			ERR(fp->handle, "policydb version %d does not match "
+				"my version range %d-%d", buf[bufindex], 
+				POLICYDB_VERSION_MIN, POLICYDB_VERSION_MAX);
                         return -1;
                 }
         }
-        else if (policy_type == POLICY_MOD) {
+        else if (policy_type == POLICY_BASE || policy_type == POLICY_MOD) {
                 if (r_policyvers < MOD_POLICYDB_VERSION_MIN ||
                     r_policyvers > MOD_POLICYDB_VERSION_MAX) {
-                        printf("security:  policydb module version %d does not match "
-                               "my version range %d-%d\n", buf[bufindex],
-                               MOD_POLICYDB_VERSION_MIN, MOD_POLICYDB_VERSION_MAX);
+			ERR(fp->handle, "policydb module version %d does "
+				"not match my version range %d-%d",
+				buf[bufindex], MOD_POLICYDB_VERSION_MIN,
+				MOD_POLICYDB_VERSION_MAX);
                         return -1;
                 }
         }
@@ -2503,25 +2523,29 @@ int policydb_read(policydb_t * p, struct policy_file * fp, unsigned verbose)
         }
 	bufindex++;
 
-	/* Initialize the policy structure now that we know what kind it is */
-	if (policydb_init(p, policy_type)) 
-		return -1;
+	/* Set the policy type and version from the read values. */
+	p->policy_type = policy_type;
         p->policyvers = r_policyvers;
 
 	if (buf[bufindex] & POLICYDB_CONFIG_MLS) {
-                sepol_set_mls(1);
-        }
+                p->mls = 1;
+        } else {
+		p->mls = 0;
+	}
+ 
         bufindex++;
 
 	info = policydb_lookup_compat(r_policyvers, policy_type);
 	if (!info) {
-		printf("security:  unable to find policy compat info for version %d\n", r_policyvers);
+		ERR(fp->handle, "unable to find policy compat info "
+			"for version %d", r_policyvers);
 		goto bad;
 	}
 
 	if (buf[bufindex] != info->sym_num || buf[bufindex + 1] != info->ocon_num) {
-		printf("security:  policydb table sizes (%d,%d) do not match mine (%d,%d)\n",
-		       buf[bufindex], buf[bufindex + 1], info->sym_num, info->ocon_num);
+		ERR(fp->handle, "policydb table sizes (%d,%d) do not "
+			"match mine (%d,%d)", buf[bufindex], buf[bufindex + 1],
+			info->sym_num, info->ocon_num);
 		goto bad;
 	}
 
@@ -2581,7 +2605,6 @@ int policydb_read(policydb_t * p, struct policy_file * fp, unsigned verbose)
         else {
                 /* first read the AV rule blocks, then the scope tables */
                 avrule_block_destroy(p->global);
-                free(p->global);
                 p->global = NULL;
                 if (avrule_block_read(p, &p->global, info->sym_num, fp) == -1) {
                         goto bad;
@@ -2592,7 +2615,7 @@ int policydb_read(policydb_t * p, struct policy_file * fp, unsigned verbose)
                         }
                         nel = le32_to_cpu(buf[0]);
                         for (j = 0; j < nel; j++) {
-                                if (scope_read(p, p->scope[i].table, fp))
+                                if (scope_read(p, i, fp))
                                         goto bad;
                         }
                 }
@@ -2603,7 +2626,7 @@ int policydb_read(policydb_t * p, struct policy_file * fp, unsigned verbose)
 	if (policydb_index_classes(p))
 		goto bad;
 
-	if (policydb_index_others(p, verbose))
+	if (policydb_index_others(fp->handle, p, verbose))
 		goto bad;
 
 	if (ocontext_read (info, p, fp) == -1) {
@@ -2614,7 +2637,8 @@ int policydb_read(policydb_t * p, struct policy_file * fp, unsigned verbose)
                 goto bad;
         }
 
-	if (r_policyvers >= POLICYDB_VERSION_MLS) {
+	if ((p->policy_type == POLICY_KERN && p->policyvers >= POLICYDB_VERSION_MLS) ||
+	    (p->policy_type == POLICY_BASE && p->policyvers >= MOD_POLICYDB_VERSION_MLS)) {
                 if (range_read(p, fp)) {
 			goto bad;
                 }
@@ -2648,7 +2672,6 @@ int policydb_read(policydb_t * p, struct policy_file * fp, unsigned verbose)
 
 	return 0;
 bad:
-	policydb_destroy(p);
 	return -1;
 }
 

@@ -21,8 +21,8 @@
 
 #include <stdlib.h>
 
-#include <sepol/flask_types.h>
-#include <sepol/conditional.h>
+#include <sepol/policydb/flask_types.h>
+#include <sepol/policydb/conditional.h>
 
 #include "private.h"
 
@@ -440,17 +440,24 @@ void cond_av_list_destroy(cond_av_list_t *list)
 	}
 }
 
-void cond_node_destroy(cond_node_t *node)
-{
+void cond_expr_destroy(cond_expr_t *expr) {
 	cond_expr_t *cur_expr, *next_expr;
 
-	if (!node)
+	if (!expr)
 		return;
 
-	for (cur_expr = node->expr; cur_expr != NULL; cur_expr = next_expr) {
+	for (cur_expr = expr; cur_expr != NULL; cur_expr = next_expr) {
 		next_expr = cur_expr->next;
 		free(cur_expr);
 	}
+}
+
+void cond_node_destroy(cond_node_t *node)
+{
+	if (!node)
+		return;
+
+	cond_expr_destroy(node->expr);
         avrule_list_destroy(node->avtrue_list);
         avrule_list_destroy(node->avfalse_list);
 	cond_av_list_destroy(node->true_list);

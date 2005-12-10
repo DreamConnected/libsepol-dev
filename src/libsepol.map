@@ -1,4 +1,14 @@
 {
-  global: sepol_genbools*; sepol_set_policydb_from_file; sepol_check_context; sepol_genusers; sepol_debug; sepol_set_delusers;
+  global: 
+	sepol_module_package_*; sepol_link_modules; sepol_expand_module; sepol_link_packages;
+	sepol_bool_*; sepol_genbools*; 
+	sepol_context*; sepol_check_context;
+	sepol_iface_*; 
+	sepol_user_*; sepol_genusers; sepol_set_delusers;
+	sepol_msg_*; sepol_debug;
+	sepol_handle_*;
+	sepol_policydb_*; sepol_set_policydb_from_file; 
+	sepol_policy_kern_*;
+	sepol_policy_file_*;
   local: *;
 };

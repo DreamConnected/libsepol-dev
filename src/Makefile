@@ -20,14 +20,14 @@ $(LIBA):  $(OBJS)
 	ranlib $@
 
 $(LIBSO): $(LOBJS)
-	$(CC) $(LDFLAGS) -shared -o $@ $^ -Wl,-soname,$(LIBSO),--version-script=libsepol.map
+	$(CC) $(LDFLAGS) -shared -o $@ $^ -Wl,-soname,$(LIBSO),--version-script=libsepol.map,-z,defs
 	ln -sf $@ $(TARGET) 
 
 %.o:  %.c 
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 %.lo:  %.c
-	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
+	$(CC) $(CFLAGS) -fpic -DSHARED -c -o $@ $<
 
 install: all
 	test -d $(LIBDIR) || install -m 755 -d $(LIBDIR)

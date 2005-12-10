@@ -1,14 +1,28 @@
 /* Authors: Jason Tang <jtang@tresys.com>
  *
+ * Functions that manipulate a logical block (conditional, optional,
+ * or global scope) for a policy module.
+ *
  * Copyright (C) 2005 Tresys Technology, LLC
- *	This program is free software; you can redistribute it and/or modify
- *  	it under the terms of the GNU General Public License as published by
- *	the Free Software Foundation, version 2.
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2.1 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <sepol/policydb.h>
-#include <sepol/conditional.h>
-#include <sepol/avrule_block.h>
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/conditional.h>
+#include <sepol/policydb/avrule_block.h>
 
 #include <assert.h>
 #include <stdlib.h>
@@ -61,6 +75,8 @@ avrule_decl_t *avrule_decl_create(uint32_t decl_id)
         return decl;
 }
 
+/* note that unlike the other destroy functions, this one does /NOT/
+ * destroy the pointer itself */
 static void scope_index_destroy(scope_index_t *scope) {
         unsigned int i;
         if (scope == NULL) {
@@ -87,6 +103,7 @@ static void avrule_decl_destroy(avrule_decl_t *x)
         scope_index_destroy(&x->required);
         scope_index_destroy(&x->declared);
         symtabs_destroy(x->symtab);
+        free(x);
 }
 
 void avrule_block_destroy(avrule_block_t *x)
@@ -99,9 +116,9 @@ void avrule_block_destroy(avrule_block_t *x)
         while (decl != NULL) {
             avrule_decl_t *next_decl = decl->next;
             avrule_decl_destroy(decl);
-            free(decl);
             decl = next_decl;
         }
+        free(x);
 }
 
 void avrule_block_list_destroy(avrule_block_t *x)
@@ -109,7 +126,6 @@ void avrule_block_list_destroy(avrule_block_t *x)
         while (x != NULL) {
                 avrule_block_t *next = x->next;
                 avrule_block_destroy(x);
-                free(x);
                 x = next;
         }
 }
@@ -156,11 +172,11 @@ int is_id_enabled(char *id, policydb_t *p, int symbol_table) {
         }
         for (i = 0; i < scope->decl_ids_len; i++) {
                 avrule_decl_t *decl = get_avrule_decl(p, scope->decl_ids[i]);
-                if (decl == NULL || !decl->enabled) {
-                        return 0;
+                if (decl != NULL && decl->enabled) {
+                        return 1;
                 }
         }
-        return 1;
+        return 0;
 }
 
 /* Check if a particular permission is present within the given class,

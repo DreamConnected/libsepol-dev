@@ -19,16 +19,19 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <sepol/policydb.h>
-#include <sepol/conditional.h>
-#include <sepol/hashtab.h>
-#include <sepol/avrule_block.h>
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/conditional.h>
+#include <sepol/policydb/hashtab.h>
+#include <sepol/policydb/avrule_block.h>
+#include <sepol/policydb/link.h>
 
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+
+#include "debug.h"
 
 typedef struct policy_module {
         policydb_t *policy;
@@ -58,8 +61,7 @@ typedef struct link_state {
         uint32_t symbol_num;
 
         /* error reporting fields */
-        char *error_buf;
-        size_t error_buf_size;
+	sepol_handle_t *handle;
 } link_state_t;
 
 struct missing_requirement {
@@ -103,23 +105,6 @@ static int add_i_to_a(uint32_t i, uint32_t *cnt, uint32_t **a)
         return 0;
 }
 
-
-
-/* Write an error message to the current error buffer, up to the
- * buffer's specified size. */
-#ifdef __GNUC__
-__attribute__ ((format (printf, 2, 3)))
-#endif
-static void write_error(link_state_t *state, char *fmt, ...) {
-        va_list ap;
-        if (state->error_buf == NULL) {
-                return;
-        }
-        va_start(ap, fmt);
-        vsnprintf(state->error_buf, state->error_buf_size, fmt, ap);
-        va_end(ap);
-}
- 
 /* Deallocates all elements within a module, but NOT the policydb_t
  * structure within, as well as the pointer itself. */
 static void policy_module_destroy(policy_module_t *mod)
@@ -164,14 +149,14 @@ static int permission_copy_callback(hashtab_key_t key, hashtab_datum_t datum, vo
                 new_perm = hashtab_search(dest_class->comdatum->permissions.table, perm_id);
         }
         if (!new_perm) {
-                write_error(state, "Modules may not declare new permissions.");
+                ERR(state->handle, "Module %s depends on permission %s in class %s, not satisfied", state->cur_mod_name, perm_id, mod->policy->p_class_val_to_name[dest_class->value - 1]);
                 return -1;
         }
 
         if (perm->value > mod->perm_map_len[sclassi]) {
                 uint32_t *newmap = calloc(perm->value, sizeof(*newmap));
                 if (newmap == NULL) {
-                        write_error(state, "Out of memory!");
+                        ERR(state->handle, "Out of memory!");
                         return -1;
                 }
                 memcpy(newmap, mod->perm_map[sclassi], mod->perm_map_len[sclassi] * sizeof(*newmap));
@@ -193,7 +178,7 @@ static int class_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *d
         cladatum = (class_datum_t *) datum;
         new_class = hashtab_search(state->base->p_classes.table, id);
         if (!new_class) {
-                write_error(state, "%s: Modules may not yet declare new classes.", state->cur_mod_name);
+                ERR(state->handle, "%s: Modules may not yet declare new classes.", state->cur_mod_name);
                 return -1;
         }
         state->cur->map[SYM_CLASSES][cladatum->value - 1] = new_class->value;
@@ -220,7 +205,7 @@ static int role_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *da
         base_role = hashtab_search(state->base->p_roles.table, id);
         if (base_role == NULL) {
                 if (state->verbose)
-                        printf("copying role %s\n", id);
+                        INFO(state->handle, "copying role %s", id);
 
                 if ((new_id = strdup(id)) == NULL) {
                         goto cleanup;
@@ -262,7 +247,7 @@ static int role_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *da
         return 0;
         
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         role_datum_destroy(new_role);
 	free(new_id);
 	free(new_role);
@@ -292,19 +277,19 @@ static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *da
                  * modules both declare type foo_t) is checked during
                  * scope_copy_callback(). */
                 if (type->isattr && !base_type->isattr) {
-                        write_error(state, "%s: Expected %s to be an attribute, but it was already declared as a type.",
+                        ERR(state->handle, "%s: Expected %s to be an attribute, but it was already declared as a type.",
                                     state->cur_mod_name, id);
                         return -1;
                 }
                 else if (!type->isattr && base_type->isattr) {
-                        write_error(state, "%s: Expected %s to be a type, but it was already declared as an attribute.",
+                        ERR(state->handle, "%s: Expected %s to be a type, but it was already declared as an attribute.",
                                     state->cur_mod_name, id);
                         return -1;
                 }
         }
         else {
                 if (state->verbose)
-                        printf("copying type %s\n", id);
+                        INFO(state->handle, "copying type %s", id);
 
                 if ((new_id = strdup(id)) == NULL) {
                         goto cleanup;
@@ -348,7 +333,7 @@ static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *da
         return 0;
         
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         free(new_id);
         free(new_type);
         return -1;
@@ -362,12 +347,17 @@ static int user_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *da
         user_datum_t *user, *base_user, *new_user = NULL;
 	link_state_t *state = (link_state_t *)data;
 
+	if (state->base->mls) {
+		ERR(state->handle, "Users cannot be declared in MLS modules");
+		return -1;
+	}
+
         user = (user_datum_t*)datum;
 
         base_user = hashtab_search(state->base->p_users.table, id);
         if (base_user == NULL) {
                 if (state->verbose)
-                        printf("copying user %s\n", id);
+                        INFO(state->handle, "copying user %s", id);
 
                 if ((new_id = strdup(id)) == NULL) {
                         goto cleanup;
@@ -410,7 +400,7 @@ static int user_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *da
         return 0;
         
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         user_datum_destroy(new_user);
 	free(new_id);
 	free(new_user);
@@ -429,7 +419,7 @@ static int bool_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *da
         base_bool = hashtab_search(state->base->p_bools.table, id);
         if (base_bool == NULL) {
                 if (state->verbose)
-                        printf("copying boolean %s\n", id);
+                        INFO(state->handle, "copying boolean %s", id);
 
                 if ((new_id = strdup(id)) == NULL) {
                         goto cleanup;
@@ -469,7 +459,7 @@ static int bool_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *da
         return 0;
         
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         cond_destroy_bool(new_id, new_bool, NULL);
         return -1;
 }
@@ -508,7 +498,7 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *d
         target_id = mod->policy->p_type_val_to_name[type->value - 1];
         target_type = hashtab_search(state->base->p_types.table, target_id);
         if (target_type == NULL) {
-                write_error(state, "%s: Could not find type %s for alias %s.",
+                ERR(state->handle, "%s: Could not find type %s for alias %s.",
                             state->cur_mod_name, target_id, id);
                 return -1;
         }
@@ -516,7 +506,7 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *d
         base_type = hashtab_search(state->base->p_types.table, id);
         if (base_type == NULL) {
                 if (state->verbose)
-                        printf("copying alias %s\n", id);
+                        INFO(state->handle, "copying alias %s", id);
 
                 if ((new_type = (type_datum_t *) calloc(1, sizeof(*new_type))) == NULL) {
                         goto cleanup;
@@ -551,7 +541,7 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *d
         return 0;
 
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         free(new_id);
         free(new_type);
         return -1;
@@ -607,7 +597,7 @@ static int type_set_or_convert(type_set_t *types, type_set_t *dst,
 	return 0;
 
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         type_set_destroy(&ts_tmp);
         return -1;
 }
@@ -636,7 +626,7 @@ static int role_set_or_convert(role_set_t *roles, role_set_t *dst,
         ebitmap_destroy(&tmp);
 	return 0;
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         ebitmap_destroy(&tmp);
         return -1;
 }
@@ -657,7 +647,7 @@ static int role_fix_callback(hashtab_key_t key, hashtab_datum_t datum, void *dat
         assert(dest_role != NULL);
 
         if (state->verbose) {
-                printf("fixing role %s\n", id);
+                INFO(state->handle, "fixing role %s", id);
         }
 
         ebitmap_init(&e_tmp);
@@ -679,7 +669,7 @@ static int role_fix_callback(hashtab_key_t key, hashtab_datum_t datum, void *dat
         return 0;
 
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         ebitmap_destroy(&e_tmp);
         return -1;
 }
@@ -706,7 +696,7 @@ static int type_fix_callback(hashtab_key_t key, hashtab_datum_t datum, void *dat
         assert(new_type != NULL && new_type->isattr);
 
         if (state->verbose) {
-                printf("fixing attribute %s\n", id);
+                INFO(state->handle, "fixing attribute %s", id);
         }
 
         ebitmap_init(&e_tmp);
@@ -725,7 +715,7 @@ static int type_fix_callback(hashtab_key_t key, hashtab_datum_t datum, void *dat
         return 0;
 
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         ebitmap_destroy(&e_tmp);
         return -1;
 }
@@ -744,7 +734,7 @@ static int user_fix_callback(hashtab_key_t key, hashtab_datum_t datum, void *dat
         assert(new_user != NULL);
 
         if (state->verbose) {
-                printf("fixing user %s\n", id);
+                INFO(state->handle, "fixing user %s", id);
         }
 
         if (role_set_or_convert(&user->roles, &new_user->roles, mod, state)) {
@@ -754,7 +744,7 @@ static int user_fix_callback(hashtab_key_t key, hashtab_datum_t datum, void *dat
         return 0;
 
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         return -1;
 }
 
@@ -782,7 +772,7 @@ static int role_merge_callback(hashtab_key_t key, hashtab_datum_t datum, void *d
 
         if (ebitmap_union(&dest_role->dominates, &role->dominates) ||
             type_set_or_eq(&dest_role->types, &role->types)) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 return -1;
         }
         return 0;
@@ -805,7 +795,7 @@ static int type_merge_callback(hashtab_key_t key, hashtab_datum_t datum, void *d
         assert(new_type != NULL && new_type->isattr);
 
         if (ebitmap_union(&new_type->types, &type->types)) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 return -1;
         }
         return 0;
@@ -822,7 +812,7 @@ static int user_merge_callback(hashtab_key_t key, hashtab_datum_t datum, void *d
         new_user = hashtab_search(state->base->p_users.table, id);
         assert(new_user != NULL);
         if (ebitmap_union(&new_user->roles.roles, &user->roles.roles)) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 return -1;
         }
         new_user->roles.flags |= user->roles.flags;
@@ -914,7 +904,7 @@ static int copy_avrule_list(avrule_t *list, avrule_t **dst,
 
         return 0;
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         avrule_destroy(new_rule);
 	free(new_rule);
         return -1;
@@ -954,7 +944,7 @@ static int copy_role_trans_list(role_trans_rule_t *list, role_trans_rule_t **dst
 	}
 	return 0;
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         role_trans_rule_list_destroy(new_rule);
         return -1;
 }
@@ -991,7 +981,7 @@ static int copy_role_allow_list(role_allow_rule_t *list, role_allow_rule_t **dst
         }
 	return 0;
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         role_allow_rule_list_destroy(new_rule);
         return -1;
 }
@@ -999,6 +989,7 @@ static int copy_role_allow_list(role_allow_rule_t *list, role_allow_rule_t **dst
 static int copy_cond_list(cond_node_t *list, cond_node_t **dst,
                           policy_module_t *module, link_state_t *state)
 {
+        unsigned i;
         cond_node_t *cur, *new_node = NULL, *tail;
         cond_expr_t *cur_expr;
         tail = *dst;
@@ -1022,6 +1013,13 @@ static int copy_cond_list(cond_node_t *list, cond_node_t **dst,
                         assert(module->map[SYM_BOOLS][cur_expr->bool - 1] != 0);
                         cur_expr->bool = module->map[SYM_BOOLS][cur_expr->bool - 1];
                 }
+                new_node->nbools = cur->nbools;
+                for (i = 0; i < cur->nbools; i++) {
+                        uint32_t remapped_id = module->map[SYM_BOOLS][cur->bool_ids[i] - 1];
+                        assert(remapped_id != 0);
+                        new_node->bool_ids[i] = remapped_id;
+                }
+                new_node->expr_pre_comp = cur->expr_pre_comp;
 
                 if (copy_avrule_list(cur->avtrue_list, &new_node->avtrue_list, module, state) ||
                     copy_avrule_list(cur->avfalse_list, &new_node->avfalse_list, module, state)) {
@@ -1039,7 +1037,7 @@ static int copy_cond_list(cond_node_t *list, cond_node_t **dst,
         }
         return 0;
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         cond_node_destroy(new_node);
         free(new_node);
         return -1;
@@ -1079,12 +1077,12 @@ static int copy_module_identifiers(link_state_t *state, policy_module_t *module)
         policydb_t *pol = module->policy;
 
         if (new_avrule == NULL) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 goto cleanup;
         }
         new_decl = avrule_decl_create(state->next_decl_id);
         if (new_decl == NULL) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 goto cleanup;
         }
         new_avrule->branch_list = new_decl;
@@ -1162,7 +1160,7 @@ static int copy_scope_index(scope_index_t *src, scope_index_t *dest,
         return 0;
         
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         return -1;
 }
 
@@ -1196,14 +1194,14 @@ static int copy_avrule_block(link_state_t *state, policy_module_t *module,
         avrule_block_t *new_block = avrule_block_create();
         avrule_decl_t *decl, *last_decl = NULL;
         if (new_block == NULL) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 goto cleanup;
         }
 
         for (decl = block->branch_list; decl != NULL; decl = decl->next) {
                 avrule_decl_t *new_decl = avrule_decl_create(state->next_decl_id);
                 if (new_decl == NULL) {
-                        write_error(state, "Out of memory!");
+                        ERR(state->handle, "Out of memory!");
                         goto cleanup;
                 }
                 if (last_decl == NULL) {
@@ -1299,7 +1297,7 @@ static int scope_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *d
                  * declared.  only roles and users may be multiply
                  * declared; for all others this is an error. */
                 if (symbol_num != SYM_ROLES && symbol_num != SYM_USERS) {
-                        write_error(state, "%s: Duplicate declaration in module: %s %s",
+                        ERR(state->handle, "%s: Duplicate declaration in module: %s %s",
                                     state->cur_mod_name, symtab_names[state->symbol_num], id);
                         return -1;
                 }
@@ -1314,7 +1312,7 @@ static int scope_copy_callback(hashtab_key_t key, hashtab_datum_t datum, void *d
         return 0;
 
  cleanup:
-        write_error(state, "Out of memory!");
+        ERR(state->handle, "Out of memory!");
         return -1;
 }
 
@@ -1516,7 +1514,7 @@ static int verify_module_requirements(link_state_t *state,
         policydb_t *p = state->base;
 
         if (state->verbose) {
-                printf("Verifying module global requirements.\n");
+                INFO(state->handle, "Verifying module global requirements.");
         }
         
         for (i = 0; i < len; i++) {
@@ -1528,7 +1526,7 @@ static int verify_module_requirements(link_state_t *state,
                                 class_datum_t *cladatum;
                                 cladatum = p->class_val_to_struct[req.symbol_value - 1];
                                 char *perm_id = (char *)hashtab_map(cladatum->permissions.table, find_perm, &req.perm_value);
-                                write_error(state,
+                                ERR(state->handle,
                                             "Module %s's global requirements were not met: class %s, permission %s",
                                             mod_name,
                                             p->p_class_val_to_name[req.symbol_value - 1],
@@ -1536,7 +1534,7 @@ static int verify_module_requirements(link_state_t *state,
                                 return -1;
                         }
                         else {
-                                write_error(state,
+                                ERR(state->handle,
                                             "Module %s's global requirements were not met: %s %s",
                                             mod_name, 
                                             symtab_names[req.symbol_type],
@@ -1552,7 +1550,7 @@ static int verify_module_requirements(link_state_t *state,
 /*********** merging and stripping functions ***********/
 
 /* for each enabled block, merge its identifiers and avrules into the base */
-int merge_avrules(link_state_t *state, avrule_block_t *block) {
+static int merge_avrules(link_state_t *state, avrule_block_t *block) {
         avrule_decl_t *dest_decl = block->branch_list;
         cond_node_t *src_cond, *dest_cond;
         avrule_t *last_avrule = dest_decl->avrules, *tmp;
@@ -1593,14 +1591,14 @@ int merge_avrules(link_state_t *state, avrule_block_t *block) {
                 while (src_cond != NULL) {
                         dest_cond = get_decl_cond_list(state->base, dest_decl, src_cond);
                         if (dest_cond == NULL) {
-                                write_error(state, "Out of memory!");
+                                ERR(state->handle, "Out of memory!");
                                 return -1;
                         }
                         if (dest_cond->avtrue_list == NULL) {
                                 dest_cond->avtrue_list = src_cond->avtrue_list;
                         }
                         else {
-                                tmp = src_cond->avtrue_list;
+                                tmp = dest_cond->avtrue_list;
                                 while (tmp->next != NULL) {
                                         tmp = tmp->next;
                                 }
@@ -1611,7 +1609,7 @@ int merge_avrules(link_state_t *state, avrule_block_t *block) {
                                 dest_cond->avfalse_list = src_cond->avfalse_list;
                         }
                         else {
-                                tmp = src_cond->avfalse_list;
+                                tmp = dest_cond->avfalse_list;
                                 while (tmp->next != NULL) {
                                         tmp = tmp->next;
                                 }
@@ -1674,7 +1672,7 @@ int merge_avrules(link_state_t *state, avrule_block_t *block) {
 			ebitmap_for_each_bit(srcmap, node, j) {
                                 if (ebitmap_node_get_bit(node, j) &&
                                     ebitmap_set_bit(destmap, j, 1) != 0) {
-                                        write_error(state, "Out of memory!");
+                                        ERR(state->handle, "Out of memory!");
                                         return -1;
                                 }
                         }
@@ -1703,7 +1701,7 @@ static int check_symbol_used(hashtab_key_t k, hashtab_datum_t d, void *args) {
                                 if (add_i_to_a(state->dest_decl->decl_id,
                                                &scope->decl_ids_len,
                                                &scope->decl_ids) == -1) {
-                                        write_error(state, "Out of memory!\n");
+                                        ERR(state->handle, "Out of memory!");
                                 }
                                 return 0;
                         }
@@ -1740,6 +1738,22 @@ static int strip_symbols(link_state_t *state) {
 
 /*********** the main linking functions ***********/
 
+/* Given a module's policy, normalize all conditional expressions
+ * within.  Return 0 on success, -1 on error. */
+static int cond_normalize(policydb_t *p) {
+        avrule_block_t *block;
+        for (block = p->global; block != NULL; block = block->next) {
+                avrule_decl_t *decl;
+                for (decl = block->branch_list; decl != NULL; decl = decl->next) {
+                        cond_list_t *cond = decl->cond_list;
+                        if (cond != NULL && cond_normalize_expr(p, cond) < 0) {
+                                return -1;
+                        }
+                }
+        }
+        return 0;
+}
+
 /* Allocate space for the various remapping arrays. */
 static int prepare_module(link_state_t *state, policy_module_t *module) {
         int i;
@@ -1750,7 +1764,7 @@ static int prepare_module(link_state_t *state, policy_module_t *module) {
         for (i = 0; i < SYM_NUM; i++) {
                 items = module->policy->symtab[i].nprim;
                 if ((module->map[i] = (uint32_t*)calloc(items, sizeof(*module->map[i]))) == NULL) {
-                        write_error(state, "Out of memory!");
+                        ERR(state->handle, "Out of memory!");
                         return -1;
                 }
         }
@@ -1758,11 +1772,11 @@ static int prepare_module(link_state_t *state, policy_module_t *module) {
         /* allocate the permissions remap here */
         items = module->policy->p_classes.nprim;
         if ((module->perm_map_len = calloc(items, sizeof(*module->perm_map_len))) == NULL) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 return -1;
         }
         if ((module->perm_map = calloc(items, sizeof(*module->perm_map))) == NULL) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 return -1;
         }
 
@@ -1777,11 +1791,16 @@ static int prepare_module(link_state_t *state, policy_module_t *module) {
         }
         num_decls++;
         if ((module->avdecl_map = calloc(num_decls, sizeof(uint32_t))) == NULL) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 return -1;
         }
         module->num_decls = num_decls;
         
+        /* normalize conditionals within */
+        if (cond_normalize(module->policy) < 0) {
+                ERR(state->handle, "Error while normalizing conditionals within the module %s.", module->policy->name);
+                return -1;
+        }
         return 0;
 }
 
@@ -1809,7 +1828,7 @@ static int prepare_base(link_state_t *state, uint32_t num_mod_decls) {
          * avrule_decls and set the initial mappings */
         if ((state->decl_id_to_decl = calloc(state->next_decl_id + num_mod_decls,
                                              sizeof(*(state->decl_id_to_decl)))) == NULL) {
-                write_error(state, "Out of memory!");
+                ERR(state->handle, "Out of memory!");
                 return -1;
         }
         cur = state->base->global;
@@ -1822,6 +1841,11 @@ static int prepare_base(link_state_t *state, uint32_t num_mod_decls) {
                 cur = cur->next;
         }
 
+        /* normalize conditionals within */
+        if (cond_normalize(state->base) < 0) {
+                ERR(state->handle, "Error while normalizing conditionals within the base module.");
+                return -1;
+        }
         return 0;
 }
 
@@ -1865,8 +1889,9 @@ static int prepare_base(link_state_t *state, uint32_t num_mod_decls) {
  * detailed error description, ala errno.  Upon success the error
  * buffer will be untouched.
  */
-int link_modules(policydb_t *b, policydb_t **mods, int len,
-                 int verbose, char *error_buf, size_t error_buf_size)
+int link_modules(sepol_handle_t *handle,
+		 policydb_t *b, policydb_t **mods, int len,
+                 int verbose)
 {
         int i, retval = -1;
         policy_module_t **modules = NULL;
@@ -1877,19 +1902,36 @@ int link_modules(policydb_t *b, policydb_t **mods, int len,
         memset(&state, 0, sizeof(state));
         state.base = b;
         state.verbose = verbose;
-        state.error_buf = error_buf;
-        state.error_buf_size = error_buf_size;
-        
+        state.handle = handle;
+
+        if (b->policy_type != POLICY_BASE) {
+                ERR(state.handle, "Target of link was not a base policy.");
+                return -1;
+        }
+
         /* first allocate some space to hold the maps from module
          * symbol's value to the destination symbol value; then do
          * other preparation work */
         if ((modules = (policy_module_t**)calloc(len, sizeof(*modules))) == NULL) {
-                write_error(&state, "Out of memory!");
+                ERR(state.handle, "Out of memory!");
         	return -1;
         }
         for (i = 0; i < len; i++) {
+                if (mods[i]->policy_type != POLICY_MOD) {
+                        ERR(state.handle, "Tried to link in a policy that was not a module.");
+                        goto cleanup;
+                }
+
+		if (mods[i]->mls != b->mls) {
+			if (b->mls) 
+				ERR(state.handle, "Tried to link in a non-MLS module with an MLS base.");
+			else	
+				ERR(state.handle, "Tried to link in an MLS module with a non-MLS base.");
+			goto cleanup;
+		}
+
         	if ((modules[i] = (policy_module_t*)calloc(1, sizeof(policy_module_t))) == NULL) {
-                        write_error(&state, "Out of memory!");
+                        ERR(state.handle, "Out of memory!");
                         goto cleanup;
 		}
         	modules[i]->policy = mods[i];
@@ -1913,11 +1955,11 @@ int link_modules(policydb_t *b, policydb_t **mods, int len,
         
         /* re-index base, for symbols were added to symbol tables  */
         if (policydb_index_classes(state.base)) {
-                write_error(&state, "Error while indexing classes");
+                ERR(state.handle, "Error while indexing classes");
                 goto cleanup;
         }
-        if (policydb_index_others(state.base, 0)) {
-                write_error(&state, "Error while indexing others");
+        if (policydb_index_others(state.handle, state.base, 0)) {
+                ERR(state.handle, "Error while indexing others");
                 goto cleanup;
         }
 
@@ -1926,7 +1968,7 @@ int link_modules(policydb_t *b, policydb_t **mods, int len,
          * longer needed other than for error reporting purposes */
 
         if (state.verbose) {
-                printf("Determing which avrules to enable.\n");
+                INFO(state.handle, "Determining which avrules to enable.");
         }
         /* enable the global branch, then the appropriate optional branches */
         base_was_enabled = b->global->branch_list->enabled;
@@ -1951,8 +1993,8 @@ int link_modules(policydb_t *b, policydb_t **mods, int len,
                 retval = -1;
                 goto cleanup;
         }
-        avrule_block_destroy(state.last_base_avrule_block->next);
-        state.last_base_avrule_block->next = NULL;
+        avrule_block_list_destroy(state.base->global->next);
+        state.base->global->next = NULL;
 
         /* reset the global branch enabled flag now that the policy
            has been reconstructed */
@@ -1963,11 +2005,11 @@ int link_modules(policydb_t *b, policydb_t **mods, int len,
         
         /* re-index base one final time, for some symbols were removed */
         if (policydb_index_classes(state.base)) {
-                write_error(&state, "Error while indexing classes");
+                ERR(state.handle, "Error while indexing classes");
                 goto cleanup;
         }
-        if (policydb_index_others(state.base, 0)) {
-                write_error(&state, "Error while indexing others");
+        if (policydb_index_others(state.handle, state.base, 0)) {
+                ERR(state.handle, "Error while indexing others");
                 goto cleanup;
         }
 

@@ -8,7 +8,7 @@
  */
 
 #include <string.h>
-#include <sepol/symtab.h>
+#include <sepol/policydb/symtab.h>
 
 static unsigned int symhash(hashtab_t h, hashtab_key_t key)
 {

@@ -91,10 +91,10 @@ endif
 # the tool podebconf-report-po is also a great friend to have in such
 # circumstances 
 define CHECKPO
-	@for i in po/*.po; do                         \
+	@for i in debian/po/*.po; do                         \
 	  if [ -f $$i ]; then                        \
 	    echo \"Checking: $$i\";                  \
-	    msgmerge -U $$i po/templates.pot;        \
+	    msgmerge -U $$i debian/po/templates.pot;        \
 	    msgfmt -o /dev/null -c --statistics $$i; \
 	  fi;                                        \
 	done

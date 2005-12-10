@@ -1,27 +1,49 @@
 #ifndef _SEPOL_PORTS_H_
 #define _SEPOL_PORTS_H_
 
+#include <sepol/handle.h>
 #include <sepol/policydb.h>
 #include <sepol/port_record.h>
 
-/* Create a port structure from high level representation */
-extern int sepol_port_struct_create(
-	policydb_t* policydb,
-	ocontext_t** port,
-	sepol_port_t data);
+/* Return the number of ports */
+extern int sepol_port_count(
+	sepol_handle_t* handle,
+	sepol_policydb_t* p,
+	unsigned int* response);
 
-/* Get the current context mapping
- * for this port. Returns 1 if no match, -1 on error, 0 on
- * success. The returned data is allocated on the heap */
-int sepol_port_get_context(
-	policydb_t* policydb,
-	sepol_port_t data,
-	char** con_str,
-	size_t* con_str_len);
+/* Check if a port exists */
+extern int sepol_port_exists(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	sepol_port_key_t* key,
+	int* response);
 
-/* Load the given port into policy. No shadowing is allowed. */
-extern int sepol_port_load(
-	policydb_t* policydb, 
-	sepol_port_t data);
+/* Query a port - returns the port, or NULL if not found */
+extern int sepol_port_query(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	sepol_port_key_t* key,
+	sepol_port_t** response);
+
+/* Modify a port, or add it, if the key is not found */
+extern int sepol_port_modify(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb, 
+	sepol_port_key_t* key,
+	sepol_port_t* data);
+
+/* Iterate the ports 
+ * The handler may return:
+ * -1 to signal an error condition,
+ * 1 to signal successful exit
+ * 0 to signal continue */
+
+extern int sepol_port_iterate(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	int (*fn)(
+		sepol_port_t* port,
+		void* fn_arg),
+	void* arg);
 
 #endif

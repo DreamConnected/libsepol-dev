@@ -1,52 +1,86 @@
 #include <stdarg.h>
+#include <stdlib.h>
 #include <stdio.h>
-
-#include <sepol/sepol.h>
-#include <sepol/debug.h>
+#include "handle.h"
 #include "debug.h"
 
+/* Deprecated */
+struct sepol_handle sepol_compat_handle = {
+	.msg_callback = sepol_msg_default_handler,
+	.msg_callback_arg = NULL,
+};
+
+void sepol_debug(int on) {
+	sepol_compat_handle.msg_callback = (on)? 
+		sepol_msg_default_handler : NULL;
+}
+
+/* End deprecated */
+
+int sepol_msg_get_level(sepol_handle_t* handle) {
+	return handle->msg_level;
+}
+hidden_def(sepol_msg_get_level)
+
+const char* sepol_msg_get_channel(sepol_handle_t* handle) {
+	return handle->msg_channel;
+}
+hidden_def(sepol_msg_get_channel)
+
+const char* sepol_msg_get_fname(sepol_handle_t* handle) {
+	return handle->msg_fname;
+}
+hidden_def(sepol_msg_get_fname)
+
 #ifdef __GNUC__
-__attribute__ ((format (printf, 2, 3))) 
+__attribute__ ((format (printf, 3, 4)))
 #endif
-static void default_printf(
-	const char* fname, 
-	const char *fmt, ...) {
+void hidden sepol_msg_default_handler(
+	void* varg,
+	sepol_handle_t* handle,
+	const char* fmt,
+	...) {
+
+	FILE* stream = NULL;
+
+	switch(sepol_msg_get_level(handle)) {
+
+		case SEPOL_MSG_ERR:
+		case SEPOL_MSG_WARN:
+			stream = stderr;
+			break;
+		case SEPOL_MSG_INFO:
+		default:
+			stream = stdout;
+			break;
+	}
+
+	fprintf(stream, "%s.%s: ",
+		sepol_msg_get_channel(handle),
+		sepol_msg_get_fname(handle));
 
 	va_list ap;
-	va_start(ap, fmt);
-	fprintf(stderr, "libsepol.%s: ", fname);
-	vfprintf (stderr, fmt, ap);
+	va_start(ap,fmt);
+	vfprintf(stream, fmt, ap);
 	va_end(ap);
+
+	fprintf(stream, "\n");
+
+	varg = NULL;
 }
 
+extern void sepol_msg_set_callback(
+	sepol_handle_t* handle,
 #ifdef __GNUC__
-__attribute__ ((format (printf, 2, 3)))
+	__attribute__ ((format (printf, 3, 4)))
 #endif
-static void suppress_printf(
-	const char* unused1, 
-	const char* unused2, ...) { 
-		unused1 = NULL;
-		unused2 = NULL;
-}
+	void (*msg_callback) (
+		void* varg,
+		sepol_handle_t* handle,
+		const char* fmt,
+		...),
+	void* msg_callback_arg) {
 
-void (*DEBUG) (const char* fname, const char* fmt, ...) = default_printf;
-
-void sepol_debug_compat(int on) {
-	DEBUG = (on)? default_printf : suppress_printf;
-}
-
-void sepol_enable_debug(
-	void (*fn)(const char* fname, const char *fmt, ...)) {
-
-	DEBUG = (fn)? fn: default_printf;	
-
-	/* Compatibility  - old debug system */
-	sepol_debug(1);
-}
-
-void sepol_disable_debug() {
-	DEBUG = suppress_printf;
-
-	/* Compatibility - old debug system */
-	sepol_debug(0);
+	handle->msg_callback = msg_callback;
+	handle->msg_callback_arg = msg_callback_arg;
 }

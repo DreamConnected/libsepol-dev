@@ -1,17 +1,28 @@
 #include <stdlib.h>
+#include <string.h>
 
-#include <sepol/policydb.h>
-#include <sepol/context.h>
-#include <sepol/mls.h>
-#include <sepol/context_record.h>
+#include <sepol/policydb/policydb.h>
+#include "context_internal.h"
 
 #include "debug.h"
+#include "context.h"
+#include "handle.h"
+#include "mls.h"
+
+/* ----- Compatibility ---- */
+int policydb_context_isvalid(
+	policydb_t *p, 
+	context_struct_t *c) {
+
+        return context_is_valid(p,c);
+}
+/* ---- End compatibility --- */
 
 /*
  * Return 1 if the fields in the security context
  * structure `c' are valid.  Return 0 otherwise.
  */
-int sepol_ctx_struct_is_valid(policydb_t *p, context_struct_t *c)
+int context_is_valid(policydb_t *p, context_struct_t *c)
 {
 	role_datum_t *role;
 	user_datum_t *usrdatum;
@@ -63,7 +74,8 @@ int sepol_ctx_struct_is_valid(policydb_t *p, context_struct_t *c)
  * to point to this string and set `*scontext_len' to
  * the length of the string.
  */
-int sepol_ctx_struct_to_string(
+int context_to_string(
+	sepol_handle_t* handle,
 	policydb_t* policydb,
 	context_struct_t * context,
 	char **result,
@@ -109,20 +121,20 @@ int sepol_ctx_struct_to_string(
 	return STATUS_SUCCESS;
 
 	omem:
-	DEBUG(__FUNCTION__, "out of memory, could not convert "
-		"context to string\n");
+	ERR(handle, "out of memory, could not convert " 
+			"context to string");
 	free(scontext);
 	return STATUS_ERR;
 }
 
-
-/* Create a policy-dependent context structure, corresponding
- * to the provided high level representation */
-
-int sepol_ctx_struct_create(
+/*
+ * Create a context structure from the given record
+ */
+int context_from_record(
+	sepol_handle_t* handle,
 	policydb_t* policydb, 
 	context_struct_t** cptr, 
-	sepol_context_t data) {
+	sepol_context_t* record) {
 
 	context_struct_t* scontext = NULL;
 	user_datum_t* usrdatum;
@@ -130,17 +142,14 @@ int sepol_ctx_struct_create(
 	type_datum_t* typdatum;
 
 	/* Hashtab keys are not constant - suppress warnings */
-	char* user = strdup(sepol_context_get_user(data)); 
-	char* role = strdup(sepol_context_get_role(data));
-	char* type = strdup(sepol_context_get_type(data));
- 
- 	const char* tmp = sepol_context_get_mls(data);
- 	char* mls = tmp ? strdup(tmp): NULL;
- 	char* mls_ptr = mls;
+	char* user = strdup(sepol_context_get_user(record)); 
+	char* role = strdup(sepol_context_get_role(record));
+	char* type = strdup(sepol_context_get_type(record));
+	const char* mls = sepol_context_get_mls(record); 
 
 	scontext = (context_struct_t*) malloc(sizeof(context_struct_t));
- 	if (!user || !role || !type || (tmp && !mls) || !scontext) {
-		DEBUG(__FUNCTION__, "out of memory\n"); 
+ 	if (!user || !role || !type || !scontext) {
+		ERR(handle, "out of memory");
 		goto err;
 	}
 	context_init(scontext);
@@ -149,7 +158,7 @@ int sepol_ctx_struct_create(
 	usrdatum = (user_datum_t*) hashtab_search(policydb->p_users.table,
                                         (hashtab_key_t) user);
 	if (!usrdatum) {
-		DEBUG(__FUNCTION__, "user %s is not defined\n", user);
+		ERR(handle, "user %s is not defined", user);
 		goto err_destroy;
 	}
 	scontext->user = usrdatum->value;
@@ -158,7 +167,7 @@ int sepol_ctx_struct_create(
 	roldatum = (role_datum_t*) hashtab_search(policydb->p_roles.table,
 					(hashtab_key_t) role);
 	if (!roldatum) {
-		DEBUG(__FUNCTION__, "role %s is not defined\n", role);
+		ERR(handle, "role %s is not defined", role);
 		goto err_destroy;
 	}
 	scontext->role = roldatum->value;
@@ -167,38 +176,36 @@ int sepol_ctx_struct_create(
 	typdatum = (type_datum_t *) hashtab_search(policydb->p_types.table,
 					(hashtab_key_t) type);
 	if (!typdatum || typdatum->isattr) {
-		DEBUG(__FUNCTION__, "type %s is not defined\n", type);
+		ERR(handle, "type %s is not defined", type);
 		goto err_destroy;
 	}
 	scontext->type = typdatum->value;
 
 	/* MLS */
-	if (mls && !sepol_mls_enabled()) {
- 		DEBUG(__FUNCTION__, "Warning! mls context \"%s\" found, "
- 			"but mls is disabled\n", mls);
- 		free(mls);
+	if (mls && !policydb->mls) {
+ 		WARN(handle, "mls context \"%s\" ignored, since "
+			"mls is disabled", mls);
 		mls = NULL;
 	}
-	else if (!mls && sepol_mls_enabled()) {
- 		DEBUG(__FUNCTION__, "mls is enabled, but no "
- 			"mls context found\n");
+	else if (!mls && policydb->mls) {
+ 		ERR(handle, "mls is enabled, but no mls context found");
 		goto err_destroy;
 	}
- 	if (mls && (mls_context_to_sid(policydb, '$', &mls_ptr, scontext) < 0)) {
- 		DEBUG(__FUNCTION__, "invalid mls context: %s\n", mls);
+	if (mls && (mls_from_string(handle, policydb, mls, scontext) < 0)) 
 		goto err_destroy;
-	}
 
 	/* Validity check */
- 	if (!sepol_ctx_struct_is_valid(policydb, scontext)) {
-		if (mls)
-			DEBUG(__FUNCTION__, 
-				"invalid security context: %s:%s:%s:%s\n",
+ 	if (!context_is_valid(policydb, scontext)) {
+		if (mls) {
+			ERR(handle, 
+				"invalid security context: \"%s:%s:%s:%s\"",
 				user, role, type, mls);
-		else
-			DEBUG(__FUNCTION__, 
-				"invalid security context: %s:%s:%s\n",
+		}
+		else {
+			ERR(handle, 
+				"invalid security context: \"%s:%s:%s\"",
 				user, role, type);
+		}
 		goto err_destroy;
 	}
 
@@ -206,7 +213,6 @@ int sepol_ctx_struct_create(
 	free(user);	
 	free(type);
 	free(role);
-	free(mls);
 	return STATUS_SUCCESS;
 
 	err_destroy:
@@ -217,46 +223,93 @@ int sepol_ctx_struct_create(
 	free(user);
 	free(type);
 	free(role);
-	free(mls);	
-	DEBUG(__FUNCTION__, "error creating context structure\n");
+	ERR(handle, "could not create context structure");
+	return STATUS_ERR;
+}
+
+/*
+ * Create a record from the given context structure
+ */
+int context_to_record(
+	sepol_handle_t* handle,
+	policydb_t* policydb,
+	context_struct_t* context,
+	sepol_context_t** record) {
+
+	sepol_context_t* tmp_record = NULL;
+	char* mls = NULL;
+
+	if (sepol_context_create(handle, &tmp_record) < 0)
+		goto err;
+
+	if (sepol_context_set_user(handle, tmp_record, 
+		policydb->p_user_val_to_name[context->user - 1]) < 0)
+		goto err;
+
+	if (sepol_context_set_role(handle, tmp_record,
+		policydb->p_role_val_to_name[context->role - 1]) < 0)
+		goto err;
+
+	if (sepol_context_set_type(handle, tmp_record,
+		policydb->p_type_val_to_name[context->type - 1]) <  0)
+		goto err;
+
+	if (policydb->mls) {
+		if (mls_to_string(handle, policydb, context, &mls) < 0)
+			goto err;
+
+		if (sepol_context_set_mls(handle, tmp_record, mls) < 0)
+			goto err;
+	}
+	
+	free(mls);
+	*record = tmp_record;
+	return STATUS_SUCCESS;
+
+	err:
+	ERR(handle, "could not create context record");
+	sepol_context_free(tmp_record);
+	free(mls);
 	return STATUS_ERR;
 }
 
 /*
  * Create a context structure from the provided string.
  */
-int sepol_ctx_struct_from_string(
+int context_from_string(
+	sepol_handle_t* handle,
 	policydb_t* policydb,
 	context_struct_t** cptr,
 	const char* con_str,
 	size_t con_str_len) { 
 
 	char* con_cpy = NULL;
-	sepol_context_t ctx_info = NULL;
+	sepol_context_t* ctx_record = NULL;
 
 	/* sepol_context_from_string expects a NULL-terminated string */
 	con_cpy = malloc(con_str_len + 1);
-	if (!con_cpy) {
-		DEBUG(__FUNCTION__, "out of memory\n");
-		goto err;
-	}
+	if (!con_cpy) 
+		goto omem;
 	memcpy(con_cpy, con_str, con_str_len);
 	con_cpy[con_str_len] = '\0';
 
-	if (sepol_context_from_string(con_cpy, &ctx_info) < 0)
+	if (sepol_context_from_string(handle, con_cpy, &ctx_record) < 0)
 		goto err;
 
 	/* Now create from the data structure */
-	if (sepol_ctx_struct_create(policydb, cptr, ctx_info) < 0)
+	if (context_from_record(handle, policydb, cptr, ctx_record) < 0)
 		goto err;
 
 	free(con_cpy);
-	sepol_context_free(ctx_info);
+	sepol_context_free(ctx_record);
 	return STATUS_SUCCESS;
 	
+	omem:
+	ERR(handle, "out of memory");
+
 	err:
-	DEBUG(__FUNCTION__, "unable to create context structure\n");
+	ERR(handle, "could not create context structure");
 	free(con_cpy);
-	sepol_context_free(ctx_info);
+	sepol_context_free(ctx_record);
 	return STATUS_ERR;
 }

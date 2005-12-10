@@ -3,10 +3,12 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include <sepol/policydb.h>
-#include <sepol/conditional.h>
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/conditional.h>
 
+#include "debug.h"
 #include "private.h"
+#include "dso.h"
 
 static char *strtrim(char *dest, char *source, int size) {
 	int i=0;
@@ -43,7 +45,8 @@ static int process_boolean(char *buffer, char *name, int namesize, int *val) {
 			else if (!strncasecmp(tok, "false", sizeof("false")-1))
 				*val = 0;
 			if (*val != 0 && *val != 1) {
-				fprintf(stderr,"illegal value for boolean %s=%s\n", name, tok);
+				ERR(NULL, "illegal value for boolean "
+					"%s=%s", name, tok);
 				return -1;
 			}
 			
@@ -52,14 +55,14 @@ static int process_boolean(char *buffer, char *name, int namesize, int *val) {
 	return 1;
 }
 
-static int load_booleans(struct policydb *policydb, const char *path) {
+static int load_booleans(struct policydb *policydb, const char *path, int *changesp) {
 	FILE *boolf;
 	char *buffer=NULL;
 	size_t size=0;
 	char localbools[BUFSIZ];
 	char name[BUFSIZ];
 	int val;
-	int errors=0;
+	int errors=0, changes = 0;
 	struct cond_bool_datum *datum;
 
 	boolf = fopen(path,"r");
@@ -73,11 +76,14 @@ static int load_booleans(struct policydb *policydb, const char *path) {
 		if (ret==1) {
 			datum = hashtab_search(policydb->p_bools.table, name);
 			if (!datum) {
-				fprintf(stderr,"unknown boolean %s\n", name);
+				ERR(NULL, "unknown boolean %s", name);
 				errors++;
 				continue;
 			}
-			datum->state = val;
+			if (datum->state != val) {
+				datum->state = val;
+				changes++;
+			}
 		}
 	}
 	fclose(boolf);
@@ -92,11 +98,14 @@ localbool:
 			if (ret==1) {
 				datum = hashtab_search(policydb->p_bools.table, name);
 				if (!datum) {
-					fprintf(stderr,"unknown boolean %s\n", name);
+					ERR(NULL, "unknown boolean %s", name);
 					errors++;
 					continue;
 				}
-				datum->state = val;
+				if (datum->state != val) {
+					datum->state = val;
+					changes++;
+				}
 			}
 		}
 		fclose(boolf);
@@ -104,7 +113,7 @@ localbool:
 	free(buffer);
 	if (errors)
 		errno = EINVAL;
-
+	*changesp = changes;
 	return errors ? -1 : 0;
 }
 
@@ -112,23 +121,22 @@ int sepol_genbools(void *data, size_t len, char *booleans)
 {
 	struct policydb policydb;
 	struct policy_file pf;
-	int rc;
+	int rc, changes = 0;
 
-	if (policydb_from_image(data, len, &policydb) < 0)
+	if (policydb_init(&policydb))
+		goto err;
+	if (policydb_from_image(NULL, data, len, &policydb) < 0)
 		goto err;
 
-	/* Preserve the policy version of the original policy
-	   for the new policy. */
-	sepol_set_policyvers(policydb.policy_type, policydb.policyvers);
-
-	if (load_booleans(&policydb, booleans) < 0) {
-		__sepol_debug_printf("%s:  Warning!  Error while reading %s\n",
-				     __FUNCTION__, booleans);
+	if (load_booleans(&policydb, booleans, &changes) < 0) {
+		WARN(NULL, "error while reading %s", booleans);
 	}
 
+	if (!changes)
+		goto out;
+
 	if (evaluate_conds(&policydb) < 0) {
-		__sepol_debug_printf("%s:  Error while re-evaluating conditionals\n",
-				     __FUNCTION__);
+		ERR(NULL, "error while re-evaluating conditionals");
 		errno = EINVAL;
 		goto err_destroy;
 	}
@@ -138,12 +146,12 @@ int sepol_genbools(void *data, size_t len, char *booleans)
 	pf.len = len;
 	rc = policydb_write(&policydb, &pf);
 	if (rc) {
-		__sepol_debug_printf("%s: Can't write new binary policy image\n",
-				     __FUNCTION__);
+		ERR(NULL, "unable to write new binary policy image");
 		errno = EINVAL;
 		goto err_destroy;
 	}
 
+        out:
 	policydb_destroy(&policydb);
 	return 0;
 
@@ -154,12 +162,12 @@ int sepol_genbools(void *data, size_t len, char *booleans)
 	return -1;
 }
 
-int sepol_genbools_policydb(policydb_t *policydb, const char *booleans)
+int hidden sepol_genbools_policydb(policydb_t *policydb, const char *booleans)
 {
-	int rc;
+	int rc, changes = 0;
 
-	rc = load_booleans(policydb, booleans);
-	if (!rc)
+	rc = load_booleans(policydb, booleans, &changes);
+	if (!rc && changes)
 		rc = evaluate_conds(policydb);
 	if (rc)
 		errno = EINVAL;
@@ -174,23 +182,21 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 	struct cond_bool_datum *datum;
 
 	/* Create policy database from image */
-	if (policydb_from_image(data, len, &policydb) < 0) 
+	if (policydb_init(&policydb))
 		goto err;
-
-	/* Preserve the policy version of the original policy
-	   for the new policy. */
-	sepol_set_policyvers(policydb.policy_type, policydb.policyvers);
+	if (policydb_from_image(NULL, data, len, &policydb) < 0) 
+		goto err;
 
 	for (i = 0; i < nel; i++) {
 		datum = hashtab_search(policydb.p_bools.table, names[i]);
 		if (!datum) {
-			__sepol_debug_printf("%s:  boolean %s no longer in policy\n", 
-					     __FUNCTION__, names[i]);
+			ERR(NULL, "boolean %s no longer in policy", names[i]);
 			errors++;
 			continue;
 		}
 		if (values[i] != 0 && values[i] != 1) {
-			fprintf(stderr,"illegal value %d for boolean %s\n", values[i], names[i]);
+			ERR(NULL, "illegal value %d for boolean %s",
+				values[i], names[i]);
 			errors++;
 			continue;
 		}
@@ -198,8 +204,7 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 	}
 
 	if (evaluate_conds(&policydb) < 0) {
-		__sepol_debug_printf("%s:  Error while re-evaluating conditionals\n",
-				     __FUNCTION__);
+		ERR(NULL, "error while re-evaluating conditionals");
 		errno = EINVAL;
 		goto err_destroy;
 	}
@@ -209,8 +214,7 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 	pf.len = len;
 	rc = policydb_write(&policydb, &pf);
 	if (rc) {
-		__sepol_debug_printf("%s:  Can't write binary policy\n",
-				     __FUNCTION__);
+		ERR(NULL, "unable to write binary policy");
 		errno = EINVAL;
 		goto err_destroy;
 	}

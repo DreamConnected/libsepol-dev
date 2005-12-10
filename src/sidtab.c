@@ -12,9 +12,9 @@
 #include <limits.h>
 #include <stdio.h>
 
-#include <sepol/sidtab.h>
+#include <sepol/policydb/sidtab.h>
 
-#include <sepol/flask.h>
+#include <sepol/policydb/flask.h>
 
 #define SIDTAB_HASH(sid) \
 (sid & SIDTAB_HASH_MASK)
