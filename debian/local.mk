@@ -69,6 +69,7 @@ install/libsepol1: testroot
 	$(MAKE)		    DESTDIR=$(TMPTOP) -C src install
 	rm -f		    $(LIBDIR)/libsepol.a
 	rm -f		    $(LIBDIR)/libsepol.so
+	test ! -e           $(LIBDIR)/libsepol.pc || rm -f $(LIBDIR)/libsepol.pc
 	rm -rf              $(TMPTOP)/usr/lib
 	chmod 0644          $(LIBDIR)/libsepol.so.1
 	$(install_file)	    debian/changelog	     $(DOCDIR)/changelog.Debian

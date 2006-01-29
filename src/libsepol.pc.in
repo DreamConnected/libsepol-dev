@@ -1,0 +1,11 @@
+prefix=@prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libsepol
+Description: Security Enhanced Linux policy library
+Version: @VERSION@
+URL: http://www.nsa.gov/selinux/
+Libs: -L${libdir} -lsepol
+Cflags: -I${includedir}
+

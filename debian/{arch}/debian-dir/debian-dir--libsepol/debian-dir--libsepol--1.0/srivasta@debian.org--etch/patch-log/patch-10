@@ -1,0 +1,10 @@
+Revision: debian-dir--libsepol--1.0--patch-10
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Sat Jan 28 20:38:04 CST 2006
+Standard-date: 2006-01-29 02:38:04 GMT
+Modified-files: local.mk
+New-patches: srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-10
+Summary: the .pc file is only in the -dev package
+Keywords: 
+

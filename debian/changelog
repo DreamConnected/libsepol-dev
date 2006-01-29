@@ -1,3 +1,15 @@
+libsepol (1.10-2) unstable; urgency=low
+
+  * Bug fix: "libsepol: please include a pkg-config file", thanks to
+    Guillem Jover In Debian, dpkg compiles in libselinux statically -- in
+    order to prevent dependency loops. Now, as libselinux acquired a build
+    time dependency on libsepol, automated dpkg builds failed -- since
+    there was no way for packages to detect the transitive dependencies
+    when linking statically. This patch fixes that issue -- by generating
+    a .pc file to be used with pkg-config.                  (Closes: #348947).
+
+ -- Manoj Srivastava <srivasta@debian.org>  Sat, 28 Jan 2006 20:23:36 -0600
+
 libsepol (1.10-1) unstable; urgency=low
 
   * New upstream release
