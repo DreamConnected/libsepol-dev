@@ -33,9 +33,12 @@
 struct sepol_module_package {
 	sepol_policydb_t *policy;
 	uint32_t	 version;
-	uint32_t	 num_sections;
 	char 		 *file_contexts;
 	size_t	         file_contexts_len;
+	char		 *seusers;
+	size_t		 seusers_len;
+	char		 *user_extra;
+	size_t		 user_extra_len;
 };
 
 extern int sepol_module_package_init(sepol_module_package_t *p);

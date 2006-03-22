@@ -191,6 +191,8 @@ int cond_evaluate_expr(policydb_t *p, cond_expr_t *expr)
 	int s[COND_EXPR_MAXDEPTH];
 	int sp = -1;
 
+	s[0] = -1;
+
 	for (cur = expr; cur != NULL; cur = cur->next) {
 		switch (cur->expr_type) {
 		case COND_BOOL:

@@ -10,6 +10,8 @@
 #include "private.h"
 #include "dso.h"
 
+/* -- Deprecated -- */
+
 static char *strtrim(char *dest, char *source, int size) {
 	int i=0;
 	char *ptr=source;
@@ -173,6 +175,8 @@ int hidden sepol_genbools_policydb(policydb_t *policydb, const char *booleans)
 		errno = EINVAL;
 	return rc;
 }
+
+/* -- End Deprecated -- */
 
 int sepol_genbools_array(void *data, size_t len, char **names, int *values, int nel)
 {

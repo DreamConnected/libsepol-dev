@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stddef.h>
 
+#include <sepol/policydb/hashtab.h>
 #include <sepol/policydb/policydb.h>
 
 #include "debug.h"
@@ -15,14 +15,10 @@ int sepol_role_exists(
 	int* response) {
 
   	policydb_t *policydb = &p->p;
-	char* role_copy = strdup(role);
-	if (!role_copy) {
-		ERR(handle, "out of memory, role check failed");
-		return STATUS_ERR;
-	}
+	*response = (hashtab_search(policydb->p_roles.table, 
+		(const hashtab_key_t) role) != NULL);
 
-	*response = (hashtab_search(policydb->p_roles.table, role_copy) != NULL);
-	free(role_copy);
+	handle = NULL;
 	return STATUS_SUCCESS;
 }
 
@@ -32,13 +28,13 @@ int sepol_role_list(
 	sepol_handle_t* handle,
 	sepol_policydb_t* p, 
 	char*** roles, 
-	size_t* nroles) {
+	unsigned int* nroles) {
 
 	policydb_t *policydb = &p->p;
-	size_t tmp_nroles = policydb->p_roles.nprim;
+	unsigned int tmp_nroles = policydb->p_roles.nprim;
 	char **tmp_roles = (char**) malloc(tmp_nroles * sizeof(char*));
 	char **ptr;
-	size_t i;
+	unsigned int i;
 	if (!tmp_roles) 
 		goto omem;
 

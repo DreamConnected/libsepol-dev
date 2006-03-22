@@ -26,61 +26,6 @@
 
 #include "debug.h"
 
-/* This isn't exactly the best place to put this but it will do 
-   until something else needs it */
-struct val_to_name {
-	unsigned int val;
-	char *name;
-};
-
-static int perm_name(hashtab_key_t key, hashtab_datum_t datum, void *data)
-{       
-        struct val_to_name *v = data;
-        perm_datum_t *perdatum;
-                
-        perdatum = (perm_datum_t *) datum;
-
-        if (v->val == perdatum->value) {
-                v->name = key;
-                return 1;
-        }       
-        
-        return 0;
-}       
-   
-static char *av_to_string(policydb_t *policydbp, uint32_t tclass, sepol_access_vector_t av)
-{               
-        struct val_to_name v;
-        static char avbuf[1024];
-        class_datum_t *cladatum;
-        char *perm = NULL, *p;
-        unsigned int i;
-        int rc; 
-                
-        cladatum = policydbp->class_val_to_struct[tclass-1];
-        p = avbuf;
-        for (i = 0; i < cladatum->permissions.nprim; i++) {
-                if (av & (1 << i)) {
-                        v.val = i+1;
-                        rc = hashtab_map(cladatum->permissions.table,
-                                         perm_name, &v);
-                        if (!rc && cladatum->comdatum) {
-                                rc = hashtab_map(
-                                        cladatum->comdatum->permissions.table,
-                                        perm_name, &v);
-                        }
-                        if (rc)
-                                perm = v.name;
-                        if (perm) {
-                                sprintf(p, " %s", perm);
-                                p += strlen(p);
-                        }
-                }
-        }
-
-        return avbuf;
-}
-
 static int check_assertion_helper(sepol_handle_t *handle,
 				  policydb_t *p, 
 				  avtab_t *te_avtab, avtab_t *te_cond_avtab,
@@ -116,7 +61,7 @@ err:
 	ERR(handle, "assertion on line %lu violated by allow %s %s:%s {%s };",
 	    line, p->p_type_val_to_name[stype], p->p_type_val_to_name[ttype],
 	    p->p_class_val_to_name[curperm->class - 1],
-	    av_to_string(p, curperm->class, node->datum.data & curperm->data));
+	    sepol_av_to_string(p, curperm->class, node->datum.data & curperm->data));
 	return -1;
 }
 

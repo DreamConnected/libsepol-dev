@@ -45,7 +45,7 @@ int sepol_iface_key_create(
 hidden_def(sepol_iface_key_create)
 
 void sepol_iface_key_unpack(
-	sepol_iface_key_t* key,
+	const sepol_iface_key_t* key,
 	const char** name) {
 
 	*name = key->name;	
@@ -54,7 +54,7 @@ hidden_def(sepol_iface_key_unpack)
 
 int sepol_iface_key_extract(
 	sepol_handle_t* handle,
-	sepol_iface_t* iface, 
+	const sepol_iface_t* iface, 
 	sepol_iface_key_t** key_ptr) {
 
 	if (sepol_iface_key_create(handle, iface->name, key_ptr) < 0) {
@@ -66,17 +66,23 @@ int sepol_iface_key_extract(
 	return STATUS_SUCCESS;
 }
 
-void sepol_iface_key_free(sepol_iface_key_t* key) {
+void sepol_iface_key_free(
+	sepol_iface_key_t* key) {
 	free(key);
 }
 
 int sepol_iface_compare(
-	sepol_iface_t* iface, 
-	sepol_iface_key_t* key) {
-	
-	if (!strcmp(iface->name, key->name)) 
-		return 0;
-	return 1;
+	const sepol_iface_t* iface, 
+	const sepol_iface_key_t* key) {
+
+	return strcmp(iface->name, key->name);
+}
+
+int sepol_iface_compare2(
+	const sepol_iface_t* iface,
+	const sepol_iface_t* iface2) {
+
+	return strcmp(iface->name, iface2->name);
 }
 
 /* Create */
@@ -103,7 +109,9 @@ int sepol_iface_create(
 hidden_def(sepol_iface_create)
 
 /* Name */
-const char* sepol_iface_get_name(sepol_iface_t* iface) {
+const char* sepol_iface_get_name(
+	const sepol_iface_t* iface) {
+
 	return iface->name;
 }
 hidden_def(sepol_iface_get_name)
@@ -126,39 +134,60 @@ int sepol_iface_set_name(
 hidden_def(sepol_iface_set_name)
 
 /* Interface Context */
-sepol_context_t* sepol_iface_get_ifcon(sepol_iface_t* iface) {
+sepol_context_t* sepol_iface_get_ifcon(
+	const sepol_iface_t* iface) {
+
 	return iface->netif_con;
 }
 hidden_def(sepol_iface_get_ifcon)
 
-void sepol_iface_set_ifcon(
-	sepol_iface_t* iface, 
+int sepol_iface_set_ifcon(
+	sepol_handle_t* handle,
+	sepol_iface_t* iface,
 	sepol_context_t* con) {
 
+	sepol_context_t* newcon;
+
+	if (sepol_context_clone(handle, con, &newcon) < 0) {
+		ERR(handle, "out of memory, could not set interface context");
+		return STATUS_ERR;
+	}
+
 	sepol_context_free(iface->netif_con);
-	iface->netif_con = con;
+	iface->netif_con = newcon;
+	return STATUS_SUCCESS;
 }
 hidden_def(sepol_iface_set_ifcon)
 
 /* Message Context */
-sepol_context_t* sepol_iface_get_msgcon(sepol_iface_t* iface) {
+sepol_context_t* sepol_iface_get_msgcon(
+	const sepol_iface_t* iface) {
+
 	return iface->netmsg_con;
 }
 hidden_def(sepol_iface_get_msgcon)
 
-void sepol_iface_set_msgcon(
-	sepol_iface_t* iface, 
+int sepol_iface_set_msgcon(
+	sepol_handle_t* handle,
+	sepol_iface_t* iface,
 	sepol_context_t* con) {
 
+	sepol_context_t* newcon;
+	if (sepol_context_clone(handle, con, &newcon) < 0) {
+		ERR(handle, "out of memory, could not set message context");
+		return STATUS_ERR;
+	}
+
 	sepol_context_free(iface->netmsg_con);
-	iface->netmsg_con = con;
+	iface->netmsg_con = newcon;
+	return STATUS_SUCCESS;
 }
 hidden_def(sepol_iface_set_msgcon)
 
 /* Deep copy clone */
 int sepol_iface_clone(
 	sepol_handle_t* handle,
-	sepol_iface_t* iface, 
+	const sepol_iface_t* iface, 
 	sepol_iface_t** iface_ptr) {
 
 	sepol_iface_t* new_iface = NULL;
@@ -186,7 +215,9 @@ int sepol_iface_clone(
 }
 
 /* Destroy */
-void sepol_iface_free(sepol_iface_t* iface) {
+void sepol_iface_free(
+	sepol_iface_t* iface) {
+
 	if (!iface)
 		return;
 

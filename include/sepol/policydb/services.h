@@ -108,9 +108,9 @@ extern int sepol_sid_to_context(
  * has the string representation specified by `scontext'.
  */
 extern int sepol_context_to_sid(
-	sepol_security_context_t scontext,		/* IN */
-	size_t  scontext_len,			/* IN */
-	sepol_security_id_t *out_sid);		/* OUT */
+	const sepol_security_context_t scontext, /* IN */
+	size_t  scontext_len,                    /* IN */
+	sepol_security_id_t *out_sid);           /* OUT */
 
 /*
  * Generate the set of SIDs for legal security contexts

@@ -124,6 +124,7 @@ extern int sepol_policydb_to_image(sepol_handle_t *handle,
 				   void **newdata, 
 				   size_t *newlen);
 
+extern int sepol_policydb_mls_enabled(
+	const sepol_policydb_t* p);
+
 #endif
-
-

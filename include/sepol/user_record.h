@@ -16,24 +16,28 @@ extern int sepol_user_key_create(
 	sepol_user_key_t** key);
 
 extern void sepol_user_key_unpack(
-	sepol_user_key_t* key,
+	const sepol_user_key_t* key,
 	const char** name);
 
 extern int sepol_user_key_extract(
 	sepol_handle_t* handle,
-	sepol_user_t* user,
+	const sepol_user_t* user,
 	sepol_user_key_t** key_ptr);
 
 extern void sepol_user_key_free(
 	sepol_user_key_t* key);
 
 extern int sepol_user_compare(
-	sepol_user_t* user,
-	sepol_user_key_t* key);
+	const sepol_user_t* user,
+	const sepol_user_key_t* key);
+
+extern int sepol_user_compare2(
+	const sepol_user_t* user,
+	const sepol_user_t* user2);
 	
 /* Name */
 extern const char* sepol_user_get_name(
-	sepol_user_t* user);
+	const sepol_user_t* user);
 
 extern int sepol_user_set_name(
 	sepol_handle_t* handle,
@@ -42,7 +46,7 @@ extern int sepol_user_set_name(
 
 /* MLS */
 extern const char* sepol_user_get_mlslevel(
-	sepol_user_t* user);
+	const sepol_user_t* user);
 
 extern int sepol_user_set_mlslevel(
 	sepol_handle_t* handle,
@@ -50,7 +54,7 @@ extern int sepol_user_set_mlslevel(
 	const char* mls_level);
 
 extern const char* sepol_user_get_mlsrange(
-	sepol_user_t* user);
+	const sepol_user_t* user);
 
 extern int sepol_user_set_mlsrange(
 	sepol_handle_t* handle,
@@ -59,7 +63,7 @@ extern int sepol_user_set_mlsrange(
 
 /* Role management */
 extern int sepol_user_get_num_roles(
-	sepol_user_t* user);
+	const sepol_user_t* user);
 
 extern int sepol_user_add_role(
 	sepol_handle_t* handle,
@@ -71,20 +75,20 @@ extern void sepol_user_del_role(
 	const char* role);
 
 extern int sepol_user_has_role(
-	sepol_user_t* user, 
+	const sepol_user_t* user, 
 	const char* role);
 
 extern int sepol_user_get_roles(
 	sepol_handle_t* handle,
-	sepol_user_t* user,
+	const sepol_user_t* user,
 	const char*** roles_arr, 
-	size_t* num_roles);
+	unsigned int* num_roles);
 
 extern int sepol_user_set_roles(
 	sepol_handle_t* handle,
 	sepol_user_t* user,
 	const char** roles_arr,
-	size_t num_roles);
+	unsigned int num_roles);
 
 /* Create/Clone/Destroy */
 extern int sepol_user_create(
@@ -93,7 +97,7 @@ extern int sepol_user_create(
 
 extern int sepol_user_clone(
 	sepol_handle_t* handle,
-	sepol_user_t* user, 
+	const sepol_user_t* user, 
 	sepol_user_t** user_ptr);
 
 extern void sepol_user_free(

@@ -1,0 +1,33 @@
+Revision: libsepol--debian--1.12--base-0
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Mar 22 16:01:59 CST 2006
+Standard-date: 2006-03-22 22:01:59 GMT
+New-patches: srivasta@debian.org--2003-primary/libsepol--debian--1.0--base-0
+    srivasta@debian.org--2003-primary/libsepol--debian--1.0--patch-1
+    srivasta@debian.org--2003-primary/libsepol--debian--1.0--patch-2
+    srivasta@debian.org--2003-primary/libsepol--debian--1.0--patch-3
+    srivasta@debian.org--2003-primary/libsepol--debian--1.0--patch-4
+    srivasta@debian.org--2003-primary/libsepol--debian--1.0--version-0
+    srivasta@debian.org--2003-primary/libsepol--upstream--1.0--base-0
+    srivasta@debian.org--2003-primary/libsepol--upstream--1.0--patch-1
+    srivasta@debian.org--2003-primary/libsepol--upstream--1.0--patch-2
+    srivasta@debian.org--2003-primary/libsepol--upstream--1.0--version-0
+    srivasta@debian.org--etch/libsepol--debian--1.0--base-0
+    srivasta@debian.org--etch/libsepol--debian--1.0--patch-1
+    srivasta@debian.org--etch/libsepol--debian--1.0--patch-2
+    srivasta@debian.org--etch/libsepol--debian--1.8--base-0
+    srivasta@debian.org--etch/libsepol--debian--1.8--patch-1
+    srivasta@debian.org--etch/libsepol--debian--1.10--base-0
+    srivasta@debian.org--etch/libsepol--debian--1.10--patch-1
+    srivasta@debian.org--etch/libsepol--debian--1.12--base-0
+    srivasta@debian.org--etch/libsepol--upstream--1.0--base-0
+    srivasta@debian.org--etch/libsepol--upstream--1.0--patch-1
+    srivasta@debian.org--etch/libsepol--upstream--1.8--base-0
+    srivasta@debian.org--etch/libsepol--upstream--1.8--patch-1
+    srivasta@debian.org--etch/libsepol--upstream--1.10--base-0
+    srivasta@debian.org--etch/libsepol--upstream--1.10--patch-1
+Continuation-of: srivasta@debian.org--etch/libsepol--debian--1.10--patch-1
+Summary: tag of srivasta@debian.org--etch/libsepol--debian--1.10--patch-1
+
+(automatically generated log message)

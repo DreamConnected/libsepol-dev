@@ -152,6 +152,7 @@ typedef struct user_datum {
 typedef struct level_datum {
 	mls_level_t *level;	/* sensitivity and associated categories */
 	unsigned char isalias;  /* is this sensitivity an alias for another? */
+	unsigned char defined;
 } level_datum_t;
 
 /* Category attributes */
@@ -469,7 +470,9 @@ extern void policydb_destroy(policydb_t * p);
 extern int policydb_load_isids(policydb_t *p, sidtab_t *s);
 
 /* Deprecated */
-extern int policydb_context_isvalid(policydb_t *p, context_struct_t *c);
+extern int policydb_context_isvalid(
+	const policydb_t *p, 
+	const context_struct_t *c);
 
 extern void symtabs_destroy(symtab_t *symtab);
 extern int scope_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p);
@@ -506,6 +509,9 @@ extern int symtab_insert(policydb_t *x, uint32_t sym,
                   hashtab_key_t key, hashtab_datum_t datum,
                   uint32_t scope, uint32_t avrule_decl_id,
                   uint32_t *value);
+
+extern char *sepol_av_to_string(policydb_t *policydbp, uint32_t tclass, 
+			 sepol_access_vector_t av);
 
 /* A policy "file" may be a memory region referenced by a (data, len) pair
    or a file referenced by a FILE pointer. */

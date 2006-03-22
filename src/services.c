@@ -530,10 +530,11 @@ out:
  * Return a SID associated with the security context that
  * has the string representation specified by `scontext'.
  */
-int hidden sepol_context_to_sid(sepol_security_context_t scontext,
-			    size_t scontext_len,
-			    sepol_security_id_t * sid)
-{
+int hidden sepol_context_to_sid(
+	const sepol_security_context_t scontext,
+	size_t scontext_len,
+	sepol_security_id_t * sid) {
+
 	context_struct_t* context = NULL;
 
 	/* First, create the context */
@@ -556,11 +557,6 @@ int hidden sepol_context_to_sid(sepol_security_context_t scontext,
         }
 	ERR(NULL, "could not convert %s to sid", scontext);
 	return STATUS_ERR;
-}
-
-int sepol_check_context(char *context) 
-{
-	return sepol_context_to_sid(context, strlen(context)+1, NULL);
 }
 
 static inline int compute_sid_handle_invalid_context(

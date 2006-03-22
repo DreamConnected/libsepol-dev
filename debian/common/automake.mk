@@ -23,7 +23,11 @@ HAVE_NEW_AUTOMAKE:=$(shell if [ "X$(AUTOCONF_VERSION)" != "X2.13" ]; then \
                              echo 'YES' ; fi)
 
 ifneq ($(strip $(HAVE_NEW_AUTOMAKE)),)
-  confflags += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
+  ifeq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
+       confflags += --build $(DEB_BUILD_GNU_TYPE) 
+  else
+       confflags += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
+  endif
 else
   ifeq ($(DEB_BUILD_GNU_TYPE), $(DEB_HOST_GNU_TYPE))
        confflags += $(DEB_HOST_GNU_TYPE)

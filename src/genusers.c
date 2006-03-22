@@ -13,6 +13,8 @@
 #include "dso.h"
 #include "mls.h"
 
+/* -- Deprecated -- */
+
 void sepol_set_delusers(int on __attribute((unused))) {
 	WARN(NULL, "Deprecated interface");
 }
@@ -304,3 +306,5 @@ int hidden sepol_genusers_policydb(policydb_t *policydb,
 
 	return 0;
 }
+
+/* -- End Deprecated -- */

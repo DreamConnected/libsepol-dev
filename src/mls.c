@@ -1,4 +1,3 @@
-
 /* Author : Stephen Smalley, <sds@epoch.ncsc.mil> */
 /*
  * Updated: Trusted Computer Solutions, Inc. <dgoeddel@trustedcs.com>
@@ -42,8 +41,8 @@
 
 int mls_to_string(
 	sepol_handle_t* handle,
-	policydb_t* policydb, 
-	context_struct_t* mls, 
+	const policydb_t* policydb, 
+	const context_struct_t* mls, 
 	char** str) {
 
 	char *ptr = NULL, *ptr2 = NULL;
@@ -79,7 +78,7 @@ int mls_to_string(
 
 int mls_from_string(
 	sepol_handle_t* handle,
-	policydb_t* policydb, 
+	const policydb_t* policydb, 
 	const char* str, 
 	context_struct_t* mls) {
 
@@ -109,8 +108,10 @@ int mls_from_string(
  * Return the length in bytes for the MLS fields of the
  * security context string representation of `context'.
  */
-int mls_compute_context_len(policydb_t *policydb, context_struct_t * context)
-{
+int mls_compute_context_len(
+	const policydb_t *policydb, 
+	const context_struct_t * context) {
+
 	unsigned int i, l, len, range;
 	ebitmap_node_t *cnode;
 
@@ -159,10 +160,11 @@ int mls_compute_context_len(policydb_t *policydb, context_struct_t * context)
  * the MLS fields of `context' into the string `*scontext'.
  * Update `*scontext' to point to the end of the MLS fields.
  */
-void mls_sid_to_context(policydb_t *policydb,
-                        context_struct_t * context,
-                        char **scontext)
-{
+void mls_sid_to_context(
+	const policydb_t *policydb,
+	const context_struct_t * context,
+	char **scontext) {
+
 	char *scontextp;
 	unsigned int i, l, range, wrote_sep;
 	ebitmap_node_t *cnode;
@@ -240,8 +242,10 @@ void mls_sid_to_context(policydb_t *policydb,
  * Return 1 if the MLS fields in the security context
  * structure `c' are valid.  Return 0 otherwise.
  */
-int mls_context_isvalid(policydb_t *p, context_struct_t * c)
-{
+int mls_context_isvalid(
+	const policydb_t *p, 
+	const context_struct_t * c) {
+
 	level_datum_t *levdatum;
 	user_datum_t *usrdatum;
 	unsigned int i, l;
@@ -307,7 +311,7 @@ int mls_context_isvalid(policydb_t *p, context_struct_t * c)
  * NULL characters to terminate the MLS fields.
  */
 int mls_context_to_sid(
-	policydb_t *policydb,
+	const policydb_t *policydb,
 	char oldc,
 	char **scontext,
 	context_struct_t * context) {
@@ -611,4 +615,65 @@ int mls_compute_sid(policydb_t *policydb,
 		return -EINVAL;
 	}
 	return -EINVAL;
+}
+
+int sepol_mls_contains(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	const char* mls1,
+	const char* mls2,
+	int* response) {
+
+	context_struct_t *ctx1 = NULL, *ctx2 = NULL;
+	ctx1 = malloc(sizeof(context_struct_t));
+	ctx2 = malloc(sizeof(context_struct_t));
+	if (ctx1 == NULL || ctx2 == NULL) 
+		goto omem;
+	context_init(ctx1);
+	context_init(ctx2);
+
+	if (mls_from_string(handle, &policydb->p, mls1, ctx1) < 0)
+		goto err;
+
+	if (mls_from_string(handle, &policydb->p, mls2, ctx2) < 0)
+		goto err;
+
+	*response = mls_range_contains(ctx1->range, ctx2->range);
+	context_destroy(ctx1);
+	context_destroy(ctx2);
+	free(ctx1);
+	free(ctx2);
+	return STATUS_SUCCESS;
+
+	omem:
+	ERR(handle, "out of memory");
+
+	err:
+	ERR(handle, "could not check if mls context %s contains %s", 
+		mls1, mls2);
+	context_destroy(ctx1);
+	context_destroy(ctx2);
+	free(ctx1);
+	free(ctx2);
+	return STATUS_ERR;	
+}
+
+int sepol_mls_check(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	const char* mls) {
+
+	int ret;
+	context_struct_t* con = malloc(sizeof(context_struct_t));
+	if (!con) {
+		ERR(handle, "out of memory, could not check if "
+			"mls context %s is valid", mls);
+		return STATUS_ERR;
+	} 
+	context_init(con);
+
+	ret = mls_from_string(handle, &policydb->p, mls, con);
+	context_destroy(con);
+	free(con);
+	return ret;
 }

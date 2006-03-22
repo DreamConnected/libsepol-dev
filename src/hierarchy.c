@@ -42,32 +42,31 @@ typedef struct hierarchy_args {
 /* This merely returns the string part before the last '.'
  * it does no verification of the existance of the parent
  * in the policy, you must do this yourself.
+ *
+ * Caller must free parent after use.
  */
 static int find_parent(char *type, char **parent)
 {
 	char *tmp;
-	int i;
+	int len;
 	
 	assert(type);
 
-	tmp = strchr(type, '.');
+	tmp = strrchr(type, '.');
 	/* no '.' means it has no parent */
 	if (!tmp) {
 		*parent = NULL;
 		return 0;
 	}
 
-	for (i = strlen(type) - 1; i > 0; i--) {
-		if (type[i] == '.')
-			break;
-	}
-	
-	*parent = (char *)malloc(sizeof(char) * (i + 1));
+	/* allocate buffer for part of string before the '.' */
+	len = tmp - type;
+	*parent = (char *)malloc(sizeof(char) * (len + 1));
 
 	if (!(*parent))
 		return -1;
-	memset(*parent, 0, (i + 1));
-	memcpy(*parent, type, i);
+	memcpy(*parent, type, len);
+	(*parent)[len] = '\0';
 		
 	return 0;
 }
@@ -80,7 +79,7 @@ static int check_type_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
 	char *parent;
 	hierarchy_args_t *a;
 	type_datum_t *t, *t2;
-
+	int rc;
 
 	a = (hierarchy_args_t *)args;
 	t = (type_datum_t *)d;
@@ -98,20 +97,21 @@ static int check_type_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
 		return 0;
 	}
 
+	rc = 0;
 	t2 = hashtab_search(a->p->p_types.table, parent);
 	if (!t2) {
 		/* If the parent does not exist this type is an orphan, not legal */
 		ERR(a->handle, "type %s does not exist, %s is an orphan",
 			parent,a->p->p_type_val_to_name[t->value - 1]);
-		return 1;
+		rc = 1;
 	} else if (t2->isattr) {
 			/* The parent is an attribute but the child isn't, not legal */
 			ERR(a->handle, "type %s is a child of an attribute",
 			a->p->p_type_val_to_name[t->value - 1]);
-		return 1;
+		rc = 1;
 	}
-	
-	return 0;
+	free(parent);
+	return rc;
 }
 
 /* This function only verifies that the avtab node passed in does not violate any
@@ -129,8 +129,8 @@ static int check_avtab_hierarchy_callback(avtab_key_t *k, avtab_datum_t *d, void
 	uint32_t av;
 	type_datum_t *t = NULL, *t2 = NULL;
 	
-       if (!(k->specified & AVTAB_AV)) {
-               /* This is a type rule, no checking done */
+       if (!(k->specified & AVTAB_ALLOWED)) {
+               /* This is not an allow rule, no checking done */
                return 0;
        }
 
@@ -336,6 +336,7 @@ static int check_role_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
 		free(parent);
 		return 1;
 	}
+	free(parent);
 
 	if (ebitmap_or(&eb, &r->types.types, &rp->types.types)) {
 		/* Memory error */

@@ -14,8 +14,12 @@ typedef struct sepol_port_key sepol_port_key_t;
 
 /* Key */
 extern int sepol_port_compare(
-	sepol_port_t* port, 
-	sepol_port_key_t* key);
+	const sepol_port_t* port, 
+	const sepol_port_key_t* key);
+
+extern int sepol_port_compare2(
+	const sepol_port_t* port,
+	const sepol_port_t* port2);
 
 extern int sepol_port_key_create(
 	sepol_handle_t* handle,
@@ -23,12 +27,12 @@ extern int sepol_port_key_create(
 	sepol_port_key_t** key_ptr);
 
 extern void sepol_port_key_unpack(
-	sepol_port_key_t* key,
+	const sepol_port_key_t* key,
 	int* low, int* high, int* proto);
 
 extern int sepol_port_key_extract(
 	sepol_handle_t* handle,
-	sepol_port_t* port, 
+	const sepol_port_t* port, 
 	sepol_port_key_t** key_ptr);
 
 extern void sepol_port_key_free(
@@ -36,21 +40,21 @@ extern void sepol_port_key_free(
 
 /* Protocol */
 extern int sepol_port_get_proto(
-	sepol_port_t* port);
+	const sepol_port_t* port);
 
 extern void sepol_port_set_proto(
 	sepol_port_t* port, 
 	int proto);
 
 extern const char* sepol_port_get_proto_str(
-	sepol_port_t* port);
+	int proto);
 
 /* Port */
 extern int sepol_port_get_low(
-	sepol_port_t* port);
+	const sepol_port_t* port);
 
 extern int sepol_port_get_high(
-	sepol_port_t* port);
+	const sepol_port_t* port);
 
 extern void sepol_port_set_port(
 	sepol_port_t* port, 
@@ -62,9 +66,10 @@ extern void sepol_port_set_range(
 
 /* Context */
 extern sepol_context_t* sepol_port_get_con(
-	sepol_port_t* port);
+	const sepol_port_t* port);
 
-extern void sepol_port_set_con(
+extern int sepol_port_set_con(
+	sepol_handle_t* handle,
 	sepol_port_t* port, 
 	sepol_context_t* con);
 
@@ -75,7 +80,7 @@ extern int sepol_port_create(
 
 extern int sepol_port_clone(
 	sepol_handle_t* handle,
-	sepol_port_t* port, 
+	const sepol_port_t* port, 
 	sepol_port_t** port_ptr);
 
 extern void sepol_port_free(

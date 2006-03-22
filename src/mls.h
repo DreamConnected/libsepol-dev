@@ -29,38 +29,37 @@
 
 extern int mls_from_string(
 	sepol_handle_t* handle,
-	policydb_t* policydb,
+	const policydb_t* policydb,
 	const char* str,
 	context_struct_t* mls);
 
 extern int mls_to_string(
         sepol_handle_t* handle,
-        policydb_t* policydb,
-        context_struct_t* mls,
+        const policydb_t* policydb,
+        const context_struct_t* mls,
         char** str);
 
 /* Deprecated */
 extern int mls_compute_context_len(
-	policydb_t *policydb,
-	context_struct_t * context);
-
+	const policydb_t *policydb,
+	const context_struct_t * context);
 
 /* Deprecated */
 extern void mls_sid_to_context(
-	policydb_t *policydb,
-	context_struct_t *context,
+	const policydb_t *policydb,
+	const context_struct_t *context,
 	char **scontext);
 
 /* Deprecated */
 extern int mls_context_to_sid(
-	policydb_t *policydb,
+	const policydb_t *policydb,
 	char oldc,
 	char **scontext,
 	context_struct_t *context);
 
 extern int mls_context_isvalid(
-	policydb_t *p, 
-	context_struct_t * c);
+	const policydb_t *p, 
+	const context_struct_t * c);
 
 extern int mls_convert_context(
 	policydb_t * oldp,
