@@ -9,7 +9,8 @@
 ## Update Count     : 60
 ## Status           : Unknown, Use with caution!
 ## HISTORY          : 
-## Description      : 
+## Description      : The top level targets mandated by policy, as well as
+##                    their dependencies.
 ## 
 ## arch-tag: a81086a7-00f7-4355-ac56-8f38396935f4
 ## 
@@ -267,7 +268,7 @@ $(patsubst %,BIN/%,$(DEB_INDEP_PACKAGES)) :: BIN/% : testroot BIN-indep
 	$(checkdir)
 
 
-stamp-binary-arch:  $(patsubst %,BIN/%,$(DEB_ARCH_PACKAGES)) 
+stamp-binary-arch:  $(patsubst %,BIN/%,$(DEB_ARCH_PACKAGES))
 	$(REASON)
 	@echo done > $@
 stamp-binary-indep: $(patsubst %,BIN/%,$(DEB_INDEP_PACKAGES))
@@ -314,7 +315,7 @@ $(patsubst %,CLEAN/%,$(DEB_INDEP_PACKAGES)) :: CLEAN/% : CLN-indep
 	$(REASON)
 	$(checkdir)
 
-clean-arch:  $(patsubst %,CLEAN/%,$(DEB_ARCH_PACKAGES))   
+clean-arch:  $(patsubst %,CLEAN/%,$(DEB_ARCH_PACKAGES))
 	$(REASON)
 clean-indep: $(patsubst %,CLEAN/%,$(DEB_INDEP_PACKAGES))
 	$(REASON)
@@ -351,3 +352,6 @@ clean: stamp-clean
         $(patsubst %,CLEAN/%, $(DEB_INDEP_PACKAGES)) $(patsubst %,CLEAN/%, $(DEB_ARCH_PACKAGES)) \
         implode explode prebuild checkpo
 
+#Local variables:
+#mode: makefile
+#End:

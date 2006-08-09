@@ -29,8 +29,13 @@
 #include <sepol/policydb/policydb.h>
 #include <stddef.h>
 
-extern int link_modules(sepol_handle_t *handle,
-			policydb_t *b, policydb_t **mods, int len,
+/* error codes */
+#define SEPOL_LINK_ERROR      1	/* general error */
+#define SEPOL_LINK_NOTSUP     2	/* feature not supported in module language */
+#define SEPOL_LINK_REQNOTMET  3	/* requirements not met */
+
+extern int link_modules(sepol_handle_t * handle,
+			policydb_t * b, policydb_t ** mods, int len,
 			int verbose);
 
 #endif

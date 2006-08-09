@@ -11,20 +11,16 @@
 #include <string.h>
 #include <sepol/policydb/hashtab.h>
 
-hashtab_t hashtab_create(
-	unsigned int (*hash_value) (
-		hashtab_t h,
-		const hashtab_key_t key),
-
-	int (*keycmp) (
-		hashtab_t h,
-		const hashtab_key_t key1,
-		const hashtab_key_t key2),
-		unsigned int size) {
+hashtab_t hashtab_create(unsigned int (*hash_value) (hashtab_t h,
+						     const hashtab_key_t key),
+			 int (*keycmp) (hashtab_t h,
+					const hashtab_key_t key1,
+					const hashtab_key_t key2),
+			 unsigned int size)
+{
 
 	hashtab_t p;
 	unsigned int i;
-
 
 	p = (hashtab_t) malloc(sizeof(hashtab_val_t));
 	if (p == NULL)
@@ -46,12 +42,10 @@ hashtab_t hashtab_create(
 	return p;
 }
 
-
 int hashtab_insert(hashtab_t h, hashtab_key_t key, hashtab_datum_t datum)
 {
 	int hvalue;
 	hashtab_ptr_t prev, cur, newnode;
-
 
 	if (!h)
 		return HASHTAB_OVERFLOW;
@@ -62,7 +56,7 @@ int hashtab_insert(hashtab_t h, hashtab_key_t key, hashtab_datum_t datum)
 	while (cur && h->keycmp(h, key, cur->key) > 0) {
 		prev = cur;
 		cur = cur->next;
-	} 
+	}
 
 	if (cur && (h->keycmp(h, key, cur->key) == 0))
 		return HASHTAB_PRESENT;
@@ -85,16 +79,12 @@ int hashtab_insert(hashtab_t h, hashtab_key_t key, hashtab_datum_t datum)
 	return HASHTAB_SUCCESS;
 }
 
-
 int hashtab_remove(hashtab_t h, hashtab_key_t key,
 		   void (*destroy) (hashtab_key_t k,
-				    hashtab_datum_t d,
-				    void *args),
-		   void *args)
+				    hashtab_datum_t d, void *args), void *args)
 {
 	int hvalue;
 	hashtab_ptr_t cur, last;
-
 
 	if (!h)
 		return HASHTAB_MISSING;
@@ -122,16 +112,12 @@ int hashtab_remove(hashtab_t h, hashtab_key_t key,
 	return HASHTAB_SUCCESS;
 }
 
-
 int hashtab_replace(hashtab_t h, hashtab_key_t key, hashtab_datum_t datum,
 		    void (*destroy) (hashtab_key_t k,
-				     hashtab_datum_t d,
-				     void *args),
-		    void *args)
+				     hashtab_datum_t d, void *args), void *args)
 {
 	int hvalue;
 	hashtab_ptr_t prev, cur, newnode;
-
 
 	if (!h)
 		return HASHTAB_OVERFLOW;
@@ -168,10 +154,8 @@ int hashtab_replace(hashtab_t h, hashtab_key_t key, hashtab_datum_t datum,
 	return HASHTAB_SUCCESS;
 }
 
-
-hashtab_datum_t hashtab_search(
-	hashtab_t h, 
-	const hashtab_key_t key) {
+hashtab_datum_t hashtab_search(hashtab_t h, const hashtab_key_t key)
+{
 
 	int hvalue;
 	hashtab_ptr_t cur;
@@ -190,12 +174,10 @@ hashtab_datum_t hashtab_search(
 	return cur->datum;
 }
 
-
 void hashtab_destroy(hashtab_t h)
 {
 	unsigned int i;
 	hashtab_ptr_t cur, temp;
-
 
 	if (!h)
 		return;
@@ -216,16 +198,12 @@ void hashtab_destroy(hashtab_t h)
 	free(h);
 }
 
-
 int hashtab_map(hashtab_t h,
 		int (*apply) (hashtab_key_t k,
-			      hashtab_datum_t d,
-			      void *args),
-		void *args)
+			      hashtab_datum_t d, void *args), void *args)
 {
 	unsigned int i, ret;
 	hashtab_ptr_t cur;
-
 
 	if (!h)
 		return HASHTAB_SUCCESS;
@@ -242,20 +220,17 @@ int hashtab_map(hashtab_t h,
 	return HASHTAB_SUCCESS;
 }
 
-
 void hashtab_map_remove_on_error(hashtab_t h,
 				 int (*apply) (hashtab_key_t k,
 					       hashtab_datum_t d,
 					       void *args),
 				 void (*destroy) (hashtab_key_t k,
 						  hashtab_datum_t d,
-						  void *args),
-				 void *args)
+						  void *args), void *args)
 {
 	unsigned int i;
 	int ret;
 	hashtab_ptr_t last, cur, temp;
-
 
 	if (!h)
 		return;
@@ -294,7 +269,6 @@ void hashtab_hash_eval(hashtab_t h, char *tag)
 	int chain_len, slots_used, max_chain_len;
 	hashtab_ptr_t cur;
 
-
 	slots_used = 0;
 	max_chain_len = 0;
 	for (i = 0; i < h->size; i++) {
@@ -312,7 +286,7 @@ void hashtab_hash_eval(hashtab_t h, char *tag)
 		}
 	}
 
-	printf("%s:  %d entries and %d/%d buckets used, longest chain length %d\n",
-	       tag, h->nel, slots_used, h->size, max_chain_len);
+	printf
+	    ("%s:  %d entries and %d/%d buckets used, longest chain length %d\n",
+	     tag, h->nel, slots_used, h->size, max_chain_len);
 }
-

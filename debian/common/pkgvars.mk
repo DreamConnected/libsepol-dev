@@ -4,15 +4,31 @@
 ## Created On       : Sat Nov 15 02:56:30 2003
 ## Created On Node  : glaurung.green-gryphon.com
 ## Last Modified By : Manoj Srivastava
-## Last Modified On : Tue Nov 18 01:06:00 2003
-## Last Machine Used: glaurung.green-gryphon.com
-## Update Count     : 5
+## Last Modified On : Thu Jun 15 12:05:46 2006
+## Last Machine Used: glaurung.internal.golden-gryphon.com
+## Update Count     : 11
 ## Status           : Unknown, Use with caution!
 ## HISTORY          : 
-## Description      : 
+## Description      : This is what allows us toseparate out the top level
+##                    targets, by determining which packages needto be built.
 ## 
 ## arch-tag: 75fcc720-7389-4eaa-a7ac-c556d3eac331
 ## 
+## 
+## This program is free software; you can redistribute it and/or modify
+## it under the terms of the GNU General Public License as published by
+## the Free Software Foundation; either version 2 of the License, or
+## (at your option) any later version.
+##
+## This program is distributed in the hope that it will be useful,
+## but WITHOUT ANY WARRANTY; without even the implied warranty of
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## GNU General Public License for more details.
+##
+## You should have received a copy of the GNU General Public License
+## along with this program; if not, write to the Free Software
+## Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+##
 ###############################################################################
 
 # The maintainer information.
@@ -57,12 +73,20 @@ DEB_ARCH_PACKAGES := $(shell perl -e '                                          
                             $$p=$$1 if m/^Package:\s*(\S+)/;                         \
                             die "duplicate package $$p" if $$seen{$$p};              \
                             $$seen{$$p}++;                                           \
-                            $$a=$$1 if m/^Architecture:\s*(\S+)/m;                   \
-                            next unless ($$a eq "$(DEB_HOST_ARCH)" || $$a eq "any"); \
-                            print "$$p " if $$p;                                     \
+                            $$c="";                                                  \
+	                    if (/^Architecture:\s*(.*?)\s*$$/sm) {                   \
+                              @a = split /\s+/, $$1 };                               \
+	                      for my $$b (@a) {                                      \
+                                next unless ($$b eq "$(DEB_HOST_ARCH)" ||            \
+                                             $$b eq "any");                          \
+                                $$c="$$p";                                           \
+                            }                                                        \
+                            print "$$c " if $$c;                                     \
                          }' debian/control )
 
 # This package is what we get after removing the psuedo dirs we use in rules
 package = $(notdir $@)
 
-
+#Local variables:
+#mode: makefile
+#End:

@@ -7,29 +7,31 @@
 
 /* Construct a policydb from the supplied (data, len) pair */
 
-int policydb_from_image(sepol_handle_t *handle,
-			void* data, size_t len, policydb_t* policydb) {
+int policydb_from_image(sepol_handle_t * handle,
+			void *data, size_t len, policydb_t * policydb)
+{
 
-        policy_file_t pf;
+	policy_file_t pf;
 
-        pf.type = PF_USE_MEMORY;
-        pf.data = data;
-        pf.len = len;
+	pf.type = PF_USE_MEMORY;
+	pf.data = data;
+	pf.len = len;
 	pf.handle = handle;
 
-        if (policydb_read(policydb, &pf, 0)) {
+	if (policydb_read(policydb, &pf, 0)) {
 		ERR(handle, "policy image is invalid");
-                errno = EINVAL;
-                return STATUS_ERR;
-        }
+		errno = EINVAL;
+		return STATUS_ERR;
+	}
 
-        return STATUS_SUCCESS;
+	return STATUS_SUCCESS;
 }
 
 /* Write a policydb to a memory region, and return the (data, len) pair. */
 
-int policydb_to_image(sepol_handle_t *handle,
-		      policydb_t* policydb, void **newdata, size_t *newlen) {
+int policydb_to_image(sepol_handle_t * handle,
+		      policydb_t * policydb, void **newdata, size_t * newlen)
+{
 
 	void *tmp_data = NULL;
 	size_t tmp_len;
@@ -42,8 +44,8 @@ int policydb_to_image(sepol_handle_t *handle,
 	pf.len = 0;
 	pf.handle = handle;
 	if (policydb_write(policydb, &pf)) {
-		ERR(handle, "could not compute policy length"); 
-		errno = EINVAL;	
+		ERR(handle, "could not compute policy length");
+		errno = EINVAL;
 		goto err;
 	}
 
@@ -53,9 +55,9 @@ int policydb_to_image(sepol_handle_t *handle,
 	if (!pf.data) {
 		ERR(handle, "out of memory");
 		goto err;
-        }
+	}
 
-	/* Need to save len and data prior to modification by policydb_write.*/
+	/* Need to save len and data prior to modification by policydb_write. */
 	tmp_len = pf.len;
 	tmp_data = pf.data;
 
@@ -64,22 +66,22 @@ int policydb_to_image(sepol_handle_t *handle,
 		ERR(handle, "could not write policy");
 		errno = EINVAL;
 		goto err;
-        }
+	}
 
 	/* Verify the new policy image. */
 	pf.type = PF_USE_MEMORY;
 	pf.data = tmp_data;
-        pf.len = tmp_len;
+	pf.len = tmp_len;
 	if (policydb_init(&tmp_policydb)) {
 		ERR(handle, "Out of memory");
 		errno = ENOMEM;
 		goto err;
 	}
-        if (policydb_read(&tmp_policydb, &pf, 0)) {
+	if (policydb_read(&tmp_policydb, &pf, 0)) {
 		ERR(handle, "new policy image is invalid");
-                errno = EINVAL;
+		errno = EINVAL;
 		goto err;
-        }
+	}
 	policydb_destroy(&tmp_policydb);
 
 	/* Update (newdata, newlen) */
@@ -87,9 +89,9 @@ int policydb_to_image(sepol_handle_t *handle,
 	*newlen = tmp_len;
 
 	/* Recover */
-        return STATUS_SUCCESS;
+	return STATUS_SUCCESS;
 
-	err:
+      err:
 	ERR(handle, "could not create policy image");
 
 	/* Recover */

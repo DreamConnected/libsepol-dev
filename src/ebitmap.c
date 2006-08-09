@@ -12,12 +12,12 @@
 #include <sepol/policydb/ebitmap.h>
 #include <sepol/policydb/policydb.h>
 
+#include "debug.h"
 #include "private.h"
 
 int ebitmap_or(ebitmap_t * dst, ebitmap_t * e1, ebitmap_t * e2)
 {
 	ebitmap_node_t *n1, *n2, *new, *prev;
-
 
 	ebitmap_init(dst);
 
@@ -58,23 +58,22 @@ int ebitmap_or(ebitmap_t * dst, ebitmap_t * e1, ebitmap_t * e2)
 	return 0;
 }
 
-int ebitmap_union(ebitmap_t *dst, ebitmap_t *e1)
+int ebitmap_union(ebitmap_t * dst, ebitmap_t * e1)
 {
-       ebitmap_t tmp;
+	ebitmap_t tmp;
 
-       if (ebitmap_or(&tmp, dst, e1))
-               return -1;
-       ebitmap_destroy(dst);
-       dst->node = tmp.node;
-       dst->highbit = tmp.highbit;
-       
-       return 0;
+	if (ebitmap_or(&tmp, dst, e1))
+		return -1;
+	ebitmap_destroy(dst);
+	dst->node = tmp.node;
+	dst->highbit = tmp.highbit;
+
+	return 0;
 }
 
 int ebitmap_cmp(ebitmap_t * e1, ebitmap_t * e2)
 {
 	ebitmap_node_t *n1, *n2;
-
 
 	if (e1->highbit != e2->highbit)
 		return 0;
@@ -82,8 +81,7 @@ int ebitmap_cmp(ebitmap_t * e1, ebitmap_t * e2)
 	n1 = e1->node;
 	n2 = e2->node;
 	while (n1 && n2 &&
-	       (n1->startbit == n2->startbit) &&
-	       (n1->map == n2->map)) {
+	       (n1->startbit == n2->startbit) && (n1->map == n2->map)) {
 		n1 = n1->next;
 		n2 = n2->next;
 	}
@@ -94,11 +92,9 @@ int ebitmap_cmp(ebitmap_t * e1, ebitmap_t * e2)
 	return 1;
 }
 
-
 int ebitmap_cpy(ebitmap_t * dst, ebitmap_t * src)
 {
 	ebitmap_node_t *n, *new, *prev;
-
 
 	ebitmap_init(dst);
 	n = src->node;
@@ -125,11 +121,9 @@ int ebitmap_cpy(ebitmap_t * dst, ebitmap_t * src)
 	return 0;
 }
 
-
 int ebitmap_contains(ebitmap_t * e1, ebitmap_t * e2)
 {
 	ebitmap_node_t *n1, *n2;
-
 
 	if (e1->highbit < e2->highbit)
 		return 0;
@@ -154,11 +148,9 @@ int ebitmap_contains(ebitmap_t * e1, ebitmap_t * e2)
 	return 1;
 }
 
-
 int ebitmap_get_bit(ebitmap_t * e, unsigned int bit)
 {
 	ebitmap_node_t *n;
-
 
 	if (e->highbit < bit)
 		return 0;
@@ -177,11 +169,16 @@ int ebitmap_get_bit(ebitmap_t * e, unsigned int bit)
 	return 0;
 }
 
-
 int ebitmap_set_bit(ebitmap_t * e, unsigned int bit, int value)
 {
 	ebitmap_node_t *n, *prev, *new;
+	uint32_t startbit = bit & ~(MAPSIZE - 1);
+	uint32_t highbit = startbit + MAPSIZE;
 
+	if (highbit == 0) {
+		ERR(NULL, "bitmap overflow, bit 0x%x", bit);
+		return -EINVAL;
+	}
 
 	prev = 0;
 	n = e->node;
@@ -200,7 +197,9 @@ int ebitmap_set_bit(ebitmap_t * e, unsigned int bit, int value)
 						 * within the bitmap
 						 */
 						if (prev)
-							e->highbit = prev->startbit + MAPSIZE;
+							e->highbit =
+							    prev->startbit +
+							    MAPSIZE;
 						else
 							e->highbit = 0;
 					}
@@ -226,12 +225,13 @@ int ebitmap_set_bit(ebitmap_t * e, unsigned int bit, int value)
 		return -ENOMEM;
 	memset(new, 0, sizeof(ebitmap_node_t));
 
-	new->startbit = bit & ~(MAPSIZE - 1);
+	new->startbit = startbit;
 	new->map = (MAPBIT << (bit - new->startbit));
 
-	if (!n)
+	if (!n) {
 		/* this node will be the highest map within the bitmap */
-		e->highbit = new->startbit + MAPSIZE;
+		e->highbit = highbit;
+	}
 
 	if (prev) {
 		new->next = prev->next;
@@ -244,11 +244,9 @@ int ebitmap_set_bit(ebitmap_t * e, unsigned int bit, int value)
 	return 0;
 }
 
-
 void ebitmap_destroy(ebitmap_t * e)
 {
 	ebitmap_node_t *n, *temp;
-
 
 	if (!e)
 		return;
@@ -265,18 +263,16 @@ void ebitmap_destroy(ebitmap_t * e)
 	return;
 }
 
-
-int ebitmap_read(ebitmap_t * e, void * fp)
+int ebitmap_read(ebitmap_t * e, void *fp)
 {
 	int rc = -EINVAL;
 	ebitmap_node_t *n, *l;
 	uint32_t *buf, mapsize, count, i;
 	uint64_t map;
 
-
 	ebitmap_init(e);
 
-	buf = next_entry(fp, sizeof(uint32_t)*3);
+	buf = next_entry(fp, sizeof(uint32_t) * 3);
 	if (!buf)
 		goto out;
 
@@ -285,7 +281,9 @@ int ebitmap_read(ebitmap_t * e, void * fp)
 	count = le32_to_cpu(buf[2]);
 
 	if (mapsize != MAPSIZE) {
-		printf("security: ebitmap: map size %d does not match my size %zu (high bit was %d)\n", mapsize, MAPSIZE, e->highbit);
+		printf
+		    ("security: ebitmap: map size %d does not match my size %zu (high bit was %d)\n",
+		     mapsize, MAPSIZE, e->highbit);
 		goto out;
 	}
 	if (!e->highbit) {
@@ -293,7 +291,9 @@ int ebitmap_read(ebitmap_t * e, void * fp)
 		goto ok;
 	}
 	if (e->highbit & (MAPSIZE - 1)) {
-		printf("security: ebitmap: high bit (%d) is not a multiple of the map size (%zu)\n", e->highbit, MAPSIZE);
+		printf
+		    ("security: ebitmap: high bit (%d) is not a multiple of the map size (%zu)\n",
+		     e->highbit, MAPSIZE);
 		goto bad;
 	}
 	l = NULL;
@@ -314,11 +314,15 @@ int ebitmap_read(ebitmap_t * e, void * fp)
 		n->startbit = le32_to_cpu(buf[0]);
 
 		if (n->startbit & (MAPSIZE - 1)) {
-			printf("security: ebitmap start bit (%d) is not a multiple of the map size (%zu)\n", n->startbit, MAPSIZE);
+			printf
+			    ("security: ebitmap start bit (%d) is not a multiple of the map size (%zu)\n",
+			     n->startbit, MAPSIZE);
 			goto bad_free;
 		}
 		if (n->startbit > (e->highbit - MAPSIZE)) {
-			printf("security: ebitmap start bit (%d) is beyond the end of the bitmap (%zu)\n", n->startbit, (e->highbit - MAPSIZE));
+			printf
+			    ("security: ebitmap start bit (%d) is beyond the end of the bitmap (%zu)\n",
+			     n->startbit, (e->highbit - MAPSIZE));
 			goto bad_free;
 		}
 		buf = next_entry(fp, sizeof(uint64_t));
@@ -330,12 +334,16 @@ int ebitmap_read(ebitmap_t * e, void * fp)
 		n->map = le64_to_cpu(map);
 
 		if (!n->map) {
-			printf("security: ebitmap: null map in ebitmap (startbit %d)\n", n->startbit);
+			printf
+			    ("security: ebitmap: null map in ebitmap (startbit %d)\n",
+			     n->startbit);
 			goto bad_free;
 		}
 		if (l) {
 			if (n->startbit <= l->startbit) {
-				printf("security: ebitmap: start bit %d comes after start bit %d\n", n->startbit, l->startbit);
+				printf
+				    ("security: ebitmap: start bit %d comes after start bit %d\n",
+				     n->startbit, l->startbit);
 				goto bad_free;
 			}
 			l->next = n;
@@ -345,16 +353,15 @@ int ebitmap_read(ebitmap_t * e, void * fp)
 		l = n;
 	}
 
-ok:
+      ok:
 	rc = 0;
-out:
+      out:
 	return rc;
-bad_free:
+      bad_free:
 	free(n);
-bad:
+      bad:
 	ebitmap_destroy(e);
 	goto out;
 }
 
 /* FLASK */
-

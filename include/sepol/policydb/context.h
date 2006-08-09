@@ -40,22 +40,20 @@ static inline void mls_context_init(context_struct_t * c)
 	mls_level_init(&c->range.level[1]);
 }
 
-static inline int mls_context_cpy(
-	context_struct_t * dst, 
-	context_struct_t * src) {
+static inline int mls_context_cpy(context_struct_t * dst,
+				  context_struct_t * src)
+{
 
 	if (mls_range_cpy(&dst->range, &src->range) < 0)
 		return -1;
-	
+
 	return 0;
 }
 
-static inline int mls_context_cmp(context_struct_t * c1,
-                                  context_struct_t * c2)
-
+static inline int mls_context_cmp(context_struct_t * c1, context_struct_t * c2)
 {
 	return (mls_level_eq(&c1->range.level[0], &c2->range.level[0]) &&
-	        mls_level_eq(&c1->range.level[1], &c2->range.level[1]));
+		mls_level_eq(&c1->range.level[1], &c2->range.level[1]));
 
 }
 
@@ -74,8 +72,7 @@ static inline void context_init(context_struct_t * c)
 	memset(c, 0, sizeof(*c));
 }
 
-static inline int context_cpy(context_struct_t * dst,
-			      context_struct_t * src)
+static inline int context_cpy(context_struct_t * dst, context_struct_t * src)
 {
 	dst->user = src->user;
 	dst->role = src->role;
@@ -92,13 +89,11 @@ static inline void context_destroy(context_struct_t * c)
 	mls_context_destroy(c);
 }
 
-static inline int context_cmp(context_struct_t * c1,
-			      context_struct_t * c2)
+static inline int context_cmp(context_struct_t * c1, context_struct_t * c2)
 {
 	return ((c1->user == c2->user) &&
 		(c1->role == c2->role) &&
-		(c1->type == c2->type) &&
-		mls_context_cmp(c1, c2));
+		(c1->type == c2->type) && mls_context_cmp(c1, c2));
 }
 
 #endif

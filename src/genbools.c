@@ -12,70 +12,78 @@
 
 /* -- Deprecated -- */
 
-static char *strtrim(char *dest, char *source, int size) {
-	int i=0;
-	char *ptr=source;
-	i=0;
-	while(isspace(*ptr) && i < size) {
+static char *strtrim(char *dest, char *source, int size)
+{
+	int i = 0;
+	char *ptr = source;
+	i = 0;
+	while (isspace(*ptr) && i < size) {
 		ptr++;
 		i++;
 	}
-	strncpy(dest,ptr,size);
-	for(i=strlen(dest)-1; i> 0; i--) {
-		if (!isspace(dest[i])) break;
+	strncpy(dest, ptr, size);
+	for (i = strlen(dest) - 1; i > 0; i--) {
+		if (!isspace(dest[i]))
+			break;
 	}
-	dest[i+1]='\0';
+	dest[i + 1] = '\0';
 	return dest;
 }
 
-static int process_boolean(char *buffer, char *name, int namesize, int *val) {
+static int process_boolean(char *buffer, char *name, int namesize, int *val)
+{
 	char name1[BUFSIZ];
 	char *ptr;
-	char *tok=strtok_r(buffer,"=",&ptr);
+	char *tok = strtok_r(buffer, "=", &ptr);
 	if (tok) {
-		strncpy(name1,tok, BUFSIZ-1);
-		strtrim(name,name1,namesize-1);
-		if ( name[0]=='#' ) return 0;
-		tok=strtok_r(NULL,"\0",&ptr);
+		strncpy(name1, tok, BUFSIZ - 1);
+		strtrim(name, name1, namesize - 1);
+		if (name[0] == '#')
+			return 0;
+		tok = strtok_r(NULL, "\0", &ptr);
 		if (tok) {
-			while (isspace(*tok)) tok++;
+			while (isspace(*tok))
+				tok++;
 			*val = -1;
 			if (isdigit(tok[0]))
-				*val=atoi(tok);
-			else if (!strncasecmp(tok, "true", sizeof("true")-1))
+				*val = atoi(tok);
+			else if (!strncasecmp(tok, "true", sizeof("true") - 1))
 				*val = 1;
-			else if (!strncasecmp(tok, "false", sizeof("false")-1))
+			else if (!strncasecmp
+				 (tok, "false", sizeof("false") - 1))
 				*val = 0;
 			if (*val != 0 && *val != 1) {
 				ERR(NULL, "illegal value for boolean "
-					"%s=%s", name, tok);
+				    "%s=%s", name, tok);
 				return -1;
 			}
-			
+
 		}
 	}
 	return 1;
 }
 
-static int load_booleans(struct policydb *policydb, const char *path, int *changesp) {
+static int load_booleans(struct policydb *policydb, const char *path,
+			 int *changesp)
+{
 	FILE *boolf;
-	char *buffer=NULL;
-	size_t size=0;
+	char *buffer = NULL;
+	size_t size = 0;
 	char localbools[BUFSIZ];
 	char name[BUFSIZ];
 	int val;
-	int errors=0, changes = 0;
+	int errors = 0, changes = 0;
 	struct cond_bool_datum *datum;
 
-	boolf = fopen(path,"r");
-	if (boolf == NULL) 
+	boolf = fopen(path, "r");
+	if (boolf == NULL)
 		goto localbool;
 
 	while (getline(&buffer, &size, boolf) > 0) {
-		int ret=process_boolean(buffer, name, sizeof(name), &val);
-		if (ret==-1) 
+		int ret = process_boolean(buffer, name, sizeof(name), &val);
+		if (ret == -1)
 			errors++;
-		if (ret==1) {
+		if (ret == 1) {
 			datum = hashtab_search(policydb->p_bools.table, name);
 			if (!datum) {
 				ERR(NULL, "unknown boolean %s", name);
@@ -89,16 +97,19 @@ static int load_booleans(struct policydb *policydb, const char *path, int *chang
 		}
 	}
 	fclose(boolf);
-localbool:
-	snprintf(localbools,sizeof(localbools), "%s.local", path);
-	boolf = fopen(localbools,"r");
+      localbool:
+	snprintf(localbools, sizeof(localbools), "%s.local", path);
+	boolf = fopen(localbools, "r");
 	if (boolf != NULL) {
 		while (getline(&buffer, &size, boolf) > 0) {
-			int ret=process_boolean(buffer, name, sizeof(name), &val);
-			if (ret==-1) 
+			int ret =
+			    process_boolean(buffer, name, sizeof(name), &val);
+			if (ret == -1)
 				errors++;
-			if (ret==1) {
-				datum = hashtab_search(policydb->p_bools.table, name);
+			if (ret == 1) {
+				datum =
+				    hashtab_search(policydb->p_bools.table,
+						   name);
 				if (!datum) {
 					ERR(NULL, "unknown boolean %s", name);
 					errors++;
@@ -153,18 +164,18 @@ int sepol_genbools(void *data, size_t len, char *booleans)
 		goto err_destroy;
 	}
 
-        out:
+      out:
 	policydb_destroy(&policydb);
 	return 0;
 
-	err_destroy:
+      err_destroy:
 	policydb_destroy(&policydb);
 
-	err:
+      err:
 	return -1;
 }
 
-int hidden sepol_genbools_policydb(policydb_t *policydb, const char *booleans)
+int hidden sepol_genbools_policydb(policydb_t * policydb, const char *booleans)
 {
 	int rc, changes = 0;
 
@@ -178,7 +189,8 @@ int hidden sepol_genbools_policydb(policydb_t *policydb, const char *booleans)
 
 /* -- End Deprecated -- */
 
-int sepol_genbools_array(void *data, size_t len, char **names, int *values, int nel)
+int sepol_genbools_array(void *data, size_t len, char **names, int *values,
+			 int nel)
 {
 	struct policydb policydb;
 	struct policy_file pf;
@@ -188,7 +200,7 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 	/* Create policy database from image */
 	if (policydb_init(&policydb))
 		goto err;
-	if (policydb_from_image(NULL, data, len, &policydb) < 0) 
+	if (policydb_from_image(NULL, data, len, &policydb) < 0)
 		goto err;
 
 	for (i = 0; i < nel; i++) {
@@ -200,7 +212,7 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 		}
 		if (values[i] != 0 && values[i] != 1) {
 			ERR(NULL, "illegal value %d for boolean %s",
-				values[i], names[i]);
+			    values[i], names[i]);
 			errors++;
 			continue;
 		}
@@ -230,11 +242,9 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 	policydb_destroy(&policydb);
 	return 0;
 
-	err_destroy:
+      err_destroy:
 	policydb_destroy(&policydb);
 
-	err:
+      err:
 	return -1;
 }
-
-

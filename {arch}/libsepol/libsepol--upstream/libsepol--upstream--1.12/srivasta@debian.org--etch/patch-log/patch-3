@@ -1,0 +1,16 @@
+Revision: libsepol--upstream--1.12--patch-3
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Mon Jul 31 12:34:34 CDT 2006
+Standard-date: 2006-07-31 17:34:34 GMT
+Modified-files: ChangeLog VERSION
+    include/sepol/policydb/policydb.h src/avrule_block.c
+    src/hierarchy.c src/link.c
+New-patches: srivasta@debian.org--etch/libsepol--upstream--1.12--patch-3
+Summary: Imported libsepol-1.12.21
+Keywords: 
+
+Imported libsepol-1.12.21
+into srivasta@debian.org--etch/libsepol--upstream--1.12
+
+

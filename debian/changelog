@@ -1,3 +1,48 @@
+libsepol (1.12.24-1) unstable; urgency=low
+
+  * New upstream point release
+    * Merged libsepol unit tests from Joshua Brindle.
+    * Merged symtab datum patch from Karl MacMillan.
+    * Merged netfilter contexts support from Chris PeBenito.
+    * Merged helpful hierarchy check errors patch from Joshua Brindle.
+    * Merged semodule_deps patch from Karl MacMillan.
+      This adds source module names to the avrule decls.
+  * Bug fix: "libsepol1: Should run "telinit u" in postinst
+    script", thanks to Piotr Kaczuba                            (Closes: #382020).
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed,  9 Aug 2006 11:48:50 -0500
+
+libsepol (1.12.19-1) unstable; urgency=low
+
+  * New upstream point release
+    * Lindent.
+    * Merged optionals in base take 2 patch set from Joshua Brindle.
+    * Merged fixes for several memory leaks in the error paths during
+      policy read from Serge Hallyn.
+    * Fixed bool_ids overflow bug in cond_node_find and cond_copy_list,
+      based on bug report and suggested fix by Cedric Roux.
+    * Merged sens_copy_callback, check_role_hierarchy_callback,
+      and node_from_record fixes from Serge Hallyn.
+    * Added sepol_policydb_compat_net() interface for testing whether
+      a policy requires the compatibility support for network checks
+      to be enabled in the kernel.
+    * Merged patch to initialize sym_val_to_name arrays from Kevin Carr.
+      Reworked to use calloc in the first place, and converted some other
+      malloc/memset pairs to calloc calls.
+    * Merged patch to revert role/user decl upgrade from Karl MacMillan.
+    * Dropped tests from all Makefile target.
+    * Merged fix warnings patch from Karl MacMillan.
+    * Merged libsepol test framework patch from Karl MacMillan.
+    * Fixed cond_normalize to traverse the entire cond list at link time.
+    * Merged fix for leak of optional package sections from Ivan Gyurdiev.
+    * Generalize test for bitmap overflow in ebitmap_set_bit.
+    * Fixed attr_convert_callback and expand_convert_type_set
+      typemap bug.
+    * Fixed avrule_block_write num_decls endian bug.
+    * Fixed sepol_module_package_write buffer overflow bug.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 19 Jul 2006 16:35:56 -0500
+
 libsepol (1.12-1) unstable; urgency=low
 
   * New upstream release

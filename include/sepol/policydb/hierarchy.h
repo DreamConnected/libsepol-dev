@@ -27,7 +27,6 @@
 
 #include <sepol/policydb/policydb.h>
 
-extern int hierarchy_check_constraints(sepol_handle_t *handle,
-				       policydb_t *p);
+extern int hierarchy_check_constraints(sepol_handle_t * handle, policydb_t * p);
 
 #endif

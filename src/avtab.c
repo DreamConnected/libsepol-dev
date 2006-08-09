@@ -26,7 +26,7 @@
  *  License along with this library; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
- 
+
 /* FLASK */
 
 /* 
@@ -46,8 +46,9 @@
  (keyp->source_type << 9)) & \
  AVTAB_HASH_MASK)
 
-static avtab_ptr_t 
-   avtab_insert_node(avtab_t *h, int hvalue, avtab_ptr_t prev, avtab_key_t *key, avtab_datum_t *datum)
+static avtab_ptr_t
+avtab_insert_node(avtab_t * h, int hvalue, avtab_ptr_t prev, avtab_key_t * key,
+		  avtab_datum_t * datum)
 {
 	avtab_ptr_t newnode;
 	newnode = (avtab_ptr_t) malloc(sizeof(struct avtab_node));
@@ -68,39 +69,37 @@ static avtab_ptr_t
 	return newnode;
 }
 
-
-
 int avtab_insert(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum)
 {
 	int hvalue;
 	avtab_ptr_t prev, cur, newnode;
-	uint16_t specified = key->specified & ~(AVTAB_ENABLED|AVTAB_ENABLED_OLD);
+	uint16_t specified =
+	    key->specified & ~(AVTAB_ENABLED | AVTAB_ENABLED_OLD);
 
 	if (!h)
 		return -ENOMEM;
 
 	hvalue = AVTAB_HASH(key);
 	for (prev = NULL, cur = h->htable[hvalue];
-	     cur;
-	     prev = cur, cur = cur->next) {
-		if (key->source_type == cur->key.source_type && 
+	     cur; prev = cur, cur = cur->next) {
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type == cur->key.target_type &&
 		    key->target_class == cur->key.target_class &&
 		    (specified & cur->key.specified))
 			return -EEXIST;
 		if (key->source_type < cur->key.source_type)
 			break;
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type < cur->key.target_type)
 			break;
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type == cur->key.target_type &&
 		    key->target_class < cur->key.target_class)
 			break;
 	}
 
 	newnode = avtab_insert_node(h, hvalue, prev, key, datum);
-	if(!newnode)
+	if (!newnode)
 		return -ENOMEM;
 
 	return 0;
@@ -111,52 +110,51 @@ int avtab_insert(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum)
  * It also returns a pointer to the node inserted.
  */
 avtab_ptr_t
-  avtab_insert_nonunique(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum)
+avtab_insert_nonunique(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum)
 {
 	int hvalue;
 	avtab_ptr_t prev, cur, newnode;
-	uint16_t specified = key->specified & ~(AVTAB_ENABLED|AVTAB_ENABLED_OLD);
+	uint16_t specified =
+	    key->specified & ~(AVTAB_ENABLED | AVTAB_ENABLED_OLD);
 
 	if (!h)
 		return NULL;
 	hvalue = AVTAB_HASH(key);
 	for (prev = NULL, cur = h->htable[hvalue];
-	     cur;
-	     prev = cur, cur = cur->next) {
-		if (key->source_type == cur->key.source_type && 
+	     cur; prev = cur, cur = cur->next) {
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type == cur->key.target_type &&
 		    key->target_class == cur->key.target_class &&
 		    (specified & cur->key.specified))
 			break;
 		if (key->source_type < cur->key.source_type)
 			break;
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type < cur->key.target_type)
 			break;
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type == cur->key.target_type &&
 		    key->target_class < cur->key.target_class)
 			break;
 	}
 	newnode = avtab_insert_node(h, hvalue, prev, key, datum);
-	
+
 	return newnode;
 }
 
-avtab_datum_t *
- avtab_search(avtab_t * h, avtab_key_t * key)
+avtab_datum_t *avtab_search(avtab_t * h, avtab_key_t * key)
 {
 	int hvalue;
 	avtab_ptr_t cur;
-	uint16_t specified = key->specified & ~(AVTAB_ENABLED|AVTAB_ENABLED_OLD);
-
+	uint16_t specified =
+	    key->specified & ~(AVTAB_ENABLED | AVTAB_ENABLED_OLD);
 
 	if (!h)
 		return NULL;
 
 	hvalue = AVTAB_HASH(key);
 	for (cur = h->htable[hvalue]; cur; cur = cur->next) {
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type == cur->key.target_type &&
 		    key->target_class == cur->key.target_class &&
 		    (specified & cur->key.specified))
@@ -164,10 +162,10 @@ avtab_datum_t *
 
 		if (key->source_type < cur->key.source_type)
 			break;
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type < cur->key.target_type)
 			break;
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type == cur->key.target_type &&
 		    key->target_class < cur->key.target_class)
 			break;
@@ -179,19 +177,19 @@ avtab_datum_t *
 /* This search function returns a node pointer, and can be used in
  * conjunction with avtab_search_next_node()
  */
-avtab_ptr_t 
- avtab_search_node(avtab_t * h, avtab_key_t * key)
+avtab_ptr_t avtab_search_node(avtab_t * h, avtab_key_t * key)
 {
 	int hvalue;
 	avtab_ptr_t cur;
-	uint16_t specified = key->specified & ~(AVTAB_ENABLED|AVTAB_ENABLED_OLD);
+	uint16_t specified =
+	    key->specified & ~(AVTAB_ENABLED | AVTAB_ENABLED_OLD);
 
 	if (!h)
 		return NULL;
 
 	hvalue = AVTAB_HASH(key);
 	for (cur = h->htable[hvalue]; cur; cur = cur->next) {
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type == cur->key.target_type &&
 		    key->target_class == cur->key.target_class &&
 		    (specified & cur->key.specified))
@@ -199,10 +197,10 @@ avtab_ptr_t
 
 		if (key->source_type < cur->key.source_type)
 			break;
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type < cur->key.target_type)
 			break;
-		if (key->source_type == cur->key.source_type && 
+		if (key->source_type == cur->key.source_type &&
 		    key->target_type == cur->key.target_type &&
 		    key->target_class < cur->key.target_class)
 			break;
@@ -210,17 +208,16 @@ avtab_ptr_t
 	return NULL;
 }
 
-avtab_ptr_t
-  avtab_search_node_next(avtab_ptr_t node, int specified)
+avtab_ptr_t avtab_search_node_next(avtab_ptr_t node, int specified)
 {
 	avtab_ptr_t cur;
 
 	if (!node)
 		return NULL;
-		
-	specified &= ~(AVTAB_ENABLED|AVTAB_ENABLED_OLD);
+
+	specified &= ~(AVTAB_ENABLED | AVTAB_ENABLED_OLD);
 	for (cur = node->next; cur; cur = cur->next) {
-		if (node->key.source_type == cur->key.source_type && 
+		if (node->key.source_type == cur->key.source_type &&
 		    node->key.target_type == cur->key.target_type &&
 		    node->key.target_class == cur->key.target_class &&
 		    (specified & cur->key.specified))
@@ -228,10 +225,10 @@ avtab_ptr_t
 
 		if (node->key.source_type < cur->key.source_type)
 			break;
-		if (node->key.source_type == cur->key.source_type && 
+		if (node->key.source_type == cur->key.source_type &&
 		    node->key.target_type < cur->key.target_type)
 			break;
-		if (node->key.source_type == cur->key.source_type && 
+		if (node->key.source_type == cur->key.source_type &&
 		    node->key.target_type == cur->key.target_type &&
 		    node->key.target_class < cur->key.target_class)
 			break;
@@ -243,7 +240,6 @@ void avtab_destroy(avtab_t * h)
 {
 	int i;
 	avtab_ptr_t cur, temp;
-
 
 	if (!h || !h->htable)
 		return;
@@ -261,16 +257,12 @@ void avtab_destroy(avtab_t * h)
 	h->htable = NULL;
 }
 
-
 int avtab_map(avtab_t * h,
 	      int (*apply) (avtab_key_t * k,
-			    avtab_datum_t * d,
-			    void *args),
-	      void *args)
+			    avtab_datum_t * d, void *args), void *args)
 {
 	int i, ret;
 	avtab_ptr_t cur;
-
 
 	if (!h)
 		return 0;
@@ -287,12 +279,11 @@ int avtab_map(avtab_t * h,
 	return 0;
 }
 
-
 int avtab_init(avtab_t * h)
 {
 	int i;
 
-	h->htable = malloc(sizeof(avtab_ptr_t)*AVTAB_SIZE);
+	h->htable = malloc(sizeof(avtab_ptr_t) * AVTAB_SIZE);
 	if (!h->htable)
 		return -1;
 	for (i = 0; i < AVTAB_SIZE; i++)
@@ -301,12 +292,10 @@ int avtab_init(avtab_t * h)
 	return 0;
 }
 
-
 void avtab_hash_eval(avtab_t * h, char *tag)
 {
 	int i, chain_len, slots_used, max_chain_len;
 	avtab_ptr_t cur;
-
 
 	slots_used = 0;
 	max_chain_len = 0;
@@ -325,8 +314,9 @@ void avtab_hash_eval(avtab_t * h, char *tag)
 		}
 	}
 
-	printf("%s:  %d entries and %d/%d buckets used, longest chain length %d\n",
-	       tag, h->nel, slots_used, AVTAB_SIZE, max_chain_len);
+	printf
+	    ("%s:  %d entries and %d/%d buckets used, longest chain length %d\n",
+	     tag, h->nel, slots_used, AVTAB_SIZE, max_chain_len);
 }
 
 /* Ordering of datums in the original avtab format in the policy file. */
@@ -339,12 +329,11 @@ static uint16_t spec_order[] = {
 	AVTAB_MEMBER
 };
 
-int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t *a, 
-	            int (*insertf)(avtab_t *a, avtab_key_t *k, 
-				   avtab_datum_t *d, void *p),
-		    void *p)
+int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t * a,
+		    int (*insertf) (avtab_t * a, avtab_key_t * k,
+				    avtab_datum_t * d, void *p), void *p)
 {
-  	uint16_t *buf16, enabled;
+	uint16_t *buf16, enabled;
 	uint32_t *buf32, items, items2, val;
 	avtab_key_t key;
 	avtab_datum_t datum;
@@ -368,7 +357,7 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t *a,
 			return -1;
 		}
 
-		buf32 = next_entry(fp, sizeof(uint32_t)*items2);
+		buf32 = next_entry(fp, sizeof(uint32_t) * items2);
 		if (!buf32) {
 			ERR(fp->handle, "truncated entry");
 			return -1;
@@ -376,19 +365,19 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t *a,
 
 		items = 0;
 		val = le32_to_cpu(buf32[items++]);
-		key.source_type = (uint16_t)val;
+		key.source_type = (uint16_t) val;
 		if (key.source_type != val) {
 			ERR(fp->handle, "truncated source type");
 			return -1;
 		}
 		val = le32_to_cpu(buf32[items++]);
-		key.target_type = (uint16_t)val;
+		key.target_type = (uint16_t) val;
 		if (key.target_type != val) {
 			ERR(fp->handle, "truncated target type");
 			return -1;
 		}
 		val = le32_to_cpu(buf32[items++]);
-		key.target_class = (uint16_t)val;
+		key.target_class = (uint16_t) val;
 		if (key.target_class != val) {
 			ERR(fp->handle, "truncated target class");
 			return -1;
@@ -401,31 +390,31 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t *a,
 			ERR(fp->handle, "null entry");
 			return -1;
 		}
-		if ((val & AVTAB_AV) &&
-		    (val & AVTAB_TYPE)) {
+		if ((val & AVTAB_AV) && (val & AVTAB_TYPE)) {
 			ERR(fp->handle, "entry has both access "
-				"vectors and types");
+			    "vectors and types");
 			return -1;
 		}
 
-		for (i = 0; i < sizeof(spec_order)/sizeof(uint16_t); i++) {
+		for (i = 0; i < sizeof(spec_order) / sizeof(uint16_t); i++) {
 			if (val & spec_order[i]) {
 				key.specified = spec_order[i] | enabled;
 				datum.data = le32_to_cpu(buf32[items++]);
 				rc = insertf(a, &key, &datum, p);
-				if (rc) return rc;
+				if (rc)
+					return rc;
 			}
 		}
 
 		if (items != items2) {
 			ERR(fp->handle, "entry only had %d items, "
-				"expected %d", items2, items);
+			    "expected %d", items2, items);
 			return -1;
 		}
 		return 0;
 	}
-	
-	buf16 = next_entry(fp, sizeof(uint16_t)*4);
+
+	buf16 = next_entry(fp, sizeof(uint16_t) * 4);
 	if (!buf16) {
 		ERR(fp->handle, "truncated entry");
 		return -1;
@@ -437,15 +426,15 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t *a,
 	key.specified = le16_to_cpu(buf16[items++]);
 
 	set = 0;
-	for (i = 0; i < sizeof(spec_order)/sizeof(uint16_t); i++) {
-			if (key.specified & spec_order[i])
-				set++;
+	for (i = 0; i < sizeof(spec_order) / sizeof(uint16_t); i++) {
+		if (key.specified & spec_order[i])
+			set++;
 	}
 	if (!set || set > 1) {
 		ERR(fp->handle, "more than one specifier");
 		return -1;
 	}
-		
+
 	buf32 = next_entry(fp, sizeof(uint32_t));
 	if (!buf32) {
 		ERR(fp->handle, "truncated entry");
@@ -455,18 +444,18 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t *a,
 	return insertf(a, &key, &datum, p);
 }
 
-static int avtab_insertf(avtab_t *a, avtab_key_t *k, avtab_datum_t *d, void *p __attribute__ ((unused)))
+static int avtab_insertf(avtab_t * a, avtab_key_t * k, avtab_datum_t * d,
+			 void *p __attribute__ ((unused)))
 {
 	return avtab_insert(a, k, d);
 }
 
-int avtab_read(avtab_t * a, struct policy_file * fp, uint32_t vers)
+int avtab_read(avtab_t * a, struct policy_file *fp, uint32_t vers)
 {
 	unsigned int i;
 	int rc;
 	uint32_t *buf;
 	uint32_t nel;
-
 
 	buf = next_entry(fp, sizeof(uint32_t));
 	if (!buf) {
@@ -496,5 +485,3 @@ int avtab_read(avtab_t * a, struct policy_file * fp, uint32_t vers)
 	avtab_destroy(a);
 	return -1;
 }
-
-

@@ -1,4 +1,6 @@
 arch ancestry version 1
+arch:patch:srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-13
+arch:patch:srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-12
 arch:patch:srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-11
 arch:patch:srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-10
 arch:patch:srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-9

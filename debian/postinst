@@ -153,7 +153,12 @@ case "$1" in
 
     ### done! now we'll just clear up our cruft.
     #rm -f $tempfile
-
+    if [ -x /sbin/init ] && [ -x /bin/readlink ]; then
+        if [ "$(readlink /proc/1/exe 2>/dev/null)" = "/sbin/init" ]; then
+             (init u ; sleep 1)
+        fi
+    fi
+    
 
 
     # There are three sub-cases:

@@ -9,7 +9,7 @@
 ## Update Count     : 20
 ## Status           : Unknown, Use with caution!
 ## HISTORY          : 
-## Description      : 
+## Description      : helps with using debconf
 ## 
 ## arch-tag: 32b933a9-05ad-4c03-97a8-8644745b832a
 ##
@@ -56,7 +56,7 @@ endif
 ifeq ($(PO2DEBCONF),yes)
   ifeq (,$(wildcard debian/templates.master))
 define CREATE_COMPATIBLE_TEMPLATE
-	@echo Not modifying templates
+	echo Not modifying templates
 endef
   else
 define CREATE_COMPATIBLE_TEMPLATE
@@ -67,7 +67,7 @@ endef
   endif
 else
 define CREATE_COMPATIBLE_TEMPLATE
-	@echo Not modifying templates
+	echo Not modifying templates
 endef
 endif
 
@@ -75,7 +75,7 @@ endif
 ifeq ($(PO2DEBCONF),yes)
   ifeq (,$(wildcard debian/templates.master))
 define INSTALL_TEMPLATE
-	@echo using old template
+	echo using old template
 endef
   else
 define INSTALL_TEMPLATE
@@ -84,7 +84,7 @@ endef
   endif
 else
 define INSTALL_TEMPLATE
-	@echo using old template
+	echo using old template
 endef
 endif
 

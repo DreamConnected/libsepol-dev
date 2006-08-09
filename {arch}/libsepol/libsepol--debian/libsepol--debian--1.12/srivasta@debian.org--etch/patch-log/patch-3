@@ -1,0 +1,154 @@
+Revision: libsepol--debian--1.12--patch-3
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Aug  9 03:30:15 CDT 2006
+Standard-date: 2006-08-09 08:30:15 GMT
+New-files: tests/.arch-ids/debug.c.id
+    tests/.arch-ids/debug.h.id tests/.arch-ids/helpers.c.id
+    tests/.arch-ids/helpers.h.id
+    tests/.arch-ids/test-common.c.id
+    tests/.arch-ids/test-common.h.id
+    tests/.arch-ids/test-deps.c.id
+    tests/.arch-ids/test-deps.h.id
+    tests/.arch-ids/test-expander-attr-map.c.id
+    tests/.arch-ids/test-expander-attr-map.h.id
+    tests/.arch-ids/test-expander-roles.c.id
+    tests/.arch-ids/test-expander-roles.h.id
+    tests/.arch-ids/test-expander-users.c.id
+    tests/.arch-ids/test-expander-users.h.id
+    tests/.arch-ids/test-expander.c.id
+    tests/.arch-ids/test-expander.h.id
+    tests/.arch-ids/test-linker-cond-map.c.id
+    tests/.arch-ids/test-linker-cond-map.h.id
+    tests/.arch-ids/test-linker-roles.c.id
+    tests/.arch-ids/test-linker-roles.h.id
+    tests/.arch-ids/test-linker-types.c.id
+    tests/.arch-ids/test-linker-types.h.id
+    tests/.arch-ids/test-linker.c.id
+    tests/.arch-ids/test-linker.h.id tests/debug.c
+    tests/debug.h tests/helpers.c tests/helpers.h
+    tests/policies/support/.arch-ids/=id
+    tests/policies/support/.arch-ids/misc_macros.spt.id
+    tests/policies/support/misc_macros.spt
+    tests/policies/test-cond/.arch-ids/=id
+    tests/policies/test-cond/.arch-ids/refpolicy-base.conf.id
+    tests/policies/test-cond/refpolicy-base.conf
+    tests/policies/test-deps/.arch-ids/=id
+    tests/policies/test-deps/.arch-ids/base-metreq.conf.id
+    tests/policies/test-deps/.arch-ids/base-notmetreq.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-attr-global.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-attr-opt.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-bool-global.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-bool-opt.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-obj-global.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-obj-opt.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-perm-global.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-perm-opt.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-role-global.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-role-opt.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-type-global.conf.id
+    tests/policies/test-deps/.arch-ids/modreq-type-opt.conf.id
+    tests/policies/test-deps/.arch-ids/module.conf.id
+    tests/policies/test-deps/.arch-ids/small-base.conf.id
+    tests/policies/test-deps/base-metreq.conf
+    tests/policies/test-deps/base-notmetreq.conf
+    tests/policies/test-deps/modreq-attr-global.conf
+    tests/policies/test-deps/modreq-attr-opt.conf
+    tests/policies/test-deps/modreq-bool-global.conf
+    tests/policies/test-deps/modreq-bool-opt.conf
+    tests/policies/test-deps/modreq-obj-global.conf
+    tests/policies/test-deps/modreq-obj-opt.conf
+    tests/policies/test-deps/modreq-perm-global.conf
+    tests/policies/test-deps/modreq-perm-opt.conf
+    tests/policies/test-deps/modreq-role-global.conf
+    tests/policies/test-deps/modreq-role-opt.conf
+    tests/policies/test-deps/modreq-type-global.conf
+    tests/policies/test-deps/modreq-type-opt.conf
+    tests/policies/test-deps/module.conf
+    tests/policies/test-deps/small-base.conf
+    tests/policies/test-expander/.arch-ids/=id
+    tests/policies/test-expander/.arch-ids/alias-base.conf.id
+    tests/policies/test-expander/.arch-ids/alias-module.conf.id
+    tests/policies/test-expander/.arch-ids/base-base-only.conf.id
+    tests/policies/test-expander/.arch-ids/module.conf.id
+    tests/policies/test-expander/.arch-ids/role-base.conf.id
+    tests/policies/test-expander/.arch-ids/role-module.conf.id
+    tests/policies/test-expander/.arch-ids/small-base.conf.id
+    tests/policies/test-expander/.arch-ids/user-base.conf.id
+    tests/policies/test-expander/.arch-ids/user-module.conf.id
+    tests/policies/test-expander/alias-base.conf
+    tests/policies/test-expander/alias-module.conf
+    tests/policies/test-expander/base-base-only.conf
+    tests/policies/test-expander/module.conf
+    tests/policies/test-expander/role-base.conf
+    tests/policies/test-expander/role-module.conf
+    tests/policies/test-expander/small-base.conf
+    tests/policies/test-expander/user-base.conf
+    tests/policies/test-expander/user-module.conf
+    tests/policies/test-hooks/.arch-ids/=id
+    tests/policies/test-hooks/.arch-ids/cmp_policy.conf.id
+    tests/policies/test-hooks/.arch-ids/module_add_role_allow_trans.conf.id
+    tests/policies/test-hooks/.arch-ids/module_add_symbols.conf.id
+    tests/policies/test-hooks/.arch-ids/small-base.conf.id
+    tests/policies/test-hooks/cmp_policy.conf
+    tests/policies/test-hooks/module_add_role_allow_trans.conf
+    tests/policies/test-hooks/module_add_symbols.conf
+    tests/policies/test-hooks/small-base.conf
+    tests/policies/test-linker/.arch-ids/=id
+    tests/policies/test-linker/.arch-ids/module1.conf.id
+    tests/policies/test-linker/.arch-ids/module2.conf.id
+    tests/policies/test-linker/.arch-ids/small-base.conf.id
+    tests/policies/test-linker/module1.conf
+    tests/policies/test-linker/module2.conf
+    tests/policies/test-linker/small-base.conf
+    tests/test-common.c tests/test-common.h
+    tests/test-deps.c tests/test-deps.h
+    tests/test-expander-attr-map.c
+    tests/test-expander-attr-map.h
+    tests/test-expander-roles.c tests/test-expander-roles.h
+    tests/test-expander-users.c tests/test-expander-users.h
+    tests/test-expander.c tests/test-expander.h
+    tests/test-linker-cond-map.c
+    tests/test-linker-cond-map.h tests/test-linker-roles.c
+    tests/test-linker-roles.h tests/test-linker-types.c
+    tests/test-linker-types.h tests/test-linker.c
+    tests/test-linker.h
+New-directories: tests/policies/support
+    tests/policies/support/.arch-ids
+    tests/policies/test-cond
+    tests/policies/test-cond/.arch-ids
+    tests/policies/test-deps
+    tests/policies/test-deps/.arch-ids
+    tests/policies/test-expander
+    tests/policies/test-expander/.arch-ids
+    tests/policies/test-hooks
+    tests/policies/test-hooks/.arch-ids
+    tests/policies/test-linker
+    tests/policies/test-linker/.arch-ids
+Removed-files: tests/policies/.arch-ids/refpolicy-base.conf.id
+    tests/policies/refpolicy-base.conf
+Modified-files: ChangeLog VERSION include/sepol/module.h
+    include/sepol/policydb/module.h
+    include/sepol/policydb/policydb.h
+    include/sepol/policydb/symtab.h src/avrule_block.c
+    src/booleans.c src/conditional.c src/context.c
+    src/expand.c src/genusers.c src/hierarchy.c src/link.c
+    src/mls.c src/module.c src/policydb.c src/services.c
+    src/users.c src/util.c src/write.c tests/Makefile
+    tests/libsepol-tests.c tests/test-cond.c
+New-patches: srivasta@debian.org--etch/libsepol--debian--1.12--patch-3
+    srivasta@debian.org--etch/libsepol--upstream--1.12--patch-3
+    srivasta@debian.org--etch/libsepol--upstream--1.12--patch-4
+Summary: Synch with upstream
+Keywords: 
+
+Synch with upstream
+
+Patches applied:
+
+ * srivasta@debian.org--etch/libsepol--upstream--1.12--patch-3
+   Imported libsepol-1.12.21
+
+ * srivasta@debian.org--etch/libsepol--upstream--1.12--patch-4
+   Imported libsepol-1.12.24
+
