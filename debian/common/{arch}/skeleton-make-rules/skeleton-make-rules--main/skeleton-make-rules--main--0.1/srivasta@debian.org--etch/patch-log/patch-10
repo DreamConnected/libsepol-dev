@@ -1,0 +1,10 @@
+Revision: skeleton-make-rules--main--0.1--patch-10
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Sep  6 11:19:56 CDT 2006
+Standard-date: 2006-09-06 16:19:56 GMT
+Modified-files: install_cmds.mk
+New-patches: srivasta@debian.org--etch/skeleton-make-rules--main--0.1--patch-10
+Summary: Improved version of the create md5sums function
+Keywords: 
+

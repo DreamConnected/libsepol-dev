@@ -48,6 +48,7 @@
 #include <sepol/policydb/conditional.h>
 #include <sepol/policydb/avrule_block.h>
 #include <sepol/policydb/util.h>
+#include <sepol/policydb/flask.h>
 
 #include "private.h"
 #include "debug.h"
@@ -92,6 +93,12 @@ static struct policydb_compat_info policydb_compat[] = {
 	 .ocon_num = OCON_NODE6 + 1,
 	 },
 	{
+	 .type = POLICY_KERN,
+	 .version = POLICYDB_VERSION_RANGETRANS,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_NODE6 + 1,
+	 },
+	{
 	 .type = POLICY_BASE,
 	 .version = MOD_POLICYDB_VERSION_BASE,
 	 .sym_num = SYM_NUM,
@@ -100,6 +107,12 @@ static struct policydb_compat_info policydb_compat[] = {
 	{
 	 .type = POLICY_BASE,
 	 .version = MOD_POLICYDB_VERSION_MLS,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_NODE6 + 1,
+	 },
+	{
+	 .type = POLICY_BASE,
+	 .version = MOD_POLICYDB_VERSION_MLS_USERS,
 	 .sym_num = SYM_NUM,
 	 .ocon_num = OCON_NODE6 + 1,
 	 },
@@ -114,7 +127,12 @@ static struct policydb_compat_info policydb_compat[] = {
 	 .version = MOD_POLICYDB_VERSION_MLS,
 	 .sym_num = SYM_NUM,
 	 .ocon_num = 0,
-	 }
+	 },
+	{
+	 .type = POLICY_MOD,
+	 .version = MOD_POLICYDB_VERSION_MLS_USERS,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = 0},
 };
 
 #if 0
@@ -215,18 +233,46 @@ void user_datum_init(user_datum_t * x)
 {
 	memset(x, 0, sizeof(user_datum_t));
 	role_set_init(&x->roles);
+	mls_semantic_range_init(&x->range);
+	mls_semantic_level_init(&x->dfltlevel);
 	ebitmap_init(&x->cache);
+	mls_range_init(&x->exp_range);
+	mls_level_init(&x->exp_dfltlevel);
 }
 
 void user_datum_destroy(user_datum_t * x)
 {
 	if (x != NULL) {
 		role_set_destroy(&x->roles);
-		ebitmap_destroy(&x->range.level[0].cat);
-		ebitmap_destroy(&x->range.level[1].cat);
-		ebitmap_destroy(&x->dfltlevel.cat);
+		mls_semantic_range_destroy(&x->range);
+		mls_semantic_level_destroy(&x->dfltlevel);
 		ebitmap_destroy(&x->cache);
+		mls_range_destroy(&x->exp_range);
+		mls_level_destroy(&x->exp_dfltlevel);
 	}
+}
+
+void level_datum_init(level_datum_t * x)
+{
+	memset(x, 0, sizeof(level_datum_t));
+}
+
+void level_datum_destroy(level_datum_t * x __attribute__ ((unused)))
+{
+	/* the mls_level_t referenced by the level_datum is managed
+	 * separately for now, so there is nothing to destroy */
+	return;
+}
+
+void cat_datum_init(cat_datum_t * x)
+{
+	memset(x, 0, sizeof(cat_datum_t));
+}
+
+void cat_datum_destroy(cat_datum_t * x __attribute__ ((unused)))
+{
+	/* it's currently a simple struct - really nothing to destroy */
+	return;
 }
 
 void class_perm_node_init(class_perm_node_t * x)
@@ -302,6 +348,33 @@ void role_allow_rule_list_destroy(role_allow_rule_t * x)
 	while (x != NULL) {
 		role_allow_rule_t *next = x->next;
 		role_allow_rule_destroy(x);
+		free(x);
+		x = next;
+	}
+}
+
+void range_trans_rule_init(range_trans_rule_t * x)
+{
+	type_set_init(&x->stypes);
+	type_set_init(&x->ttypes);
+	ebitmap_init(&x->tclasses);
+	mls_semantic_range_init(&x->trange);
+	x->next = NULL;
+}
+
+void range_trans_rule_destroy(range_trans_rule_t * x)
+{
+	type_set_destroy(&x->stypes);
+	type_set_destroy(&x->ttypes);
+	ebitmap_destroy(&x->tclasses);
+	mls_semantic_range_destroy(&x->trange);
+}
+
+void range_trans_rule_list_destroy(range_trans_rule_t * x)
+{
+	while (x != NULL) {
+		range_trans_rule_t *next = x->next;
+		range_trans_rule_destroy(x);
 		free(x);
 		x = next;
 	}
@@ -450,6 +523,24 @@ int policydb_user_cache(hashtab_key_t key
 	ebitmap_destroy(&user->cache);
 	if (role_set_expand(&user->roles, &user->cache, p)) {
 		return -1;
+	}
+
+	/* we do not expand user's MLS info in kernel policies because the
+	 * semantic representation is not present and we do not expand user's
+	 * MLS info in module policies because all of the necessary mls
+	 * information is not present */
+	if (p->policy_type != POLICY_KERN && p->policy_type != POLICY_MOD) {
+		mls_range_destroy(&user->exp_range);
+		if (mls_semantic_range_expand(&user->range,
+					      &user->exp_range, p, NULL)) {
+			return -1;
+		}
+
+		mls_level_destroy(&user->exp_dfltlevel);
+		if (mls_semantic_level_expand(&user->dfltlevel,
+					      &user->exp_dfltlevel, p, NULL)) {
+			return -1;
+		}
 	}
 
 	return 0;
@@ -843,9 +934,10 @@ static int sens_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p
 	if (key)
 		free(key);
 	levdatum = (level_datum_t *) datum;
-	ebitmap_destroy(&levdatum->level->cat);
+	mls_level_destroy(levdatum->level);
 	free(levdatum->level);
-	free(datum);
+	level_datum_destroy(levdatum);
+	free(levdatum);
 	return 0;
 }
 
@@ -854,6 +946,7 @@ static int cat_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p
 {
 	if (key)
 		free(key);
+	cat_datum_destroy((cat_datum_t *) datum);
 	free(datum);
 	return 0;
 }
@@ -954,15 +1047,15 @@ void policydb_destroy(policydb_t * p)
 
 	for (rt = p->range_tr; rt; rt = rt->next) {
 		if (lrt) {
-			ebitmap_destroy(&lrt->range.level[0].cat);
-			ebitmap_destroy(&lrt->range.level[1].cat);
+			ebitmap_destroy(&lrt->target_range.level[0].cat);
+			ebitmap_destroy(&lrt->target_range.level[1].cat);
 			free(lrt);
 		}
 		lrt = rt;
 	}
 	if (lrt) {
-		ebitmap_destroy(&lrt->range.level[0].cat);
-		ebitmap_destroy(&lrt->range.level[1].cat);
+		ebitmap_destroy(&lrt->target_range.level[0].cat);
+		ebitmap_destroy(&lrt->target_range.level[1].cat);
 		free(lrt);
 	}
 
@@ -1301,6 +1394,116 @@ static int mls_read_range_helper(mls_range_t * r, struct policy_file *fp)
       bad_high:
 	ebitmap_destroy(&r->level[0].cat);
 	goto out;
+}
+
+/*
+ * Read a semantic MLS level structure from a policydb binary 
+ * representation file.
+ */
+static int mls_read_semantic_level_helper(mls_semantic_level_t * l,
+					  struct policy_file *fp)
+{
+	uint32_t *buf, ncat;
+	unsigned int i;
+	mls_semantic_cat_t *cat;
+
+	mls_semantic_level_init(l);
+
+	buf = next_entry(fp, sizeof(uint32_t) * 2);
+	if (!buf) {
+		ERR(fp->handle, "truncated level");
+		goto bad;
+	}
+	l->sens = le32_to_cpu(buf[0]);
+
+	ncat = le32_to_cpu(buf[1]);
+	for (i = 0; i < ncat; i++) {
+		cat = (mls_semantic_cat_t *) malloc(sizeof(mls_semantic_cat_t));
+		if (!cat) {
+			ERR(fp->handle, "out of memory");
+			goto bad;
+		}
+
+		mls_semantic_cat_init(cat);
+		cat->next = l->cat;
+		l->cat = cat;
+
+		buf = next_entry(fp, sizeof(uint32_t) * 2);
+		if (!buf) {
+			ERR(fp->handle, "error reading level categories");
+			goto bad;
+		}
+		cat->low = le32_to_cpu(buf[0]);
+		cat->high = le32_to_cpu(buf[1]);
+	}
+
+	return 0;
+
+      bad:
+	return -EINVAL;
+}
+
+/*
+ * Read a semantic MLS range structure from a policydb binary 
+ * representation file.
+ */
+static int mls_read_semantic_range_helper(mls_semantic_range_t * r,
+					  struct policy_file *fp)
+{
+	int rc;
+
+	rc = mls_read_semantic_level_helper(&r->level[0], fp);
+	if (rc)
+		return rc;
+
+	rc = mls_read_semantic_level_helper(&r->level[1], fp);
+
+	return rc;
+}
+
+static int mls_level_to_semantic(mls_level_t * l, mls_semantic_level_t * sl)
+{
+	unsigned int i;
+	ebitmap_node_t *cnode;
+	mls_semantic_cat_t *open_cat = NULL;
+
+	mls_semantic_level_init(sl);
+	sl->sens = l->sens;
+	ebitmap_for_each_bit(&l->cat, cnode, i) {
+		if (ebitmap_node_get_bit(cnode, i)) {
+			if (open_cat)
+				continue;
+			open_cat = (mls_semantic_cat_t *)
+			    malloc(sizeof(mls_semantic_cat_t));
+			if (!open_cat)
+				return -1;
+
+			mls_semantic_cat_init(open_cat);
+			open_cat->low = i + 1;
+			open_cat->next = sl->cat;
+			sl->cat = open_cat;
+		} else {
+			if (!open_cat)
+				continue;
+			open_cat->high = i;
+			open_cat = NULL;
+		}
+	}
+	if (open_cat)
+		open_cat->high = i;
+
+	return 0;
+}
+
+static int mls_range_to_semantic(mls_range_t * r, mls_semantic_range_t * sr)
+{
+	if (mls_level_to_semantic(&r->level[0], &sr->level[0]))
+		return -1;
+
+	if (mls_level_to_semantic(&r->level[1], &sr->level[1]))
+		return -1;
+
+	return 0;
 }
 
 /*
@@ -2025,7 +2228,7 @@ static int mls_read_level(mls_level_t * lp, struct policy_file *fp)
 {
 	uint32_t *buf;
 
-	memset(lp, 0, sizeof(mls_level_t));
+	mls_level_init(lp);
 
 	buf = next_entry(fp, sizeof(uint32_t));
 	if (!buf) {
@@ -2079,17 +2282,37 @@ static int user_read(policydb_t * p, hashtab_t h, struct policy_file *fp)
 			goto bad;
 	}
 
-	/* users aren't allowed in mls modules but they can be required, the mls fields will be empty,
-	 * user declarations in non-mls modules will also have empty mls fields */
+	/* users were not allowed in mls modules before version
+	 * MOD_POLICYDB_VERSION_MLS_USERS, but they could have been
+	 * required - the mls fields will be empty.  user declarations in
+	 * non-mls modules will also have empty mls fields */
 	if ((p->policy_type == POLICY_KERN
 	     && p->policyvers >= POLICYDB_VERSION_MLS)
 	    || (p->policy_type == POLICY_MOD
-		&& p->policyvers >= MOD_POLICYDB_VERSION_MLS)
+		&& p->policyvers >= MOD_POLICYDB_VERSION_MLS
+		&& p->policyvers < MOD_POLICYDB_VERSION_MLS_USERS)
 	    || (p->policy_type == POLICY_BASE
-		&& p->policyvers >= MOD_POLICYDB_VERSION_MLS)) {
-		if (mls_read_range_helper(&usrdatum->range, fp))
+		&& p->policyvers >= MOD_POLICYDB_VERSION_MLS
+		&& p->policyvers < MOD_POLICYDB_VERSION_MLS_USERS)) {
+		if (mls_read_range_helper(&usrdatum->exp_range, fp))
 			goto bad;
-		if (mls_read_level(&usrdatum->dfltlevel, fp))
+		if (mls_read_level(&usrdatum->exp_dfltlevel, fp))
+			goto bad;
+		if (p->policy_type != POLICY_KERN) {
+			if (mls_range_to_semantic(&usrdatum->exp_range,
+						  &usrdatum->range))
+				goto bad;
+			if (mls_level_to_semantic(&usrdatum->exp_dfltlevel,
+						  &usrdatum->dfltlevel))
+				goto bad;
+		}
+	} else if ((p->policy_type == POLICY_MOD
+		    && p->policyvers >= MOD_POLICYDB_VERSION_MLS_USERS)
+		   || (p->policy_type == POLICY_BASE
+		       && p->policyvers >= MOD_POLICYDB_VERSION_MLS_USERS)) {
+		if (mls_read_semantic_range_helper(&usrdatum->range, fp))
+			goto bad;
+		if (mls_read_semantic_level_helper(&usrdatum->dfltlevel, fp))
 			goto bad;
 	}
 
@@ -2111,9 +2334,10 @@ static int sens_read(policydb_t * p
 	level_datum_t *levdatum;
 	uint32_t *buf, len;
 
-	levdatum = calloc(1, sizeof(level_datum_t));
+	levdatum = malloc(sizeof(level_datum_t));
 	if (!levdatum)
 		return -1;
+	level_datum_init(levdatum);
 
 	buf = next_entry(fp, (sizeof(uint32_t) * 2));
 	if (!buf)
@@ -2153,9 +2377,10 @@ static int cat_read(policydb_t * p
 	cat_datum_t *catdatum;
 	uint32_t *buf, len;
 
-	catdatum = calloc(1, sizeof(cat_datum_t));
+	catdatum = malloc(sizeof(cat_datum_t));
 	if (!catdatum)
 		return -1;
+	cat_datum_init(catdatum);
 
 	buf = next_entry(fp, (sizeof(uint32_t) * 3));
 	if (!buf)
@@ -2259,7 +2484,10 @@ static int range_read(policydb_t * p, struct policy_file *fp)
 {
 	uint32_t *buf, nel;
 	range_trans_t *rt, *lrt;
+	range_trans_rule_t *rtr, *lrtr = NULL;
 	unsigned int i;
+	int new_rangetr = (p->policy_type == POLICY_KERN &&
+			   p->policyvers >= POLICYDB_VERSION_RANGETRANS);
 
 	buf = next_entry(fp, sizeof(uint32_t));
 	if (!buf)
@@ -2277,12 +2505,71 @@ static int range_read(policydb_t * p, struct policy_file *fp)
 		buf = next_entry(fp, (sizeof(uint32_t) * 2));
 		if (!buf)
 			return -1;
-		rt->dom = le32_to_cpu(buf[0]);
-		rt->type = le32_to_cpu(buf[1]);
-		if (mls_read_range_helper(&rt->range, fp))
+		rt->source_type = le32_to_cpu(buf[0]);
+		rt->target_type = le32_to_cpu(buf[1]);
+		if (new_rangetr) {
+			buf = next_entry(fp, (sizeof(uint32_t)));
+			if (!buf)
+				return -1;
+			rt->target_class = le32_to_cpu(buf[0]);
+		} else
+			rt->target_class = SECCLASS_PROCESS;
+		if (mls_read_range_helper(&rt->target_range, fp))
 			return -1;
 		lrt = rt;
 	}
+
+	/* if this is a kernel policy, we are done - otherwise we need to
+	 * convert these structs to range_trans_rule_ts */
+	if (p->policy_type == POLICY_KERN)
+		return 0;
+
+	/* create range_trans_rules_ts that correspond to the range_trans_ts
+	 * that were just read in from an older policy */
+	for (rt = p->range_tr; rt; rt = rt->next) {
+		rtr = malloc(sizeof(range_trans_rule_t));
+		if (!rtr) {
+			return -1;
+		}
+		range_trans_rule_init(rtr);
+
+		if (lrtr)
+			lrtr->next = rtr;
+		else
+			p->global->enabled->range_tr_rules = rtr;
+
+		if (ebitmap_set_bit(&rtr->stypes.types, rt->source_type - 1, 1))
+			return -1;
+
+		if (ebitmap_set_bit(&rtr->ttypes.types, rt->target_type - 1, 1))
+			return -1;
+
+		if (ebitmap_set_bit(&rtr->tclasses, rt->target_class - 1, 1))
+			return -1;
+
+		if (mls_range_to_semantic(&rt->target_range, &rtr->trange))
+			return -1;
+
+		lrtr = rtr;
+	}
+
+	/* now destroy the range_trans_ts */
+	lrt = NULL;
+	for (rt = p->range_tr; rt; rt = rt->next) {
+		if (lrt) {
+			ebitmap_destroy(&lrt->target_range.level[0].cat);
+			ebitmap_destroy(&lrt->target_range.level[1].cat);
+			free(lrt);
+		}
+		lrt = rt;
+	}
+	if (lrt) {
+		ebitmap_destroy(&lrt->target_range.level[0].cat);
+		ebitmap_destroy(&lrt->target_range.level[1].cat);
+		free(lrt);
+	}
+	p->range_tr = NULL;
+
 	return 0;
 }
 
@@ -2393,6 +2680,47 @@ static int role_allow_rule_read(role_allow_rule_t ** r, struct policy_file *fp)
 	return 0;
 }
 
+static int range_trans_rule_read(range_trans_rule_t ** r,
+				 struct policy_file *fp)
+{
+	uint32_t *buf, nel;
+	unsigned int i;
+	range_trans_rule_t *rt, *lrt = NULL;
+
+	buf = next_entry(fp, sizeof(uint32_t));
+	if (!buf)
+		return -1;
+	nel = le32_to_cpu(buf[0]);
+	for (i = 0; i < nel; i++) {
+		rt = malloc(sizeof(range_trans_rule_t));
+		if (!rt) {
+			return -1;
+		}
+		range_trans_rule_init(rt);
+
+		if (lrt)
+			lrt->next = rt;
+		else
+			*r = rt;
+
+		if (type_set_read(&rt->stypes, fp))
+			return -1;
+
+		if (type_set_read(&rt->ttypes, fp))
+			return -1;
+
+		if (ebitmap_read(&rt->tclasses, fp))
+			return -1;
+
+		if (mls_read_semantic_range_helper(&rt->trange, fp))
+			return -1;
+
+		lrt = rt;
+	}
+
+	return 0;
+}
+
 static int scope_index_read(scope_index_t * scope_index,
 			    unsigned int num_scope_syms, struct policy_file *fp)
 {
@@ -2438,6 +2766,10 @@ static int avrule_decl_read(policydb_t * p, avrule_decl_t * decl,
 	    avrule_read_list(p, &decl->avrules, fp) == -1 ||
 	    role_trans_rule_read(&decl->role_tr_rules, fp) == -1 ||
 	    role_allow_rule_read(&decl->role_allow_rules, fp) == -1) {
+		return -1;
+	}
+	if (p->policyvers >= MOD_POLICYDB_VERSION_RANGETRANS &&
+	    range_trans_rule_read(&decl->range_tr_rules, fp) == -1) {
 		return -1;
 	}
 	if (scope_index_read(&decl->required, num_scope_syms, fp) == -1 ||
@@ -2618,7 +2950,7 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 	/* Read the magic number and string length. */
 	buf = next_entry(fp, sizeof(uint32_t) * 2);
 	if (!buf)
-		return -1;
+		return POLICYDB_ERROR;
 	for (i = 0; i < 2; i++)
 		buf[i] = le32_to_cpu(buf[i]);
 
@@ -2632,26 +2964,26 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 		ERR(fp->handle, "policydb magic number %#08x does not "
 		    "match expected magic number %#08x or %#08x",
 		    buf[0], POLICYDB_MAGIC, POLICYDB_MOD_MAGIC);
-		return -1;
+		return POLICYDB_ERROR;
 	}
 
 	len = buf[1];
 	if (len != strlen(target_str)) {
 		ERR(fp->handle, "policydb string length %zu does not match "
 		    "expected length %zu", len, strlen(target_str));
-		return -1;
+		return POLICYDB_ERROR;
 	}
 
 	buf = next_entry(fp, len);
 	if (!buf) {
 		ERR(fp->handle, "truncated policydb string identifier");
-		return -1;
+		return POLICYDB_ERROR;
 	}
 	policydb_str = malloc(len + 1);
 	if (!policydb_str) {
 		ERR(fp->handle, "unable to allocate memory for policydb "
 		    "string of length %zu", len);
-		return -1;
+		return POLICYDB_ERROR;
 	}
 	memcpy(policydb_str, buf, len);
 	policydb_str[len] = 0;
@@ -2659,7 +2991,7 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 		ERR(fp->handle, "policydb string %s does not match "
 		    "my string %s", policydb_str, target_str);
 		free(policydb_str);
-		return -1;
+		return POLICYDB_ERROR;
 	}
 	/* Done with policydb_str. */
 	free(policydb_str);
@@ -2673,7 +3005,7 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 
 	buf = next_entry(fp, sizeof(uint32_t) * nel);
 	if (!buf)
-		return -1;
+		return POLICYDB_ERROR;
 	for (i = 0; i < nel; i++)
 		buf[i] = le32_to_cpu(buf[i]);
 
@@ -2687,7 +3019,7 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 		if (policy_type != POLICY_MOD && policy_type != POLICY_BASE) {
 			ERR(fp->handle, "unknown module type: %#08x",
 			    policy_type);
-			return -1;
+			return POLICYDB_ERROR;
 		}
 		bufindex++;
 	}
@@ -2699,7 +3031,7 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 			ERR(fp->handle, "policydb version %d does not match "
 			    "my version range %d-%d", buf[bufindex],
 			    POLICYDB_VERSION_MIN, POLICYDB_VERSION_MAX);
-			return -1;
+			return POLICYDB_ERROR;
 		}
 	} else if (policy_type == POLICY_BASE || policy_type == POLICY_MOD) {
 		if (r_policyvers < MOD_POLICYDB_VERSION_MIN ||
@@ -2708,7 +3040,7 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 			    "not match my version range %d-%d",
 			    buf[bufindex], MOD_POLICYDB_VERSION_MIN,
 			    MOD_POLICYDB_VERSION_MAX);
-			return -1;
+			return POLICYDB_ERROR;
 		}
 	} else {
 		assert(0);
@@ -2835,7 +3167,8 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 	if ((p->policy_type == POLICY_KERN
 	     && p->policyvers >= POLICYDB_VERSION_MLS)
 	    || (p->policy_type == POLICY_BASE
-		&& p->policyvers >= MOD_POLICYDB_VERSION_MLS)) {
+		&& p->policyvers >= MOD_POLICYDB_VERSION_MLS
+		&& p->policyvers < MOD_POLICYDB_VERSION_RANGETRANS)) {
 		if (range_read(p, fp)) {
 			goto bad;
 		}
@@ -2870,9 +3203,9 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 		}
 	}
 
-	return 0;
+	return POLICYDB_SUCCESS;
       bad:
-	return -1;
+	return POLICYDB_ERROR;
 }
 
 int policydb_reindex_users(policydb_t * p)

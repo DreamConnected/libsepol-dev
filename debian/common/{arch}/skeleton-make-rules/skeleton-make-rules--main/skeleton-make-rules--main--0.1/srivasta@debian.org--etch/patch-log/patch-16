@@ -1,0 +1,13 @@
+Revision: skeleton-make-rules--main--0.1--patch-16
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Mon Oct  2 10:50:10 CDT 2006
+Standard-date: 2006-10-02 15:50:10 GMT
+New-files: checklibs
+Modified-files: ChangeLog
+New-patches: srivasta@debian.org--etch/skeleton-make-rules--main--0.1--patch-16
+Summary: Add facilities for checking symbols and libraries
+Keywords: 
+
+* checklibs: New file, to detect if there are unneeded library dependencies
+

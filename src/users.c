@@ -47,13 +47,13 @@ static int user_to_record(sepol_handle_t * handle,
 
 		context_init(&context);
 		if (mls_level_cpy(&context.range.level[0],
-				  &usrdatum->dfltlevel) < 0) {
+				  &usrdatum->exp_dfltlevel) < 0) {
 			ERR(handle, "could not copy MLS level");
 			context_destroy(&context);
 			goto err;
 		}
 		if (mls_level_cpy(&context.range.level[1],
-				  &usrdatum->dfltlevel) < 0) {
+				  &usrdatum->exp_dfltlevel) < 0) {
 			ERR(handle, "could not copy MLS level");
 			context_destroy(&context);
 			goto err;
@@ -71,7 +71,7 @@ static int user_to_record(sepol_handle_t * handle,
 		free(str);
 
 		context_init(&context);
-		if (mls_range_cpy(&context.range, &usrdatum->range) < 0) {
+		if (mls_range_cpy(&context.range, &usrdatum->exp_range) < 0) {
 			ERR(handle, "could not copy MLS range");
 			context_destroy(&context);
 			goto err;
@@ -191,8 +191,8 @@ int sepol_user_modify(sepol_handle_t * handle,
 			context_destroy(&context);
 			goto err;
 		}
-		if (mls_level_cpy(&usrdatum->dfltlevel, &context.range.level[0])
-		    < 0) {
+		if (mls_level_cpy(&usrdatum->exp_dfltlevel,
+				  &context.range.level[0]) < 0) {
 			ERR(handle, "could not copy MLS level %s", cmls_level);
 			context_destroy(&context);
 			goto err;
@@ -211,13 +211,12 @@ int sepol_user_modify(sepol_handle_t * handle,
 			context_destroy(&context);
 			goto err;
 		}
-		if (mls_range_cpy(&usrdatum->range, &context.range) < 0) {
+		if (mls_range_cpy(&usrdatum->exp_range, &context.range) < 0) {
 			ERR(handle, "could not copy MLS range %s", cmls_range);
 			context_destroy(&context);
 			goto err;
 		}
 		context_destroy(&context);
-
 	} else if (cmls_level != NULL || cmls_range != NULL) {
 		ERR(handle, "MLS is disabled, but MLS level/range "
 		    "was found for user %s", cname);
@@ -332,7 +331,8 @@ int sepol_user_query(sepol_handle_t * handle,
 		return STATUS_SUCCESS;
 	}
 
-	if (user_to_record(handle, policydb, usrdatum->s.value - 1, response) < 0)
+	if (user_to_record(handle, policydb, usrdatum->s.value - 1, response) <
+	    0)
 		goto err;
 
 	return STATUS_SUCCESS;

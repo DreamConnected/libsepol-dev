@@ -1,0 +1,10 @@
+Revision: skeleton-make-rules--main--0.1--patch-9
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Sep  6 01:01:46 CDT 2006
+Standard-date: 2006-09-06 06:01:46 GMT
+Modified-files: install_cmds.mk
+New-patches: srivasta@debian.org--etch/skeleton-make-rules--main--0.1--patch-9
+Summary: chdir to the install top, not just the package name
+Keywords: 
+

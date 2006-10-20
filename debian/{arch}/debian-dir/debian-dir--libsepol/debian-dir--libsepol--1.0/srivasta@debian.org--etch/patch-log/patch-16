@@ -1,0 +1,10 @@
+Revision: debian-dir--libsepol--1.0--patch-16
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Thu Sep  7 12:31:49 CDT 2006
+Standard-date: 2006-09-07 17:31:49 GMT
+Modified-files: control
+New-patches: srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-16
+Summary: Make SELinux spelling consistent across long desciptions
+Keywords: 
+

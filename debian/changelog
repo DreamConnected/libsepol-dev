@@ -1,3 +1,30 @@
+libsepol (1.14-1) unstable; urgency=medium
+
+  * New upstream release
+    * Build libsepol's static object files with -fpic
+    * Updated version for release.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Fri, 20 Oct 2006 11:50:47 -0500
+
+libsepol (1.12.26-2) unstable; urgency=low
+
+  * Bump the shlibs version. Mea culpa. I had missed the fact that the
+    included range_transition enhancements and user module format changes
+    may make packages, even if they compile fine, misbehave subtly.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Mon, 11 Sep 2006 15:31:46 -0500
+
+libsepol (1.12.26-1) unstable; urgency=low
+
+  * New upstream point release
+  * Merged conditionally expand neverallows patch from Jeremy Mowery.
+  * Merged refactor expander patch from Jeremy Mowery.
+  * Merged range transition enhancements and user format changes Darrel
+    Goeddel 
+  * Provide md5sums
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed,  6 Sep 2006 16:24:16 -0500
+
 libsepol (1.12.24-1) unstable; urgency=low
 
   * New upstream point release

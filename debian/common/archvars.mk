@@ -108,6 +108,11 @@ OLDREASON = @if [ -f $@ ]; then \
 
 LIBREASON = @echo "====== making $(notdir $@)($(notdir $%))because of $(notdir $?)======"
 
+
+# macro outputing $(1) if DEBUG_DEBIAN_RULES is set, and resolving it
+# in all cases usage $(call doit,some shell command)
+doit = $(if $(DEBUG_DEBIAN_RULES),$(warning DEBUG: $(1)))$(shell $(1))
+
 #Local variables:
 #mode: makefile
 #End:

@@ -1,0 +1,10 @@
+Revision: debian-dir--libsepol--1.0--patch-14
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Sep  6 13:01:19 CDT 2006
+Standard-date: 2006-09-06 18:01:19 GMT
+Modified-files: local.mk
+New-patches: srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-14
+Summary: Create md5sums
+Keywords: 
+

@@ -4,9 +4,9 @@
 ## Created On       : Sat Nov 15 01:10:05 2003
 ## Created On Node  : glaurung.green-gryphon.com
 ## Last Modified By : Manoj Srivastava
-## Last Modified On : Thu Jan  5 14:52:21 2006
+## Last Modified On : Fri Sep 15 12:58:50 2006
 ## Last Machine Used: glaurung.internal.golden-gryphon.com
-## Update Count     : 60
+## Update Count     : 61
 ## Status           : Unknown, Use with caution!
 ## HISTORY          : 
 ## Description      : The top level targets mandated by policy, as well as
@@ -326,9 +326,14 @@ stamp-clean: clean-indep clean-arch
 	-test -f Makefile && $(MAKE) distclean
 	-rm -f  $(FILES_TO_CLEAN) $(STAMPS_TO_CLEAN)
 	-rm -rf $(DIRS_TO_CLEAN)
-	-rm -f core `find . \( -name '*.orig' -o -name '*.rej' -o -name '*~'     \
-	         -o -name '*.bak' -o -name '#*#' -o -name '.*.orig'              \
-		 -o -name '.*.rej' -o -name '.SUMS' -o -size 0 \) -print` TAGS
+	-rm -f core TAGS                                                     \
+               `find . ! -regex '.*/\.git/.*' ! -regex '.*/\{arch\}/.*'      \
+                       ! -regex '.*/CVS/.*'   ! -regex '.*/\.arch-ids/.*'    \
+                       ! -regex '.*/\.svn/.*'                                \
+                   \( -name '*.orig' -o -name '*.rej' -o -name '*~'       -o \
+                      -name '*.bak'  -o -name '#*#'   -o -name '.*.orig'  -o \
+		      -name '.*.rej' -o -name '.SUMS' -o -size 0 \)          \
+                -print`
 
 clean: stamp-clean
 	$(REASON)

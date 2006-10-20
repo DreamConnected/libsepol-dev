@@ -1,0 +1,20 @@
+Revision: libsepol--upstream--1.12--patch-6
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Sep  6 16:18:11 CDT 2006
+Standard-date: 2006-09-06 21:18:11 GMT
+Modified-files: ChangeLog VERSION
+    include/sepol/policydb/context.h
+    include/sepol/policydb/expand.h
+    include/sepol/policydb/mls_types.h
+    include/sepol/policydb/policydb.h src/avrule_block.c
+    src/expand.c src/mls.c src/policydb.c src/users.c
+    src/write.c
+New-patches: srivasta@debian.org--etch/libsepol--upstream--1.12--patch-6
+Summary: Imported libsepol-1.12.26
+Keywords: 
+
+Imported libsepol-1.12.26
+into srivasta@debian.org--etch/libsepol--upstream--1.12
+
+

@@ -45,6 +45,7 @@ typedef struct avtab_key {
 #define AVTAB_ALLOWED     1
 #define AVTAB_AUDITALLOW  2
 #define AVTAB_AUDITDENY   4
+#define AVTAB_NEVERALLOW 128
 #define AVTAB_AV         (AVTAB_ALLOWED | AVTAB_AUDITALLOW | AVTAB_AUDITDENY)
 #define AVTAB_TRANSITION 16
 #define AVTAB_MEMBER     32

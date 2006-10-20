@@ -47,6 +47,8 @@ DEB_VERSION        := $(strip $(shell LC_ALL=C dpkg-parsechangelog          |   
                                       egrep '^Version:' | cut -f 2 -d ' '))
 DEB_ISNATIVE       := $(strip $(shell LC_ALL=C dpkg-parsechangelog          |       \
                        perl -ne 'print if (m/^Version:/g && ! m/^Version:.*\-/);'))
+DEB_DISTRIBUTION  := $(strip $(shell LC_ALL=C dpkg-parsechangelog          |        \
+                                      egrep '^Distribution:' | cut -f 2 -d ' '))
 
 DEB_PACKAGES := $(shell perl -e '                                                    \
                   $$/="";                                                            \

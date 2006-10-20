@@ -1,0 +1,10 @@
+Revision: debian-dir--libsepol--1.0--patch-17
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Mon Sep 11 15:32:26 CDT 2006
+Standard-date: 2006-09-11 20:32:26 GMT
+Modified-files: changelog shlibs
+New-patches: srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-17
+Summary: New bug fixing version
+Keywords: 
+

@@ -4,9 +4,9 @@
 ## Created On       : Sat Nov 15 10:42:10 2003
 ## Created On Node  : glaurung.green-gryphon.com
 ## Last Modified By : Manoj Srivastava
-## Last Modified On : Sat Mar 12 14:16:25 2005
+## Last Modified On : Wed Sep  6 13:01:02 2006
 ## Last Machine Used: glaurung.internal.golden-gryphon.com
-## Update Count     : 15
+## Update Count     : 21
 ## Status           : Unknown, Use with caution!
 ## HISTORY          : 
 ## Description      : 
@@ -157,6 +157,7 @@ binary/libsepol1: testroot
 	    fi;							 \
 	   done; echo $$j; )`; dpkg-shlibdeps $$k
 	dpkg-gencontrol	     -p$(package) -isp	     -P$(TMPTOP)
+	$(create_md5sum)     $(TMPTOP)
 	chown -R root:root   $(TMPTOP)
 	chmod -R u+w,go=rX   $(TMPTOP)
 	dpkg --build	     $(TMPTOP) ..
@@ -166,6 +167,7 @@ binary/libsepol1-dev: testroot
 	$(REASON)
 	$(make_directory)    $(TMPTOP)/DEBIAN
 	dpkg-gencontrol	     -p$(package) -isp	     -P$(TMPTOP)
+	$(create_md5sum)     $(TMPTOP)
 	chown -R root:root   $(TMPTOP)
 	chmod -R u+w,go=rX   $(TMPTOP)
 	dpkg --build	     $(TMPTOP) ..
@@ -180,6 +182,7 @@ binary/sepol-utils: testroot
 	    fi;							 \
 	   done; echo $$j; )`; dpkg-shlibdeps -Ldebian/shlibs -Tsubstvars.utils $$k
 	dpkg-gencontrol	     -Tsubstvars.utils -p$(package) -isp    -P$(TMPTOP)
+	$(create_md5sum)     $(TMPTOP)
 	chown -R root:root   $(TMPTOP)
 	chmod -R u+w,go=rX   $(TMPTOP)
 	dpkg --build	     $(TMPTOP) ..

@@ -65,6 +65,10 @@
 
 #define ERRMSG_LEN 1024
 
+#define POLICYDB_SUCCESS      0
+#define POLICYDB_ERROR       -1
+#define POLICYDB_UNSUPPORTED -2
+
 /*
  * A datum type is defined for each kind of symbol 
  * in the configuration data:  individual permissions, 
@@ -145,9 +149,11 @@ typedef struct type_datum {
 typedef struct user_datum {
 	symtab_datum_t s;
 	role_set_t roles;	/* set of authorized roles for user */
-	mls_range_t range;	/* MLS range (min. - max.) for user */
-	mls_level_t dfltlevel;	/* default login MLS level for user */
+	mls_semantic_range_t range;	/* MLS range (min. - max.) for user */
+	mls_semantic_level_t dfltlevel;	/* default login MLS level for user */
 	ebitmap_t cache;	/* This is an expanded set used for context validation during parsing */
+	mls_range_t exp_range;     /* expanded range used for validation */
+	mls_level_t exp_dfltlevel; /* expanded range used for validation */
 } user_datum_t;
 
 /* Sensitivity attributes */
@@ -164,9 +170,10 @@ typedef struct cat_datum {
 } cat_datum_t;
 
 typedef struct range_trans {
-	uint32_t dom;		/* current process domain */
-	uint32_t type;		/* program executable type */
-	mls_range_t range;	/* new range */
+	uint32_t source_type;
+	uint32_t target_type;
+	uint32_t target_class;
+	mls_range_t target_range;
 	struct range_trans *next;
 } range_trans_t;
 
@@ -194,12 +201,12 @@ typedef struct avrule {
 #define AVRULE_AUDITALLOW  2
 #define AVRULE_AUDITDENY   4
 #define AVRULE_DONTAUDIT   8
-#define AVRULE_AV         (AVRULE_ALLOWED | AVRULE_AUDITALLOW | AVRULE_AUDITDENY | AVRULE_DONTAUDIT)
+#define AVRULE_NEVERALLOW 128
+#define AVRULE_AV         (AVRULE_ALLOWED | AVRULE_AUDITALLOW | AVRULE_AUDITDENY | AVRULE_DONTAUDIT | AVRULE_NEVERALLOW)
 #define AVRULE_TRANSITION 16
 #define AVRULE_MEMBER     32
 #define AVRULE_CHANGE     64
 #define AVRULE_TYPE       (AVRULE_TRANSITION | AVRULE_MEMBER | AVRULE_CHANGE)
-#define AVRULE_NEVERALLOW 128
 	uint32_t specified;
 #define RULE_SELF 1
 	uint32_t flags;
@@ -223,6 +230,14 @@ typedef struct role_allow_rule {
 	role_set_t new_roles;	/* new roles */
 	struct role_allow_rule *next;
 } role_allow_rule_t;
+
+typedef struct range_trans_rule {
+	type_set_t stypes;
+	type_set_t ttypes;
+	ebitmap_t tclasses;
+	mls_semantic_range_t trange;
+	struct range_trans_rule *next;
+} range_trans_rule_t;
 
 /*
  * The configuration data includes security contexts for 
@@ -321,6 +336,7 @@ typedef struct avrule_decl {
 	avrule_t *avrules;
 	role_trans_rule_t *role_tr_rules;
 	role_allow_rule_t *role_allow_rules;
+	range_trans_rule_t *range_tr_rules;
 	scope_index_t required;	/* symbols needed to activate this block */
 	scope_index_t declared;	/* symbols declared within this block */
 
@@ -370,6 +386,9 @@ typedef struct policydb {
 	uint32_t policy_type;
 	char *name;
 	char *version;
+
+	/* Set when the policydb is modified such that writing is unsupported */
+	int unsupported_format;
 
 	/* Whether this policydb is mls, should always be set */
 	int mls;
@@ -506,10 +525,17 @@ extern void role_datum_destroy(role_datum_t * x);
 extern void role_allow_rule_init(role_allow_rule_t * x);
 extern void role_allow_rule_destroy(role_allow_rule_t * x);
 extern void role_allow_rule_list_destroy(role_allow_rule_t * x);
+extern void range_trans_rule_init(range_trans_rule_t *x);
+extern void range_trans_rule_destroy(range_trans_rule_t *x);
+extern void range_trans_rule_list_destroy(range_trans_rule_t *x);
 extern void type_datum_init(type_datum_t * x);
 extern void type_datum_destroy(type_datum_t * x);
 extern void user_datum_init(user_datum_t * x);
 extern void user_datum_destroy(user_datum_t * x);
+extern void level_datum_init(level_datum_t * x);
+extern void level_datum_destroy(level_datum_t * x);
+extern void cat_datum_init(cat_datum_t * x);
+extern void cat_datum_destroy(cat_datum_t * x);
 
 extern int check_assertions(sepol_handle_t * handle,
 			    policydb_t * p, avrule_t * avrules);
@@ -555,18 +581,21 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
 #define POLICYDB_VERSION_VALIDATETRANS	19
 #define POLICYDB_VERSION_MLS		19
 #define POLICYDB_VERSION_AVTAB		20
+#define POLICYDB_VERSION_RANGETRANS	21
 
 /* Range of policy versions we understand*/
 #define POLICYDB_VERSION_MIN	POLICYDB_VERSION_BASE
-#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_AVTAB
+#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_RANGETRANS
 
 /* Module versions and specific changes*/
 #define MOD_POLICYDB_VERSION_BASE	   4
 #define MOD_POLICYDB_VERSION_VALIDATETRANS 5
 #define MOD_POLICYDB_VERSION_MLS	   5
+#define MOD_POLICYDB_VERSION_RANGETRANS	   6
+#define MOD_POLICYDB_VERSION_MLS_USERS	   6
 
 #define MOD_POLICYDB_VERSION_MIN MOD_POLICYDB_VERSION_BASE
-#define MOD_POLICYDB_VERSION_MAX MOD_POLICYDB_VERSION_MLS
+#define MOD_POLICYDB_VERSION_MAX MOD_POLICYDB_VERSION_MLS_USERS
 
 #define POLICYDB_CONFIG_MLS    1
 

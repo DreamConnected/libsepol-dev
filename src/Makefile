@@ -30,7 +30,7 @@ $(LIBPC): $(LIBPC).in
 	sed -e 's/@VERSION@/$(VERSION)/; s:@prefix@:$(PREFIX):; s:@libdir@:$(LIBDIR):; s:@includedir@:$(INCDIR):' < $< > $@
 
 %.o:  %.c 
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CC) $(CFLAGS) -fpic -c -o $@ $<
 
 %.lo:  %.c
 	$(CC) $(CFLAGS) -fpic -DSHARED -c -o $@ $<
@@ -49,4 +49,7 @@ relabel:
 
 clean: 
 	-rm -f $(OBJS) $(LOBJS) $(LIBA) $(LIBSO) $(TARGET) $(LIBPC)
+
+indent:
+	../../Lindent $(wildcard *.[ch])
 
