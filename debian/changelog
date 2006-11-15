@@ -1,4 +1,11 @@
-libsepol (1.14-1) unstable; urgency=medium
+libsepol (1.14-2) unstable; urgency=high
+
+  * Compile with -fPIC instead of -fpic. This fixes a FTBS for rpm on
+    sparc. 
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 15 Nov 2006 01:31:58 -0600
+
+libsepol (1.14-1) unstable; urgency=low
 
   * New upstream release
     * Build libsepol's static object files with -fpic

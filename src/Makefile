@@ -30,10 +30,10 @@ $(LIBPC): $(LIBPC).in
 	sed -e 's/@VERSION@/$(VERSION)/; s:@prefix@:$(PREFIX):; s:@libdir@:$(LIBDIR):; s:@includedir@:$(INCDIR):' < $< > $@
 
 %.o:  %.c 
-	$(CC) $(CFLAGS) -fpic -c -o $@ $<
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 %.lo:  %.c
-	$(CC) $(CFLAGS) -fpic -DSHARED -c -o $@ $<
+	$(CC) $(CFLAGS) -fPIC -DSHARED -c -o $@ $<
 
 install: all
 	test -d $(DESTDIR)$(LIBDIR) || install -m 755 -d $(DESTDIR)$(LIBDIR)

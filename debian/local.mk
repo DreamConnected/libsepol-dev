@@ -4,9 +4,9 @@
 ## Created On       : Sat Nov 15 10:42:10 2003
 ## Created On Node  : glaurung.green-gryphon.com
 ## Last Modified By : Manoj Srivastava
-## Last Modified On : Wed Sep  6 13:01:02 2006
+## Last Modified On : Fri Oct 20 14:24:16 2006
 ## Last Machine Used: glaurung.internal.golden-gryphon.com
-## Update Count     : 21
+## Update Count     : 22
 ## Status           : Unknown, Use with caution!
 ## HISTORY          : 
 ## Description      : 
@@ -155,7 +155,7 @@ binary/libsepol1: testroot
 	    if file -b $$i | egrep -q "^ELF.*shared object"; then	 \
 	      j="$$j $$i";					 \
 	    fi;							 \
-	   done; echo $$j; )`; dpkg-shlibdeps $$k
+	   done; echo $$j; )`; if [ -n "$$k" ]; then dpkg-shlibdeps $$k; fi
 	dpkg-gencontrol	     -p$(package) -isp	     -P$(TMPTOP)
 	$(create_md5sum)     $(TMPTOP)
 	chown -R root:root   $(TMPTOP)

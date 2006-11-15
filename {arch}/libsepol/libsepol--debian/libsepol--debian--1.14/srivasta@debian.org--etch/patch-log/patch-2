@@ -1,0 +1,22 @@
+Revision: libsepol--debian--1.14--patch-2
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Nov 15 00:45:45 CST 2006
+Standard-date: 2006-11-15 06:45:45 GMT
+Modified-files: src/Makefile
+New-patches: srivasta@debian.org--etch/libsepol--debian--1.14--patch-2
+Summary: Compile with -fPIC, not -fpic
+Keywords: 
+
+
+The dynamic loader resolves the GOT entries when the program starts (the
+dynamic loader is not part of GCC; it is part of the operating system).
+If the GOT size for the linked executable exceeds a machine-specific
+maximum size, you get an error message from the linker indicating that
+`-fpic' does not work; in that case, recompile with `-fPIC' instead.
+(These maximums are 8k on the SPARC and 32k on the m68k and RS/6000.  The
+386 has no such limit.) Hit the limit on sparc.
+
+* src/Makefile (%.lo): compile with -fPIC, not -fpic
+(%.o): Ditto
+

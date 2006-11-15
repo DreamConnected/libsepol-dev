@@ -1,0 +1,10 @@
+Revision: debian-dir--libsepol--1.0--patch-20
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Fri Oct 20 14:24:47 CDT 2006
+Standard-date: 2006-10-20 19:24:47 GMT
+Modified-files: local.mk
+New-patches: srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-20
+Summary: Fix calling dpkg-shlibdeps with no arguments
+Keywords: 
+
