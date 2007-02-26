@@ -155,7 +155,13 @@ case "$1" in
     #rm -f $tempfile
     if [ -x /sbin/init ] && [ -x /bin/readlink ]; then
         if [ "$(readlink /proc/1/exe 2>/dev/null)" = "/sbin/init" ]; then
-             (init u ; sleep 1)
+            # Use telinit if available, it is better form, according
+            # to the sysvinit maintainer.
+            if [ -x /sbin/telinit ]; then
+                (telinit u ; sleep 1)
+            else
+                (init u ; sleep 1)
+            fi
         fi
     fi
     

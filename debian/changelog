@@ -1,3 +1,14 @@
+libsepol (1.14-3) unstable; urgency=low
+
+  * This fix is in reference to Bug#408278. In the postinst, we now use
+    telinit u, instead of plain old init u, if telinit is available.
+    Using init directly is bad form, according to sysvinit maintainer.
+  * Make the dev package depend on the exact ${binary:Version}, not the
+    ${Source-Version}, which should make this package friendlier to
+    binNMUs. 
+
+ -- Manoj Srivastava <srivasta@debian.org>  Mon, 26 Feb 2007 10:09:10 -0600
+
 libsepol (1.14-2) unstable; urgency=high
 
   * Compile with -fPIC instead of -fpic. This fixes a FTBS for rpm on
