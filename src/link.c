@@ -597,6 +597,13 @@ static int sens_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 			    state->cur_mod_name);
 			return -SEPOL_LINK_NOTSUP;
 		}
+		if (scope->scope == SCOPE_REQ) {
+			/* unmet requirement */
+			ERR(state->handle,
+			    "%s:  Sensitivity %s not declared by base.\n",
+			    state->cur_mod_name, id);
+			return -SEPOL_LINK_NOTSUP;
+		}
 	}
 
 	state->cur->map[SYM_LEVELS][level->level->sens - 1] =
@@ -626,6 +633,13 @@ static int cat_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 			ERR(state->handle,
 			    "%s: Modules may not declare new categories.",
 			    state->cur_mod_name);
+			return -SEPOL_LINK_NOTSUP;
+		}
+		if (scope->scope == SCOPE_REQ) {
+			/* unmet requirement */
+			ERR(state->handle,
+			    "%s:  Category %s not declared by base.\n",
+			    state->cur_mod_name, id);
 			return -SEPOL_LINK_NOTSUP;
 		}
 	}
@@ -827,10 +841,13 @@ static int role_set_or_convert(role_set_t * roles, role_set_t * dst,
 	return -1;
 }
 
-static int mls_level_convert(mls_semantic_level_t * src,
-			     mls_semantic_level_t * dst, policy_module_t * mod)
+static int mls_level_convert(mls_semantic_level_t * src, mls_semantic_level_t * dst,
+			     policy_module_t * mod, link_state_t * state)
 {
 	mls_semantic_cat_t *src_cat, *new_cat;
+
+	if (!mod->policy->mls)
+		return 0;
 
 	assert(mod->map[SYM_LEVELS][src->sens - 1]);
 	dst->sens = mod->map[SYM_LEVELS][src->sens - 1];
@@ -838,8 +855,10 @@ static int mls_level_convert(mls_semantic_level_t * src,
 	for (src_cat = src->cat; src_cat; src_cat = src_cat->next) {
 		new_cat =
 		    (mls_semantic_cat_t *) malloc(sizeof(mls_semantic_cat_t));
-		if (!new_cat)
+		if (!new_cat) {
+			ERR(state->handle, "Out of memory");
 			return -1;
+		}
 		mls_semantic_cat_init(new_cat);
 
 		new_cat->next = dst->cat;
@@ -854,13 +873,16 @@ static int mls_level_convert(mls_semantic_level_t * src,
 	return 0;
 }
 
-static int mls_range_convert(mls_semantic_range_t * src,
-			     mls_semantic_range_t * dst, policy_module_t * mod)
+static int mls_range_convert(mls_semantic_range_t * src, mls_semantic_range_t * dst,
+			     policy_module_t * mod, link_state_t * state)
 {
-	if (mls_level_convert(&src->level[0], &dst->level[0], mod))
-		return -1;
-	if (mls_level_convert(&src->level[1], &dst->level[1], mod))
-		return -1;
+	int ret;
+	ret = mls_level_convert(&src->level[0], &dst->level[0], mod, state);
+	if (ret)
+		return ret;
+	ret = mls_level_convert(&src->level[1], &dst->level[1], mod, state);
+	if (ret)
+		return ret;
 	return 0;
 }
 
@@ -994,10 +1016,10 @@ static int user_fix_callback(hashtab_key_t key, hashtab_datum_t datum,
 		goto cleanup;
 	}
 
-	if (mls_range_convert(&user->range, &new_user->range, mod))
+	if (mls_range_convert(&user->range, &new_user->range, mod, state))
 		goto cleanup;
 
-	if (mls_level_convert(&user->dfltlevel, &new_user->dfltlevel, mod))
+	if (mls_level_convert(&user->dfltlevel, &new_user->dfltlevel, mod, state))
 		goto cleanup;
 
 	return 0;
@@ -1224,7 +1246,7 @@ static int copy_range_trans_list(range_trans_rule_t * rules,
 			}
 		}
 
-		if (mls_range_convert(&rule->trange, &new_rule->trange, mod))
+		if (mls_range_convert(&rule->trange, &new_rule->trange, mod, state))
 			goto cleanup;
 	}
 	return 0;

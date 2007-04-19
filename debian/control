@@ -1,4 +1,6 @@
 Source: libsepol
+XS-VCS-Arch: http://arch.debian.org/arch/private/srivasta/grab/libsepol
+XS-VCS-Browse: http://arch.debian.org/cgi-bin/archzoom.cgi/srivasta@debian.org--lenny/libsepol?expand
 Priority: optional
 Section: libs
 Maintainer: Manoj Srivastava <srivasta@debian.org>

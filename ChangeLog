@@ -1,3 +1,24 @@
+1.16.1 2007-02-06
+	* Merged libsepol segfault fix from Stephen Smalley for when
+	  sensitivities are required but not present in the base.
+	
+1.16.0 2007-01-18
+	* Updated version for stable branch.
+
+1.15.3 2006-11-27
+	* Merged patch to compile wit -fPIC instead of -fpic from
+	  Manoj Srivastava to prevent hitting the global offest table
+	  limit. Patch changed to include libselinux and libsemanage in
+	  addition to libselinux.
+1.15.2 2006-10-31
+	* Merged fix from Karl MacMillan for a segfault when linking
+	  non-MLS modules with users in them.
+
+1.15.1 2006-10-24
+	* Merged fix for version comparison that was preventing range
+	  transition rules from being written for a version 5 base policy
+	  from Darrel Goeddel.
+
 1.14 2006-10-17
 	* Updated version for release.
 

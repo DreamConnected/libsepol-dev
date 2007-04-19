@@ -1,3 +1,22 @@
+libsepol (1.16.1-1) unstable; urgency=low
+
+  * New upstream release
+    * Merged libsepol segfault fix from Stephen Smalley for when
+      sensitivities are required but not present in the base.
+    * Updated version for stable branch.
+    * Merged patch to compile wit -fPIC instead of -fpic from
+      Manoj Srivastava to prevent hitting the global offest table
+      limit. Patch changed to include libselinux and libsemanage in
+      addition to libselinux.
+    * Merged fix from Karl MacMillan for a segfault when linking
+      non-MLS modules with users in them.
+    * Merged fix for version comparison that was preventing range
+      transition rules from being written for a version 5 base policy
+      from Darrel Goeddel.
+  * Added XS-VCS-Arch and XS-VCS-Browse to debian/control
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 18 Apr 2007 19:34:35 -0500
+
 libsepol (1.14-3) unstable; urgency=low
 
   * This fix is in reference to Bug#408278. In the postinst, we now use
