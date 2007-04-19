@@ -1,7 +1,8 @@
 
 /* Author : Stephen Smalley, <sds@epoch.ncsc.mil> */
 
-/* Updated: Frank Mayer <mayerf@tresys.com> and Karl MacMillan <kmacmillan@tresys.com>
+/* Updated: Frank Mayer <mayerf@tresys.com>
+ *          and Karl MacMillan <kmacmillan@mentalrootkit.com>
  *
  * 	Added conditional policy language extensions
  *
@@ -9,8 +10,10 @@
  *
  *      Code cleanup
  *
+ * Updated: Karl MacMillan <kmacmillan@mentalrootkit.com>
+ *
  * Copyright (C) 2003 Tresys Technology, LLC
- * Copyright (C) 2003 Red Hat, Inc.
+ * Copyright (C) 2003,2007 Red Hat, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -36,6 +39,7 @@
 #include <stdlib.h>
 #include <sepol/policydb/avtab.h>
 #include <sepol/policydb/policydb.h>
+#include <sepol/errcodes.h>
 
 #include "debug.h"
 #include "private.h"
@@ -77,7 +81,7 @@ int avtab_insert(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum)
 	    key->specified & ~(AVTAB_ENABLED | AVTAB_ENABLED_OLD);
 
 	if (!h)
-		return -ENOMEM;
+		return SEPOL_ENOMEM;
 
 	hvalue = AVTAB_HASH(key);
 	for (prev = NULL, cur = h->htable[hvalue];
@@ -86,7 +90,7 @@ int avtab_insert(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum)
 		    key->target_type == cur->key.target_type &&
 		    key->target_class == cur->key.target_class &&
 		    (specified & cur->key.specified))
-			return -EEXIST;
+			return SEPOL_EEXIST;
 		if (key->source_type < cur->key.source_type)
 			break;
 		if (key->source_type == cur->key.source_type &&
@@ -100,7 +104,7 @@ int avtab_insert(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum)
 
 	newnode = avtab_insert_node(h, hvalue, prev, key, datum);
 	if (!newnode)
-		return -ENOMEM;
+		return SEPOL_ENOMEM;
 
 	return 0;
 }
@@ -470,9 +474,9 @@ int avtab_read(avtab_t * a, struct policy_file *fp, uint32_t vers)
 	for (i = 0; i < nel; i++) {
 		rc = avtab_read_item(fp, vers, a, avtab_insertf, NULL);
 		if (rc) {
-			if (rc == -ENOMEM)
+			if (rc == SEPOL_ENOMEM)
 				ERR(fp->handle, "out of memory");
-			if (rc == -EEXIST)
+			if (rc == SEPOL_EEXIST)
 				ERR(fp->handle, "duplicate entry");
 			ERR(fp->handle, "failed on entry %d of %u", i, nel);
 			goto bad;

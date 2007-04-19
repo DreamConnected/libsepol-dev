@@ -1,3 +1,10 @@
+libsepol (2.0.1-1) unstable; urgency=low
+
+  * New upstream release. This is the trunk, or development, version.
+  * Merged patch to add errcodes.h to libsepol by Karl MacMillan.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Thu, 19 Apr 2007 17:17:39 -0500
+
 libsepol (1.16.1-1) unstable; urgency=low
 
   * New upstream release

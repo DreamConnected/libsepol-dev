@@ -1,8 +1,9 @@
-/* Authors: Karl MacMillan <kmacmillan@tresys.com>
+/* Authors: Karl MacMillan <kmacmillan@mentalrootkit.com>
  *          Jason Tang <jtang@tresys.com>
  *	    Joshua Brindle <jbrindle@tresys.com>
  *
  * Copyright (C) 2004-2005 Tresys Technology, LLC
+ * Copyright (C) 2007 Red Hat, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -84,7 +85,7 @@ static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	if (!new_type) {
 		ERR(state->handle, "Out of memory!");
 		free(new_id);
-		return -ENOMEM;
+		return SEPOL_ENOMEM;
 	}
 	memset(new_type, 0, sizeof(type_datum_t));
 
@@ -467,7 +468,7 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	if (!new_alias) {
 		ERR(state->handle, "Out of memory!");
 		free(new_id);
-		return -ENOMEM;
+		return SEPOL_ENOMEM;
 	}
 	memset(new_alias, 0, sizeof(type_datum_t));
 	if (alias->flavor == TYPE_TYPE)

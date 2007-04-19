@@ -3,4 +3,4 @@ version=2
 
 
 
-http://www.nsa.gov/selinux/code/download5.cfm ../archives/libsepol-(.*)\.tgz
+http://www.nsa.gov/selinux/code/download-trunk.cfm ../archives/libsepol-(.*)\.tgz
