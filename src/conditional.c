@@ -26,9 +26,6 @@
 
 #include "private.h"
 
-#undef min
-#define min(a,b) (((a) < (b)) ? (a) : (b))
-
 /* move all type rules to top of t/f lists to help kernel on evaluation */
 static void cond_optimize(cond_av_list_t ** l)
 {
@@ -136,6 +133,38 @@ int cond_expr_equal(cond_node_t * a, cond_node_t * b)
 	return 1;
 }
 
+/* Create a new conditional node, optionally copying
+ * the conditional expression from an existing node.
+ * If node is NULL then a new node will be created
+ * with no conditional expression.
+ */
+cond_node_t *cond_node_create(policydb_t * p, cond_node_t * node)
+{
+	cond_node_t *new_node;
+	unsigned int i;
+
+	new_node = (cond_node_t *)malloc(sizeof(cond_node_t));
+	if (!new_node) {
+		return NULL;
+	}
+	memset(new_node, 0, sizeof(cond_node_t));
+
+	if (node) {
+		new_node->expr = cond_copy_expr(node->expr);
+		if (!new_node->expr) {
+			free(new_node);
+			return NULL;
+		}
+		new_node->cur_state = cond_evaluate_expr(p, new_node->expr);
+		new_node->nbools = node->nbools;
+		for (i = 0; i < min(node->nbools, COND_MAX_BOOLS); i++)
+			new_node->bool_ids[i] = node->bool_ids[i];
+		new_node->expr_pre_comp = node->expr_pre_comp;
+	}
+
+	return new_node;
+}
+
 /* Find a conditional (the needle) within a list of existing ones (the
  * haystack) that has a matching expression.  If found, return a
  * pointer to the existing node, setting 'was_created' to 0.
@@ -145,9 +174,6 @@ cond_node_t *cond_node_find(policydb_t * p,
 			    cond_node_t * needle, cond_node_t * haystack,
 			    int *was_created)
 {
-	cond_node_t *new_node;
-	unsigned int i;
-
 	while (haystack) {
 		if (cond_expr_equal(needle, haystack)) {
 			*was_created = 0;
@@ -156,26 +182,8 @@ cond_node_t *cond_node_find(policydb_t * p,
 		haystack = haystack->next;
 	}
 	*was_created = 1;
-	new_node = (cond_node_t *) malloc(sizeof(cond_node_t));
-	if (!new_node) {
-		return NULL;
-	}
-	memset(new_node, 0, sizeof(cond_node_t));
-	new_node->expr = cond_copy_expr(needle->expr);
-	if (!new_node->expr) {
-		free(new_node);
-		return NULL;
-	}
-	new_node->cur_state = cond_evaluate_expr(p, new_node->expr);
-	new_node->nbools = needle->nbools;
-	for (i = 0; i < min(needle->nbools, COND_MAX_BOOLS); i++)
-		new_node->bool_ids[i] = needle->bool_ids[i];
-	new_node->expr_pre_comp = needle->expr_pre_comp;
-	new_node->true_list = NULL;
-	new_node->false_list = NULL;
-	new_node->avtrue_list = NULL;
-	new_node->avfalse_list = NULL;
-	return new_node;
+
+	return cond_node_create(p, needle);
 }
 
 /* return either a pre-existing matching node or create a new node */

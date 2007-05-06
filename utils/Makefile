@@ -18,7 +18,7 @@ clean:
 	-rm -f $(TARGETS) *.o 
 
 indent:
-	../../Lindent $(wildcard *.[ch])
+	../../scripts/Lindent $(wildcard *.[ch])
 
 relabel:
 

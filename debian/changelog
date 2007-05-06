@@ -1,3 +1,13 @@
+libsepol (2.0.3-1) unstable; urgency=low
+
+  * New upstream bugfix SVN HEAD.
+    + Merged fix from Karl to remap booleans at expand time to avoid holes
+      in the symbol table. 
+    + Merged add boolmap argument to expand_module_avrules() from Chris
+      PeBenito. 
+
+ -- Manoj Srivastava <srivasta@debian.org>  Sun,  6 May 2007 16:38:09 -0500
+
 libsepol (2.0.1-1) unstable; urgency=low
 
   * New upstream release. This is the trunk, or development, version.

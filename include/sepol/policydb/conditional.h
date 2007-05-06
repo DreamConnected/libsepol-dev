@@ -100,6 +100,8 @@ extern cond_node_t *cond_node_find(policydb_t * p,
 				   cond_node_t * needle, cond_node_t * haystack,
 				   int *was_created);
 
+extern cond_node_t *cond_node_create(policydb_t * p, cond_node_t * node);
+
 extern cond_node_t *cond_node_search(policydb_t * p, cond_node_t * list,
 				     cond_node_t * cn);
 

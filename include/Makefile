@@ -9,4 +9,4 @@ install:
 	install -m 644 $(wildcard sepol/policydb/*.h) $(INCDIR)/policydb
 
 indent:
-	../../Lindent $(wildcard sepol/*.h)
+	../../scripts/Lindent $(wildcard sepol/*.h)
