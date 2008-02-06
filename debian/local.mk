@@ -63,7 +63,6 @@ install/libsepol1: testroot
 	$(make_directory)   $(TMPTOP)
 	$(make_directory)   $(DOCDIR)
 	$(make_directory)   $(LIBDIR)
-	$(make_directory)   $(LINTIANDIR)
 	$(make_directory)   $(TMPTOP)/DEBIAN
 	$(install_file)	    debian/shlibs	     $(TMPTOP)/DEBIAN
 	$(MAKE)		    DESTDIR=$(TMPTOP) -C src install
@@ -93,7 +92,6 @@ install/libsepol1-dev: testroot
 	$(make_directory)   $(DOCDIR)
 	$(make_directory)   $(LIBDIR)
 	$(make_directory)   $(TMPTOP)/usr/lib
-	$(make_directory)   $(LINTIANDIR)
 	$(make_directory)   $(INCDIR)
 	$(make_directory)   $(MAN3DIR)
 	$(make_directory)   $(MAN8DIR)
@@ -124,8 +122,6 @@ install/sepol-utils: testroot
 	rm -rf		    $(TMPTOP)
 	$(make_directory)   $(TMPTOP)
 	$(make_directory)   $(DOCDIR)
-	$(make_directory)   $(LINTIANDIR)
-	$(make_directory)   $(MAN1DIR)
 	$(make_directory)   $(MAN3DIR)
 	$(make_directory)   $(MAN8DIR)
 	$(MAKE)             DESTDIR=$(TMPTOP) -C man install

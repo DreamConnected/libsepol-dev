@@ -7,6 +7,7 @@
 #include <byteswap.h>
 #include <endian.h>
 #include <errno.h>
+#include <dso.h>
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define cpu_to_le16(x) (x)
@@ -27,6 +28,8 @@
 #undef min
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 
+#define ARRAY_SIZE(x) (sizeof(x)/sizeof((x)[0]))
+
 /* Policy compatibility information. */
 struct policydb_compat_info {
 	unsigned int type;
@@ -39,56 +42,6 @@ extern struct policydb_compat_info *policydb_lookup_compat(unsigned int version,
 							   unsigned int type);
 
 /* Reading from a policy "file". */
-static inline void *next_entry(struct policy_file *fp, size_t bytes)
-{
-	static unsigned char buffer[BUFSIZ];
-	size_t nread;
-
-	if (bytes > sizeof buffer)
-		return NULL;
-
-	switch (fp->type) {
-	case PF_USE_STDIO:
-		nread = fread(buffer, bytes, 1, fp->fp);
-		if (nread != 1)
-			return NULL;
-		break;
-	case PF_USE_MEMORY:
-		if (bytes > fp->len)
-			return NULL;
-		memcpy(buffer, fp->data, bytes);
-		fp->data += bytes;
-		fp->len -= bytes;
-		break;
-	default:
-		return NULL;
-	}
-	return buffer;
-}
-
-static inline size_t put_entry(const void *ptr, size_t size, size_t n,
-			       struct policy_file *fp)
-{
-	size_t bytes = size * n;
-
-	switch (fp->type) {
-	case PF_USE_STDIO:
-		return fwrite(ptr, size, n, fp->fp);
-	case PF_USE_MEMORY:
-		if (bytes > fp->len) {
-			errno = ENOSPC;
-			return 0;
-		}
-
-		memcpy(fp->data, ptr, bytes);
-		fp->data += bytes;
-		fp->len -= bytes;
-		return n;
-	case PF_LEN:
-		fp->len += bytes;
-		return n;
-	default:
-		return 0;
-	}
-	return 0;
-}
+extern int next_entry(void *buf, struct policy_file *fp, size_t bytes) hidden;
+extern size_t put_entry(const void *ptr, size_t size, size_t n,
+		        struct policy_file *fp) hidden;

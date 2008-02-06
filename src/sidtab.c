@@ -56,8 +56,10 @@ int sepol_sidtab_insert(sidtab_t * s, sepol_security_id_t sid,
 		cur = cur->next;
 	}
 
-	if (cur && sid == cur->sid)
+	if (cur && sid == cur->sid) {
+		errno = EEXIST;
 		return -EEXIST;
+	}
 
 	newnode = (sidtab_node_t *) malloc(sizeof(sidtab_node_t));
 	if (newnode == NULL)

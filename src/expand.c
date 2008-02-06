@@ -1367,6 +1367,8 @@ static int expand_avrule_helper(sepol_handle_t * handle,
 	} else if (specified & AVRULE_AUDITDENY) {
 		spec = AVTAB_AUDITDENY;
 	} else if (specified & AVRULE_DONTAUDIT) {
+		if (handle && handle->disable_dontaudit)
+			return EXPAND_RULE_SUCCESS;
 		spec = AVTAB_AUDITDENY;
 	} else if (specified & AVRULE_NEVERALLOW) {
 		spec = AVTAB_NEVERALLOW;
@@ -2248,6 +2250,7 @@ int expand_module(sepol_handle_t * handle,
 
 	/* Copy mls state from base to out */
 	out->mls = base->mls;
+	out->handle_unknown = base->handle_unknown;
 
 	if ((state.typemap =
 	     (uint32_t *) calloc(state.base->p_types.nprim,

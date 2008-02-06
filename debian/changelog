@@ -1,3 +1,33 @@
+libsepol (2.0.11-1) unstable; urgency=low
+
+  * New upstream release.
+    * Pass CFLAGS to CC even on link command, per Dennis Gilmore.
+    * Merged support for the handle_unknown policydb flag from Eric Paris.
+    * Moved next_entry and put_entry out-of-line to reduce code size from
+      Ulrich Drepper. 
+    * Fixed module_package_read_offsets bug introduced by the prior patch.
+    * Eliminate unaligned accesses from policy reading code from Stephen
+      Smalley.                                           Closes: Bug#439539
+    * Allow dontaudits to be turned off during policy expansion from
+      Joshua Brindle.
+    * Fix sepol_context_clone to handle a NULL context correctly.
+      This happens for e.g. semanage_fcontext_set_con(sh, fcontext, NULL)
+      to set the file context entry to "<<none>>".
+    * Merged error handling patch from Eamon Walsh.
+  * The cross building support in Debian has been rewritten to stop
+    overriding the CC  variable to $(MAKE) in order to correctly support
+    those packages that build internal tools with the native compiler
+    during the build. This means that other packages that assume that CC
+    will be overridden by the cross-compiling build scripts now fail to
+    build. The patch is simply to set CC to $(DEB_HOST_GNU_TYPE)-gcc only
+    if a cross-build is detected. The solution was proposed by  Neil
+    Williams, but has been modified to be more generally applicable.
+                                                          Closes: Bug#448014
+  * The API was added to in this release, which means we need a shlibs
+    bump. The soname has not changed.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 06 Feb 2008 09:50:38 -0600
+
 libsepol (2.0.3-1) unstable; urgency=low
 
   * New upstream bugfix SVN HEAD.

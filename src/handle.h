@@ -14,6 +14,9 @@ struct sepol_handle {
 	void (*msg_callback) (void *varg,
 			      sepol_handle_t * handle, const char *fmt, ...);
 	void *msg_callback_arg;
+
+	int disable_dontaudit;
+
 };
 
 #endif

@@ -4,7 +4,7 @@ XS-VCS-Browse: http://arch.debian.org/cgi-bin/archzoom.cgi/srivasta@debian.org--
 Priority: optional
 Section: libs
 Maintainer: Manoj Srivastava <srivasta@debian.org>
-Standards-Version: 3.7.2.0
+Standards-Version: 3.7.3.0
 Build-Depends: file
 
 Package: sepol-utils

@@ -469,6 +469,8 @@ typedef struct policydb {
 	ebitmap_t *attr_type_map;	/* not saved in the binary policy */
 
 	unsigned policyvers;
+
+	unsigned handle_unknown;
 } policydb_t;
 
 struct sepol_policydb {
@@ -598,6 +600,13 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
 #define MOD_POLICYDB_VERSION_MAX MOD_POLICYDB_VERSION_MLS_USERS
 
 #define POLICYDB_CONFIG_MLS    1
+
+/* the config flags related to unknown classes/perms are bits 2 and 3 */
+#define DENY_UNKNOWN	0x00000000
+#define REJECT_UNKNOWN	0x00000002
+#define ALLOW_UNKNOWN 	0x00000004
+
+#define POLICYDB_CONFIG_UNKNOWN_MASK	(DENY_UNKNOWN | REJECT_UNKNOWN | ALLOW_UNKNOWN)
 
 #define OBJECT_R "object_r"
 #define OBJECT_R_VAL 1

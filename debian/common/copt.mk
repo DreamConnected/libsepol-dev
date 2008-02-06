@@ -15,7 +15,13 @@
 ## 
 ###############################################################################
 
-CC = cc
+# set CC to $(DEB_HOST_GNU_TYPE)-gcc only if a cross-build is detected
+ifneq ($(DEB_HOST_GNU_TYPE),$(DEB_BUILD_GNU_TYPE))
+  CC=$(DEB_HOST_GNU_TYPE)-gcc
+else
+  CC = cc
+endif
+
 CFLAGS = -O2
 PREFIX    := /usr
 
