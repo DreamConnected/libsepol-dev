@@ -229,9 +229,9 @@ static int avtab_write_item(policydb_t * p,
 
 static inline void avtab_reset_merged(avtab_t * a)
 {
-	int i;
+	unsigned int i;
 	avtab_ptr_t cur;
-	for (i = 0; i < AVTAB_SIZE; i++) {
+	for (i = 0; i < a->nslot; i++) {
 		for (cur = a->htable[i]; cur; cur = cur->next)
 			cur->merged = 0;
 	}
@@ -239,7 +239,8 @@ static inline void avtab_reset_merged(avtab_t * a)
 
 static int avtab_write(struct policydb *p, avtab_t * a, struct policy_file *fp)
 {
-	int i, rc;
+	unsigned int i;
+	int rc;
 	avtab_t expa;
 	avtab_ptr_t cur;
 	uint32_t nel;
@@ -269,7 +270,7 @@ static int avtab_write(struct policydb *p, avtab_t * a, struct policy_file *fp)
 			return POLICYDB_ERROR;
 	}
 
-	for (i = 0; i < AVTAB_SIZE; i++) {
+	for (i = 0; i < a->nslot; i++) {
 		for (cur = a->htable[i]; cur; cur = cur->next) {
 			/* If old format, compute final nel.
 			   If new format, write out the items. */
@@ -290,7 +291,7 @@ static int avtab_write(struct policydb *p, avtab_t * a, struct policy_file *fp)
 			goto out;
 		}
 		avtab_reset_merged(a);
-		for (i = 0; i < AVTAB_SIZE; i++) {
+		for (i = 0; i < a->nslot; i++) {
 			for (cur = a->htable[i]; cur; cur = cur->next) {
 				if (avtab_write_item(p, cur, fp, 1, 1, NULL)) {
 					rc = -1;
@@ -1531,8 +1532,19 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 	pd.p = p;
 
 	config = 0;
-	if (p->mls)
+	if (p->mls) {
+		if ((p->policyvers < POLICYDB_VERSION_MLS &&
+		    p->policy_type == POLICY_KERN) ||
+		    (p->policyvers < MOD_POLICYDB_VERSION_MLS &&
+		    p->policy_type == POLICY_BASE) ||
+		    (p->policyvers < MOD_POLICYDB_VERSION_MLS &&
+		    p->policy_type == POLICY_MOD)) {
+			ERR(fp->handle, "policy version %d cannot support MLS",
+			    p->policyvers);
+			return POLICYDB_ERROR;
+		}
 		config |= POLICYDB_CONFIG_MLS;
+	}
 
 	config |= (POLICYDB_CONFIG_UNKNOWN_MASK & p->handle_unknown);
 
@@ -1595,6 +1607,17 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 		if (items != len)
 			return POLICYDB_ERROR;
 	}
+
+	if ((p->policyvers >= POLICYDB_VERSION_POLCAP &&
+	     p->policy_type == POLICY_KERN) ||
+	    (p->policyvers >= MOD_POLICYDB_VERSION_POLCAP &&
+	     p->policy_type == POLICY_BASE) ||
+	    (p->policyvers >= MOD_POLICYDB_VERSION_POLCAP &&
+	     p->policy_type == POLICY_MOD)) {
+		if (ebitmap_write(&p->policycaps, fp) == -1)
+			return POLICYDB_ERROR;
+	}
+
 	num_syms = info->sym_num;
 	for (i = 0; i < num_syms; i++) {
 		buf[0] = cpu_to_le32(p->symtab[i].nprim);

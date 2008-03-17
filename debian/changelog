@@ -1,3 +1,36 @@
+libsepol (2.0.25-1) unstable; urgency=low
+
+  * New upstream release
+    * Drop unused ->buffer field from struct policy_file.
+    * Add policy_file_init() initalizer for struct policy_file and use it,
+      from Todd C. Miller. 
+    * Accept "Flask" as an alternate identifier string in kernel policies
+      from Stephen Smalley. 
+    * Add support for open_perms policy capability from Eric Paris.
+  
+
+ -- Manoj Srivastava <srivasta@debian.org>  Mon, 17 Mar 2008 13:29:44 -0500
+
+libsepol (2.0.21-1) unstable; urgency=low
+
+  * New upstream SVN HEAD.
+    * Fix invalid memory allocation in policydb_index_others() from Jason Tang.
+    * Port of Yuichi Nakamura's tune avtab to reduce memory usage patch
+      from the kernel avtab to libsepol from Stephen Smalley. 
+    * Add support for consuming avrule_blocks during expansion to reduce
+      peak memory usage from Joshua Brindle.
+    * Added support for policy capabilities from Todd Miller.
+    * Prevent generation of policy.18 with MLS enabled from Todd Miller.
+    * print module magic number in hex on mismatch, from Todd Miller.
+    * clarify and reduce neverallow error reporting from Stephen Smalley.
+    * Reject self aliasing at link time from Stephen Smalley.
+    * Allow handle_unknown in base to be overridden by semanage.conf from
+      Stephen Smalley. 
+    * Fixed bug in require checking from Stephen Smalley.
+    * Added user hierarchy checking from Todd Miller.       
+
+ -- Manoj Srivastava <srivasta@debian.org>  Thu, 28 Feb 2008 08:30:19 -0600
+
 libsepol (2.0.11-1) unstable; urgency=low
 
   * New upstream release.

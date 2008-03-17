@@ -468,6 +468,8 @@ typedef struct policydb {
 
 	ebitmap_t *attr_type_map;	/* not saved in the binary policy */
 
+	ebitmap_t policycaps;
+
 	unsigned policyvers;
 
 	unsigned handle_unknown;
@@ -559,12 +561,13 @@ typedef struct policy_file {
 	size_t size;
 	FILE *fp;
 	struct sepol_handle *handle;
-	unsigned char buffer[BUFSIZ];
 } policy_file_t;
 
 struct sepol_policy_file {
 	struct policy_file pf;
 };
+
+extern void policy_file_init(policy_file_t * x);
 
 extern int policydb_read(policydb_t * p, struct policy_file *fp,
 			 unsigned int verbose);
@@ -584,10 +587,11 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
 #define POLICYDB_VERSION_MLS		19
 #define POLICYDB_VERSION_AVTAB		20
 #define POLICYDB_VERSION_RANGETRANS	21
+#define POLICYDB_VERSION_POLCAP		22
 
 /* Range of policy versions we understand*/
 #define POLICYDB_VERSION_MIN	POLICYDB_VERSION_BASE
-#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_RANGETRANS
+#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_POLCAP
 
 /* Module versions and specific changes*/
 #define MOD_POLICYDB_VERSION_BASE	   4
@@ -595,16 +599,17 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
 #define MOD_POLICYDB_VERSION_MLS	   5
 #define MOD_POLICYDB_VERSION_RANGETRANS	   6
 #define MOD_POLICYDB_VERSION_MLS_USERS	   6
+#define MOD_POLICYDB_VERSION_POLCAP	   7
 
 #define MOD_POLICYDB_VERSION_MIN MOD_POLICYDB_VERSION_BASE
-#define MOD_POLICYDB_VERSION_MAX MOD_POLICYDB_VERSION_MLS_USERS
+#define MOD_POLICYDB_VERSION_MAX MOD_POLICYDB_VERSION_POLCAP
 
 #define POLICYDB_CONFIG_MLS    1
 
 /* the config flags related to unknown classes/perms are bits 2 and 3 */
-#define DENY_UNKNOWN	0x00000000
-#define REJECT_UNKNOWN	0x00000002
-#define ALLOW_UNKNOWN 	0x00000004
+#define DENY_UNKNOWN	SEPOL_DENY_UNKNOWN
+#define REJECT_UNKNOWN	SEPOL_REJECT_UNKNOWN
+#define ALLOW_UNKNOWN 	SEPOL_ALLOW_UNKNOWN
 
 #define POLICYDB_CONFIG_UNKNOWN_MASK	(DENY_UNKNOWN | REJECT_UNKNOWN | ALLOW_UNKNOWN)
 
@@ -613,6 +618,7 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
 
 #define POLICYDB_MAGIC SELINUX_MAGIC
 #define POLICYDB_STRING "SE Linux"
+#define POLICYDB_ALT_STRING "Flask"
 #define POLICYDB_MOD_MAGIC SELINUX_MOD_MAGIC
 #define POLICYDB_MOD_STRING "SE Linux Module"
 

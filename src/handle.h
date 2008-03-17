@@ -16,6 +16,7 @@ struct sepol_handle {
 	void *msg_callback_arg;
 
 	int disable_dontaudit;
+	int expand_consume_base;
 
 };
 

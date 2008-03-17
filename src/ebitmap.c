@@ -15,7 +15,7 @@
 #include "debug.h"
 #include "private.h"
 
-int ebitmap_or(ebitmap_t * dst, ebitmap_t * e1, ebitmap_t * e2)
+int ebitmap_or(ebitmap_t * dst, const ebitmap_t * e1, const ebitmap_t * e2)
 {
 	ebitmap_node_t *n1, *n2, *new, *prev;
 
@@ -58,7 +58,7 @@ int ebitmap_or(ebitmap_t * dst, ebitmap_t * e1, ebitmap_t * e2)
 	return 0;
 }
 
-int ebitmap_union(ebitmap_t * dst, ebitmap_t * e1)
+int ebitmap_union(ebitmap_t * dst, const ebitmap_t * e1)
 {
 	ebitmap_t tmp;
 
@@ -71,7 +71,7 @@ int ebitmap_union(ebitmap_t * dst, ebitmap_t * e1)
 	return 0;
 }
 
-int ebitmap_cmp(ebitmap_t * e1, ebitmap_t * e2)
+int ebitmap_cmp(const ebitmap_t * e1, const ebitmap_t * e2)
 {
 	ebitmap_node_t *n1, *n2;
 
@@ -92,7 +92,7 @@ int ebitmap_cmp(ebitmap_t * e1, ebitmap_t * e2)
 	return 1;
 }
 
-int ebitmap_cpy(ebitmap_t * dst, ebitmap_t * src)
+int ebitmap_cpy(ebitmap_t * dst, const ebitmap_t * src)
 {
 	ebitmap_node_t *n, *new, *prev;
 
@@ -121,7 +121,7 @@ int ebitmap_cpy(ebitmap_t * dst, ebitmap_t * src)
 	return 0;
 }
 
-int ebitmap_contains(ebitmap_t * e1, ebitmap_t * e2)
+int ebitmap_contains(const ebitmap_t * e1, const ebitmap_t * e2)
 {
 	ebitmap_node_t *n1, *n2;
 
@@ -148,7 +148,7 @@ int ebitmap_contains(ebitmap_t * e1, ebitmap_t * e2)
 	return 1;
 }
 
-int ebitmap_get_bit(ebitmap_t * e, unsigned int bit)
+int ebitmap_get_bit(const ebitmap_t * e, unsigned int bit)
 {
 	ebitmap_node_t *n;
 

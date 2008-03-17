@@ -13,6 +13,7 @@ int policydb_from_image(sepol_handle_t * handle,
 
 	policy_file_t pf;
 
+	policy_file_init(&pf);
 	pf.type = PF_USE_MEMORY;
 	pf.data = data;
 	pf.len = len;
@@ -39,9 +40,8 @@ int policydb_to_image(sepol_handle_t * handle,
 	struct policydb tmp_policydb;
 
 	/* Compute the length for the new policy image. */
+	policy_file_init(&pf);
 	pf.type = PF_LEN;
-	pf.data = NULL;
-	pf.len = 0;
 	pf.handle = handle;
 	if (policydb_write(policydb, &pf)) {
 		ERR(handle, "could not compute policy length");

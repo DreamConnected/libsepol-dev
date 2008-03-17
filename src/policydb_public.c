@@ -134,6 +134,24 @@ int sepol_policydb_set_vers(sepol_policydb_t * sp, unsigned int vers)
 	return 0;
 }
 
+int sepol_policydb_set_handle_unknown(sepol_policydb_t * sp,
+				      unsigned int handle_unknown)
+{
+	struct policydb *p = &sp->p;
+
+	switch (handle_unknown) {
+	case SEPOL_DENY_UNKNOWN:
+	case SEPOL_REJECT_UNKNOWN:
+	case SEPOL_ALLOW_UNKNOWN:
+		break;
+	default:
+		return -1;
+	}
+
+	p->handle_unknown = handle_unknown;		
+	return 0;
+}
+
 int sepol_policydb_read(sepol_policydb_t * p, sepol_policy_file_t * pf)
 {
 	return policydb_read(&p->p, &pf->pf, 0);

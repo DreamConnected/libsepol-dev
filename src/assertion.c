@@ -59,11 +59,21 @@ static int check_assertion_helper(sepol_handle_t * handle,
 	return 0;
 
       err:
-	ERR(handle, "assertion on line %lu violated by allow %s %s:%s {%s };",
-	    line, p->p_type_val_to_name[stype], p->p_type_val_to_name[ttype],
-	    p->p_class_val_to_name[curperm->class - 1],
-	    sepol_av_to_string(p, curperm->class,
-			       node->datum.data & curperm->data));
+	if (line) {
+		ERR(handle, "neverallow on line %lu violated by allow %s %s:%s {%s };",
+		    line, p->p_type_val_to_name[stype], 
+		    p->p_type_val_to_name[ttype],
+		    p->p_class_val_to_name[curperm->class - 1],
+		    sepol_av_to_string(p, curperm->class,
+				       node->datum.data & curperm->data));
+	} else {
+		ERR(handle, "neverallow violated by allow %s %s:%s {%s };",
+		    p->p_type_val_to_name[stype], 
+		    p->p_type_val_to_name[ttype],
+		    p->p_class_val_to_name[curperm->class - 1],
+		    sepol_av_to_string(p, curperm->class,
+				       node->datum.data & curperm->data));
+	}
 	return -1;
 }
 
@@ -74,7 +84,7 @@ int check_assertions(sepol_handle_t * handle, policydb_t * p,
 	avtab_t te_avtab, te_cond_avtab;
 	ebitmap_node_t *snode, *tnode;
 	unsigned int i, j;
-	int errors = 0;
+	int rc;
 
 	if (!avrules) {
 		/* Since assertions are stored in avrules, if it is NULL
@@ -111,32 +121,31 @@ int check_assertions(sepol_handle_t * handle, policydb_t * p,
 			if (a->flags & RULE_SELF) {
 				if (check_assertion_helper
 				    (handle, p, &te_avtab, &te_cond_avtab, i, i,
-				     a->perms, a->line))
-					errors++;
+				     a->perms, a->line)) {
+					rc = -1;
+					goto out;
+				}
 			}
 			ebitmap_for_each_bit(ttypes, tnode, j) {
 				if (!ebitmap_node_get_bit(tnode, j))
 					continue;
 				if (check_assertion_helper
 				    (handle, p, &te_avtab, &te_cond_avtab, i, j,
-				     a->perms, a->line))
-					errors++;
+				     a->perms, a->line)) {
+					rc = -1;
+					goto out;
+				}
 			}
 		}
 	}
 
-	if (errors) {
-		ERR(handle, "%d assertion violations occured", errors);
-		avtab_destroy(&te_avtab);
-		avtab_destroy(&te_cond_avtab);
-		return -1;
-	}
-
+	rc = 0;
+out:
 	avtab_destroy(&te_avtab);
 	avtab_destroy(&te_cond_avtab);
-	return 0;
+	return rc;
 
       oom:
-	ERR(handle, "Out of memory - unable to check assertions");
+	ERR(handle, "Out of memory - unable to check neverallows");
 	return -1;
 }
