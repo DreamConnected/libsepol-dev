@@ -1,16 +1,16 @@
 ############################ -*- Mode: Makefile -*- ###########################
 ## targets.mk ---
-## Author           : Manoj Srivastava ( srivasta@glaurung.green-gryphon.com )
-## Created On       : Sat Nov 15 01:10:05 2003
+## Author	    : Manoj Srivastava ( srivasta@glaurung.green-gryphon.com )
+## Created On	    : Sat Nov 15 01:10:05 2003
 ## Created On Node  : glaurung.green-gryphon.com
 ## Last Modified By : Manoj Srivastava
-## Last Modified On : Tue Oct  9 01:50:58 2007
+## Last Modified On : Sat Apr 26 22:33:09 2008
 ## Last Machine Used: anzu.internal.golden-gryphon.com
-## Update Count     : 95
-## Status           : Unknown, Use with caution!
-## HISTORY          :
-## Description      : The top level targets mandated by policy, as well as
-##                    their dependencies.
+## Update Count	    : 131
+## Status	    : Unknown, Use with caution!
+## HISTORY	    :
+## Description	    : The top level targets mandated by policy, as well as
+##		      their dependencies.
 ##
 ## arch-tag: a81086a7-00f7-4355-ac56-8f38396935f4
 ##
@@ -21,25 +21,29 @@
 ##
 ## This program is distributed in the hope that it will be useful,
 ## but WITHOUT ANY WARRANTY; without even the implied warranty of
-## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+## MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
 ## GNU General Public License for more details.
 ##
 ## You should have received a copy of the GNU General Public License
 ## along with this program; if not, write to the Free Software
-## Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+## Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307	 USA
 ##
 ###############################################################################
 
 #######################################################################
 #######################################################################
-###############             Miscellaneous               ###############
+###############		    Miscellaneous		###############
 #######################################################################
 #######################################################################
 source diff:
 	@echo >&2 'source and diff are obsolete - use dpkg-source -b'; false
 
-testroot:
+define TESTROOT
 	@test $$(id -u) = 0 || (echo need root priviledges; exit 1)
+endef
+
+testroot:
+	$(TESTROOT)
 
 checkpo:
 	$(CHECKPO)
@@ -58,315 +62,413 @@ prebuild:
 # individually at each stage.
 
 ###########################################################################
-# The current code does a number of things: It ensures that the highest   #
+# The current code does a number of things: It ensures that the highest	  #
 # dependency at any stage (usually the -Common target) depends on the	  #
 # stamp-STAGE of the previous stage; so no work on a succeeding stage can #
 # start before the previous stage is all done.				  #
 ###########################################################################
 
-###########################################################################
-# Next, all targets that have work performed in them do not have stamp	  #
-# files on their own, and thus are not depended on directly by other	  #
-# targets. Instead, they depend on and are depended up by intermediate	  #
-# targets in which no work is done except to create stamp files. Other	  #
-# targets just depend on the stamp files; so the build system does not do #
-# work twice -- targets, which are up to date, are not executed again.    #
-###########################################################################
+#################################################################################
+# In the following, the do_* targets make sure all the real non-generic work is #
+# done, but are not in the direct line of dependencies. This makes sure	        #
+# that previous step in the order is all up to date before any of the per       #
+# package target dependencies are run.					        #
+#################################################################################
 
 
 #######################################################################
 #######################################################################
-###############             Configuration               ###############
+###############		    Configuration		###############
 #######################################################################
 #######################################################################
-
-# Work here
-CONFIG-common:: testdir
+# Just a dummy target to make sure that the stamp directory exists
+debian/stamp/dummy-config-common:
 	$(REASON)
-	$(checkdir)
-
-stamp-arch-conf:  CONFIG-common
-	$(REASON)
-	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
 	@echo done > $@
-stamp-indep-conf: CONFIG-common
-	$(REASON)
-	$(checkdir)
-	@echo done > $@
-STAMPS_TO_CLEAN += stamp-arch-conf stamp-indep-conf
 
-# Work here
-CONFIG-arch::  stamp-arch-conf
+# Configuration tasks common to arch and arch indep packages go here
+debian/stamp/pre-config-common: debian/stamp/dummy-config-common
 	$(REASON)
 	$(checkdir)
-CONFIG-indep:: stamp-indep-conf
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+# Do not add dependencies to this rule
+debian/stamp/do-pre-config-common: debian/stamp/dummy-config-common
 	$(REASON)
 	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/pre-config-common
+	@echo done > $@
 
-stamp-configure-arch:  CONFIG-arch
-	$(REASON)
-	@echo done > $@
-stamp-configure-indep: CONFIG-indep
-	$(REASON)
-	@echo done > $@
-STAMPS_TO_CLEAN += stamp-configure-arch stamp-configure-indep
-
-# Work here
-$(patsubst %,CONFIG/%,$(DEB_ARCH_PACKAGES))  :: CONFIG/% : stamp-configure-arch
+# Arch specific and arch independent tasks go here
+debian/stamp/pre-config-arch:	debian/stamp/do-pre-config-common
 	$(REASON)
 	$(checkdir)
-$(patsubst %,CONFIG/%,$(DEB_INDEP_PACKAGES)) :: CONFIG/% : stamp-configure-indep
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+# Do not add dependencies to this rule
+debian/stamp/do-pre-config-arch:	debian/stamp/do-pre-config-common
 	$(REASON)
 	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/pre-config-arch
+	@echo done > $@
 
-configure-arch-stamp: stamp-configure-arch  $(patsubst %,CONFIG/%,$(DEB_ARCH_PACKAGES))
+
+debian/stamp/pre-config-indep: debian/stamp/do-pre-config-common
 	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
 	@echo done > $@
-configure-indep-stamp: stamp-configure-indep $(patsubst %,CONFIG/%,$(DEB_INDEP_PACKAGES))
+# Do not add dependencies to this rule
+debian/stamp/do-pre-config-indep: debian/stamp/do-pre-config-common
 	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/pre-config-indep
 	@echo done > $@
-STAMPS_TO_CLEAN += configure-arch-stamp configure-indep-stamp
+
+# Per package work happens as an added dependency of this rule.
+$(patsubst %,debian/stamp/CONFIG/%,$(DEB_ARCH_PACKAGES))  : debian/stamp/CONFIG/% : debian/stamp/do-pre-config-arch
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp/CONFIG || mkdir -p debian/stamp/CONFIG
+	@echo done > $@
+$(patsubst %,debian/stamp/CONFIG/%,$(DEB_INDEP_PACKAGES)) : debian/stamp/CONFIG/% : debian/stamp/do-pre-config-indep
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp/CONFIG || mkdir debian/stamp/CONFIG
+	@echo done > $@
+
+# Do not add dependencies to this rule
+debian/stamp/dep-configure-arch: debian/stamp/do-pre-config-arch $(patsubst %,debian/stamp/CONFIG/%,$(DEB_ARCH_PACKAGES)) 
+	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+
+# Do not add dependencies to this rule
+debian/stamp/dep-configure-indep: debian/stamp/do-pre-config-indep $(patsubst %,debian/stamp/CONFIG/%,$(DEB_INDEP_PACKAGES))
+	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+
+debian/stamp/do-configure-arch: debian/stamp/do-pre-config-arch
+	$(REASON)
+	@test -d debian/stamp/CONFIG || mkdir debian/stamp/CONFIG
+	$(MAKE) -f debian/rules debian/stamp/dep-configure-arch
+	@echo done > $@
+debian/stamp/do-configure-indep: debian/stamp/do-pre-config-indep
+	$(REASON)
+	@test -d debian/stamp/CONFIG || mkdir debian/stamp/CONFIG
+	$(MAKE) -f debian/rules debian/stamp/dep-configure-indep
+	@echo done > $@
+
+# These three targets are required by policy
+configure-arch:	 debian/stamp/do-configure-arch
+	$(REASON)
+configure-indep: debian/stamp/do-configure-indep
+	$(REASON)
+configure: debian/stamp/do-configure-arch debian/stamp/do-configure-indep
+	$(REASON)
+
+#######################################################################
+#######################################################################
+###############			Build			###############
+#######################################################################
+#######################################################################
+# tasks common to arch and arch indep packages go here
+debian/stamp/pre-build-common:
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+
+# Arch specific and arch independent tasks go here
+debian/stamp/pre-build-arch:  debian/stamp/do-configure-arch
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+debian/stamp/do-pre-build-arch:  debian/stamp/do-configure-arch
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@test -e debian/stamp/pre-build-common || $(MAKE) -f debian/rules debian/stamp/pre-build-common
+	$(MAKE) -f debian/rules debian/stamp/pre-build-arch
+	@echo done > $@
+
+debian/stamp/pre-build-indep: debian/stamp/do-configure-indep
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+debian/stamp/do-pre-build-indep: debian/stamp/do-configure-indep
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@test -e debian/stamp/pre-build-common || $(MAKE) -f debian/rules debian/stamp/pre-build-common
+	$(MAKE) -f debian/rules debian/stamp/pre-build-indep
+	@echo done > $@
+
+# Per package work happens  as an added dependency of this rule.
+$(patsubst %,debian/stamp/BUILD/%,$(DEB_ARCH_PACKAGES))	 : debian/stamp/BUILD/% : debian/stamp/do-pre-build-arch
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp/BUILD || mkdir -p debian/stamp/BUILD
+	@echo done > $@
+
+$(patsubst %,debian/stamp/BUILD/%,$(DEB_INDEP_PACKAGES)) : debian/stamp/BUILD/% : debian/stamp/do-pre-build-indep
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp/BUILD || mkdir -p debian/stamp/BUILD
+	@echo done > $@
+
+# These do targeta make sure all the per package configuration is
+# done, but is not in the direct line of dependencies. This makes sure
+# that pre-config targets are all up to date before any of the per
+# package target dependencies are run.
+debian/stamp/dep-build-arch: debian/stamp/do-pre-build-arch $(patsubst %,debian/stamp/BUILD/%,$(DEB_ARCH_PACKAGES)) 
+	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+
+debian/stamp/dep-build-indep: debian/stamp/do-pre-build-indep $(patsubst %,debian/stamp/BUILD/%,$(DEB_INDEP_PACKAGES))
+	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+
+debian/stamp/do-build-arch: debian/stamp/do-pre-build-arch
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir -p debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/dep-build-arch
+	@echo done > $@
+debian/stamp/do-build-indep: debian/stamp/do-pre-build-indep
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir -p debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/dep-build-indep
+	@echo done > $@
 
 # required
-configure-arch:  configure-arch-stamp
+build-arch: debian/stamp/do-build-arch
 	$(REASON)
-configure-indep: configure-indep-stamp
+build-indep: debian/stamp/do-build-indep
 	$(REASON)
-
-stamp-configure: configure-arch configure-indep
+build: debian/stamp/do-build-arch debian/stamp/do-build-indep
 	$(REASON)
-	@echo done > $@
-
-# required
-configure: stamp-configure
-	$(REASON)
-
-STAMPS_TO_CLEAN += stamp-configure
-#######################################################################
-#######################################################################
-###############                 Build                   ###############
-#######################################################################
-#######################################################################
-# Work here
-BUILD-common:: testdir stamp-configure
-	$(REASON)
-	$(checkdir)
-
-stamp-arch-build:  BUILD-common
-	$(REASON)
-	$(checkdir)
-	@echo done > $@
-stamp-indep-build: BUILD-common
-	$(REASON)
-	$(checkdir)
-	@echo done > $@
-STAMPS_TO_CLEAN += stamp-arch-build stamp-indep-build
-
-# sync. Work here
-BUILD-arch::  stamp-arch-build
-	$(REASON)
-	$(checkdir)
-BUILD-indep:: stamp-indep-build
-	$(REASON)
-	$(checkdir)
-
-stamp-build-arch: BUILD-arch
-	$(REASON)
-	@echo done > $@
-stamp-build-indep: BUILD-indep
-	$(REASON)
-	@echo done > $@
-STAMPS_TO_CLEAN += stamp-build-arch stamp-build-indep
 
 # Work here
-$(patsubst %,BUILD/%,$(DEB_ARCH_PACKAGES))  :: BUILD/% : stamp-build-arch
+debian/stamp/post-build-arch: debian/stamp/do-build-arch
 	$(REASON)
-	$(checkdir)
-$(patsubst %,BUILD/%,$(DEB_INDEP_PACKAGES)) :: BUILD/% : stamp-build-indep
-	$(REASON)
-	$(checkdir)
-
-build-arch-stamp: stamp-build-arch $(patsubst %,BUILD/%,$(DEB_ARCH_PACKAGES))
-	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
 	@echo done > $@
-build-indep-stamp: stamp-build-indep $(patsubst %,BUILD/%,$(DEB_INDEP_PACKAGES))
+debian/stamp/do-post-build-arch: debian/stamp/do-build-arch
 	$(REASON)
-	@echo done > $@
-STAMPS_TO_CLEAN += build-arch-stamp build-indep-stamp
-
-# required
-build-arch: build-arch-stamp
-	$(REASON)
-build-indep: build-indep-stamp
-	$(REASON)
-
-stamp-build: build-arch build-indep
-	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/post-build-arch
 	@echo done > $@
 
-# required
-build: stamp-build
+debian/stamp/post-build-indep: debian/stamp/do-build-indep
 	$(REASON)
-
-STAMPS_TO_CLEAN += stamp-build
-
-# Work here
-POST-BUILD-arch-stamp:: build-arch-stamp
-	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
 	@echo done > $@
-STAMPS_TO_CLEAN += POST-BUILD-arch-stamp
-
-POST-BUILD-indep-stamp:: build-indep-stamp
+debian/stamp/do-post-build-indep: debian/stamp/do-build-indep
 	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/post-build-indep
 	@echo done > $@
-STAMPS_TO_CLEAN += POST-BUILD-indep-stamp
+
 #######################################################################
 #######################################################################
-###############                Install                  ###############
+###############		       Install			###############
 #######################################################################
 #######################################################################
-# Work here
-INST-common:: testdir stamp-build POST-BUILD-arch-stamp POST-BUILD-indep-stamp
-	$(checkdir)
+# tasks common to arch and arch indep packages go here
+debian/stamp/pre-inst-common:
 	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
 
-stamp-arch-inst: INST-common
+# Arch specific and arch independent tasks go here
+debian/stamp/pre-inst-arch:  debian/stamp/do-post-build-arch
 	$(REASON)
 	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
 	@echo done > $@
-stamp-indep-inst: INST-common
+debian/stamp/do-pre-inst-arch:  debian/stamp/do-post-build-arch
 	$(REASON)
 	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@test -e debian/stamp/INST-common || $(MAKE) -f debian/rules debian/stamp/pre-inst-common
+	$(MAKE) -f debian/rules debian/stamp/pre-inst-arch
 	@echo done > $@
-STAMPS_TO_CLEAN += stamp-arch-inst stamp-indep-inst
 
-# sync. Work here
-INST-arch::  stamp-arch-inst
+debian/stamp/pre-inst-indep: debian/stamp/do-post-build-indep
 	$(REASON)
 	$(checkdir)
-INST-indep:: stamp-indep-inst
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+debian/stamp/do-pre-inst-indep: debian/stamp/do-post-build-indep
 	$(REASON)
 	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@test -e debian/stamp/INST-common || $(MAKE) -f debian/rules debian/stamp/pre-inst-common
+	$(MAKE) -f debian/rules debian/stamp/pre-inst-indep
+	@echo done > $@
 
-stamp-install-arch:  INST-arch
-	$(REASON)
-	@echo done > $@
-stamp-install-indep: INST-indep
-	$(REASON)
-	@echo done > $@
-STAMPS_TO_CLEAN += stamp-install-arch stamp-install-indep
 
-# Work here
-$(patsubst %,INST/%,$(DEB_ARCH_PACKAGES))  :: INST/% : testroot stamp-install-arch
+# Per package work happens as an added dependency of this rule
+$(patsubst %,debian/stamp/INST/%,$(DEB_ARCH_PACKAGES))	: debian/stamp/INST/% : debian/stamp/do-pre-inst-arch
 	$(REASON)
 	$(checkdir)
-$(patsubst %,INST/%,$(DEB_INDEP_PACKAGES)) :: INST/% : testroot stamp-install-indep
+	@test -d debian/stamp/INST || mkdir debian/stamp/INST
+	@echo done > $@
+$(patsubst %,debian/stamp/INST/%,$(DEB_INDEP_PACKAGES)) : debian/stamp/INST/% : debian/stamp/do-pre-inst-indep
 	$(REASON)
 	$(checkdir)
+	@test -d debian/stamp/INST || mkdir debian/stamp/INST
+	@echo done > $@
 
-install-arch-stamp: stamp-install-arch   $(patsubst %,INST/%,$(DEB_ARCH_PACKAGES))
+# These do targeta make sure all the per package configuration is
+# done, but is not in the direct line of dependencies. This makes sure
+# that pre-config targets are all up to date before any of the per
+# package target dependencies are run.
+debian/stamp/dep-install-arch: debian/stamp/do-pre-inst-arch $(patsubst %,debian/stamp/INST/%,$(DEB_ARCH_PACKAGES))
+	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+
+debian/stamp/dep-install-indep: debian/stamp/do-pre-inst-indep $(patsubst %,debian/stamp/INST/%,$(DEB_INDEP_PACKAGES))
+	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+
+
+debian/stamp/do-install-arch: debian/stamp/do-pre-inst-arch
 	$(REASON)
 	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/dep-install-arch
 	@echo done > $@
-install-indep-stamp: stamp-install-indep $(patsubst %,INST/%,$(DEB_INDEP_PACKAGES))
+debian/stamp/do-install-indep:  debian/stamp/do-pre-inst-indep
 	$(REASON)
 	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/dep-install-indep
 	@echo done > $@
-STAMPS_TO_CLEAN += install-arch-stamp install-indep-stamp
 
 #required
-install-arch: install-arch-stamp
+install-arch:  debian/stamp/do-install-arch
 	$(REASON)
-install-indep: install-indep-stamp
+	$(TESTROOT)
+install-indep: debian/stamp/do-install-indep
 	$(REASON)
+	$(TESTROOT)
+install: debian/stamp/do-install-arch debian/stamp/do-install-indep
+	$(REASON)
+	$(TESTROOT)
 
-stamp-install: install-indep install-arch
-	$(REASON)
-	@echo done > $@
-
-#required
-install: stamp-install
-	$(REASON)
-
-STAMPS_TO_CLEAN += stamp-install
 #######################################################################
 #######################################################################
-###############                Package                  ###############
+###############		       Package			###############
 #######################################################################
 #######################################################################
-# Work here
-BIN-common:: testdir testroot  stamp-install
+# tasks common to arch and arch indep packages go here
+debian/stamp/pre-bin-common:
 	$(REASON)
 	$(checkdir)
-
-stamp-arch-bin:  testdir testroot BIN-common
-	$(REASON)
-	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
 	@echo done > $@
-stamp-indep-bin: testdir testroot BIN-common
-	$(REASON)
-	$(checkdir)
-	@echo done > $@
-STAMPS_TO_CLEAN += stamp-arch-bin stamp-indep-bin
 
-# sync Work here
-BIN-arch::  testroot stamp-arch-bin
+# Arch specific and arch independent tasks go here
+debian/stamp/pre-bin-arch:  debian/stamp/do-install-arch
 	$(REASON)
 	$(checkdir)
-BIN-indep:: testroot stamp-indep-bin
-	$(REASON)
-	$(checkdir)
-
-stamp-binary-arch:  BIN-arch
-	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
 	@echo done > $@
-stamp-binary-indep: BIN-indep
+debian/stamp/do-pre-bin-arch:  debian/stamp/do-install-arch
 	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@test -e debian/stamp/BIN-common || $(MAKE) -f debian/rules debian/stamp/pre-bin-common
+	$(MAKE) -f debian/rules debian/stamp/pre-bin-arch
 	@echo done > $@
-STAMPS_TO_CLEAN += stamp-binary-arch stamp-binary-indep
 
-# Work here
-$(patsubst %,BIN/%,$(DEB_ARCH_PACKAGES))  :: BIN/% : testroot stamp-binary-arch
+debian/stamp/pre-bin-indep: debian/stamp/do-install-indep
 	$(REASON)
 	$(checkdir)
-$(patsubst %,BIN/%,$(DEB_INDEP_PACKAGES)) :: BIN/% : testroot stamp-binary-indep
-	$(REASON)
-	$(checkdir)
-
-binary-arch-stamp: stamp-binary-arch   $(patsubst %,BIN/%,$(DEB_ARCH_PACKAGES))
-	$(REASON)
-	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
 	@echo done > $@
-binary-indep-stamp: stamp-binary-indep $(patsubst %,BIN/%,$(DEB_INDEP_PACKAGES))
+debian/stamp/do-pre-bin-indep: debian/stamp/do-install-indep
 	$(REASON)
 	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	@test -e debian/stamp/BIN-common || $(MAKE) -f debian/rules debian/stamp/pre-bin-common
+	$(MAKE) -f debian/rules debian/stamp/pre-bin-indep
 	@echo done > $@
-STAMPS_TO_CLEAN += binary-arch-stamp binary-indep-stamp
 
+# Per package work happens as an added dependency of this rule
+$(patsubst %,debian/stamp/BIN/%,$(DEB_ARCH_PACKAGES))  : debian/stamp/BIN/% : debian/stamp/do-pre-bin-arch
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp/BIN || mkdir debian/stamp/BIN
+	@echo done > $@
+
+$(patsubst %,debian/stamp/BIN/%,$(DEB_INDEP_PACKAGES)) : debian/stamp/BIN/% : debian/stamp/do-pre-bin-indep
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp/BIN || mkdir debian/stamp/BIN
+	@echo done > $@
+
+# These do targeta make sure all the per package work is done, but is
+# not in the direct line of dependencies. This makes sure that
+# pre-config targets are all up to date before any of the per package
+# target dependencies are run.
+debian/stamp/dep-binary-arch: debian/stamp/pre-bin-arch $(patsubst %,debian/stamp/BIN/%,$(DEB_ARCH_PACKAGES))
+	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+
+debian/stamp/dep-binary-indep: debian/stamp/pre-bin-indep $(patsubst %,debian/stamp/BIN/%,$(DEB_INDEP_PACKAGES))
+	$(REASON)
+	@test -d debian/stamp || mkdir debian/stamp
+	@echo done > $@
+
+debian/stamp/do-binary-arch:  debian/stamp/do-pre-bin-arch 
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/dep-binary-arch
+	@echo done > $@
+debian/stamp/do-binary-indep: debian/stamp/do-pre-bin-indep 
+	$(REASON)
+	$(checkdir)
+	@test -d debian/stamp || mkdir debian/stamp
+	$(MAKE) -f debian/rules debian/stamp/dep-binary-indep
+	@echo done > $@
 # required
-binary-arch: binary-arch-stamp
+binary-arch:  debian/stamp/do-binary-arch
 	$(REASON)
-binary-indep: binary-indep-stamp
+	$(TESTROOT)
+binary-indep: debian/stamp/do-binary-indep
 	$(REASON)
-
-stamp-binary: binary-indep binary-arch
+	$(TESTROOT)
+binary: debian/stamp/do-binary-arch debian/stamp/do-binary-indep
 	$(REASON)
-	@echo done > $@
-
-# required
-binary: stamp-binary
-	$(REASON)
+	$(TESTROOT)
 	@echo arch package   = $(DEB_ARCH_PACKAGES)
 	@echo indep packages = $(DEB_INDEP_PACKAGES)
 
-STAMPS_TO_CLEAN += stamp-binary
 #######################################################################
 #######################################################################
-###############                 Clean                   ###############
+###############			Clean			###############
 #######################################################################
 #######################################################################
 # Work here
-CLN-common:: testdir
+CLN-common:: 
 	$(REASON)
 	$(checkdir)
 
@@ -389,43 +491,34 @@ clean-arch: CLN-arch $(patsubst %,CLEAN/%,$(DEB_ARCH_PACKAGES))
 	$(REASON)
 clean-indep: CLN-indep $(patsubst %,CLEAN/%,$(DEB_INDEP_PACKAGES))
 	$(REASON)
-
-stamp-clean: clean-indep clean-arch
+clean: clean-indep clean-arch
 	$(REASON)
-	$(checkdir)
 	-test -f Makefile && $(MAKE) distclean
-	-rm -f  $(FILES_TO_CLEAN) $(STAMPS_TO_CLEAN)
-	-rm -rf $(DIRS_TO_CLEAN)
-	-rm -f core TAGS                                                     \
-               `find . ! -regex '.*/\.git/.*' ! -regex '.*/\{arch\}/.*'      \
-                       ! -regex '.*/CVS/.*'   ! -regex '.*/\.arch-ids/.*'    \
-                       ! -regex '.*/\.svn/.*'                                \
-                   \( -name '*.orig' -o -name '*.rej' -o -name '*~'       -o \
-                      -name '*.bak'  -o -name '#*#'   -o -name '.*.orig'  -o \
-		      -name '.*.rej' -o -name '.SUMS' \)                     \
-                -print`
-
-clean: stamp-clean
-	$(REASON)
+	-rm -f	$(FILES_TO_CLEAN) $(STAMPS_TO_CLEAN)
+	-rm -rf $(DIRS_TO_CLEAN) debian/stamp
+	-rm -f core TAGS						     \
+	       `find . ! -regex '.*/\.git/.*' ! -regex '.*/\{arch\}/.*'	     \
+		       ! -regex '.*/CVS/.*'   ! -regex '.*/\.arch-ids/.*'    \
+		       ! -regex '.*/\.svn/.*'				     \
+		   \( -name '*.orig' -o -name '*.rej' -o -name '*~'	  -o \
+		      -name '*.bak'  -o -name '#*#'   -o -name '.*.orig'  -o \
+		      -name '.*.rej' -o -name '.SUMS' \)		     \
+		-print`
 
 
 #######################################################################
 #######################################################################
-###############                                         ###############
+###############						###############
 #######################################################################
 #######################################################################
+.PHONY: configure-arch	configure-indep	 configure     \
+	build-arch	build-indep	 build	       \
+	install-arch	install-indep	 install       \
+	binary-arch	binary-indep	 binary	       \
+	CLN-common     CLN-indep     CLN-arch	  clean-arch	  clean-indep	   clean	 \
+	$(patsubst %,CLEAN/%, $(DEB_INDEP_PACKAGES)) $(patsubst %,CLEAN/%, $(DEB_ARCH_PACKAGES)) \
+	implode explode prebuild checkpo
 
-.PHONY: CONFIG-common  CONFIG-indep  CONFIG-arch  configure-arch  configure-indep  configure     \
-        BUILD-common   BUILD-indep   BUILD-arch   build-arch      build-indep      build         \
-        INST-common    INST-indep    INST-arch    install-arch    install-indep    install       \
-        BIN-common     BIN-indep     BIN-arch     binary-arch     binary-indep     binary        \
-        CLN-common     CLN-indep     CLN-arch     clean-arch      clean-indep      clean         \
-        $(patsubst %,CONFIG/%,$(DEB_INDEP_PACKAGES)) $(patsubst %,CONFIG/%,$(DEB_ARCH_PACKAGES)) \
-        $(patsubst %,BUILD/%, $(DEB_INDEP_PACKAGES)) $(patsubst %,BUILD/%, $(DEB_ARCH_PACKAGES)) \
-        $(patsubst %,INST/%,  $(DEB_INDEP_PACKAGES)) $(patsubst %,INST/%,  $(DEB_ARCH_PACKAGES)) \
-        $(patsubst %,BIN/%,   $(DEB_INDEP_PACKAGES)) $(patsubst %,BIN/%,   $(DEB_ARCH_PACKAGES)) \
-        $(patsubst %,CLEAN/%, $(DEB_INDEP_PACKAGES)) $(patsubst %,CLEAN/%, $(DEB_ARCH_PACKAGES)) \
-        implode explode prebuild checkpo
 
 #Local variables:
 #mode: makefile

@@ -1,3 +1,11 @@
+libsepol (2.0.25-2) unstable; urgency=low
+
+  * Record the new location of the repository for this package (moved to a
+    new git repository)
+  * Move to the new, make -j friendly targets in debian/rules.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Sat, 31 May 2008 00:42:03 -0500
+
 libsepol (2.0.25-1) unstable; urgency=low
 
   * New upstream release

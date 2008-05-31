@@ -20,17 +20,17 @@ testdir:
 
 
 
-BUILD/libsepol1:: build/libsepol1
-INST/libsepol1:: install/libsepol1
-BIN/libsepol1:: binary/libsepol1
+debian/stamp/BUILD/libsepol1:    debian/stamp/build/libsepol1
+debian/stamp/INST/libsepol1:     debian/stamp/install/libsepol1
+debian/stamp/BIN/libsepol1:      debian/stamp/binary/libsepol1
 
 
-INST/libsepol1-dev:: install/libsepol1-dev
-BIN/libsepol1-dev:: binary/libsepol1-dev
+debian/stamp/INST/libsepol1-dev: debian/stamp/install/libsepol1-dev
+debian/stamp/BIN/libsepol1-dev:  debian/stamp/binary/libsepol1-dev
 
 
-INST/sepol-utils:: install/sepol-utils
-BIN/sepol-utils:: binary/sepol-utils
+debian/stamp/INST/sepol-utils:   debian/stamp/install/sepol-utils
+debian/stamp/BIN/sepol-utils:    debian/stamp/binary/sepol-utils
 
 
 CLN-common::
@@ -47,18 +47,19 @@ CLEAN/sepol-utils::
 	-rm -rf $(TMPTOP)
 
 
-build/libsepol1:
+debian/stamp/build/libsepol1:
 	$(checkdir)
 	$(REASON)
+	@test -d debian/stamp/build || mkdir debian/stamp/build
 	$(MAKE) CC="$(CC)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
-	touch stamp-build-libsepol1
-
-STAMPS_TO_CLEAN += stamp-build-libsepol1
+	@echo done > $@
 
 
-install/libsepol1: testroot
+
+debian/stamp/install/libsepol1:
 	$(checkdir)
 	$(REASON)
+	$(TESTROOT)
 	rm -rf		    $(TMPTOP)
 	$(make_directory)   $(TMPTOP)
 	$(make_directory)   $(DOCDIR)
@@ -83,10 +84,13 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	  fi;										 \
 	done
 endif
+	@test -d debian/stamp/install || mkdir debian/stamp/install
+	@echo done > $@
 
-install/libsepol1-dev: testroot
+debian/stamp/install/libsepol1-dev:
 	$(checkdir)
 	$(REASON)
+	$(TESTROOT)
 	rm -rf		    $(TMPTOP)
 	$(make_directory)   $(TMPTOP)
 	$(make_directory)   $(DOCDIR)
@@ -115,10 +119,13 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	  fi;										 \
 	done
 endif
+	@test -d debian/stamp/install || mkdir debian/stamp/install
+	@echo done > $@
 
-install/sepol-utils: testroot
+debian/stamp/install/sepol-utils:
 	$(checkdir)
 	$(REASON)
+	$(TESTROOT)
 	rm -rf		    $(TMPTOP)
 	$(make_directory)   $(TMPTOP)
 	$(make_directory)   $(DOCDIR)
@@ -140,11 +147,14 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	  fi;									    \
 	done
 endif
+	@test -d debian/stamp/install || mkdir debian/stamp/install
+	@echo done > $@
 
 
-binary/libsepol1: testroot
+debian/stamp/binary/libsepol1:
 	$(checkdir)
 	$(REASON)
+	$(TESTROOT)
 	$(install_script)    debian/postrm	     $(TMPTOP)/DEBIAN/postrm
 	$(install_script)    debian/postinst	     $(TMPTOP)/DEBIAN/postinst
 	k=`find $(TMPTOP) -type f | ( while read i; do		 \
@@ -157,20 +167,26 @@ binary/libsepol1: testroot
 	chown -R root:root   $(TMPTOP)
 	chmod -R u+w,go=rX   $(TMPTOP)
 	dpkg --build	     $(TMPTOP) ..
+	@test -d debian/stamp/binary || mkdir debian/stamp/binary
+	@echo done > $@
 
-binary/libsepol1-dev: testroot
+debian/stamp/binary/libsepol1-dev:
 	$(checkdir)
 	$(REASON)
+	$(TESTROOT)
 	$(make_directory)    $(TMPTOP)/DEBIAN
 	dpkg-gencontrol	     -p$(package) -isp	     -P$(TMPTOP)
 	$(create_md5sum)     $(TMPTOP)
 	chown -R root:root   $(TMPTOP)
 	chmod -R u+w,go=rX   $(TMPTOP)
 	dpkg --build	     $(TMPTOP) ..
+	@test -d debian/stamp/binary || mkdir debian/stamp/binary
+	@echo done > $@
 
-binary/sepol-utils: testroot
+debian/stamp/binary/sepol-utils:
 	$(checkdir)
 	$(REASON)
+	$(TESTROOT)
 	$(make_directory)    $(TMPTOP)/DEBIAN
 	k=`find $(TMPTOP) -type f | ( while read i; do		 \
 	    if file -b $$i | egrep -q "^ELF.*executable"; then	 \
@@ -182,3 +198,5 @@ binary/sepol-utils: testroot
 	chown -R root:root   $(TMPTOP)
 	chmod -R u+w,go=rX   $(TMPTOP)
 	dpkg --build	     $(TMPTOP) ..
+	@test -d debian/stamp/binary || mkdir debian/stamp/binary
+	@echo done > $@

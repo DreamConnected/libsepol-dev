@@ -17,7 +17,7 @@
 
 FILES_TO_CLEAN  = debian/files debian/substvars substvars.utils
 STAMPS_TO_CLEAN = 
-DIRS_TO_CLEAN   = 
+DIRS_TO_CLEAN   =  debian/stamp
 
 # Location of the source dir
 SRCTOP    := $(shell if [ "$$PWD" != "" ]; then echo $$PWD; else pwd; fi)
