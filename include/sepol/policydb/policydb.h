@@ -143,6 +143,8 @@ typedef struct type_datum {
 #define TYPE_ALIAS 2		/* alias in modular policy */
 	uint32_t flavor;
 	ebitmap_t types;	/* types with this attribute */
+#define TYPE_FLAGS_PERMISSIVE	0x01
+	uint32_t flags;
 } type_datum_t;
 
 /* User attributes */
@@ -255,12 +257,12 @@ typedef struct ocontext {
 			uint16_t high_port;
 		} port;		/* TCP or UDP port information */
 		struct {
-			uint32_t addr;
-			uint32_t mask;
+			uint32_t addr; /* network order */
+			uint32_t mask; /* network order */
 		} node;		/* node information */
 		struct {
-			uint32_t addr[4];
-			uint32_t mask[4];
+			uint32_t addr[4]; /* network order */
+			uint32_t mask[4]; /* network order */
 		} node6;	/* IPv6 node information */
 	} u;
 	union {
@@ -470,6 +472,10 @@ typedef struct policydb {
 
 	ebitmap_t policycaps;
 
+	/* this bitmap is referenced by type NOT the typical type-1 used in other
+	   bitmaps.  Someday the 0 bit may be used for global permissive */
+	ebitmap_t permissive_map;
+
 	unsigned policyvers;
 
 	unsigned handle_unknown;
@@ -588,10 +594,11 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
 #define POLICYDB_VERSION_AVTAB		20
 #define POLICYDB_VERSION_RANGETRANS	21
 #define POLICYDB_VERSION_POLCAP		22
+#define POLICYDB_VERSION_PERMISSIVE	23
 
 /* Range of policy versions we understand*/
 #define POLICYDB_VERSION_MIN	POLICYDB_VERSION_BASE
-#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_POLCAP
+#define POLICYDB_VERSION_MAX	POLICYDB_VERSION_PERMISSIVE
 
 /* Module versions and specific changes*/
 #define MOD_POLICYDB_VERSION_BASE	   4
@@ -600,9 +607,10 @@ extern int policydb_write(struct policydb *p, struct policy_file *pf);
 #define MOD_POLICYDB_VERSION_RANGETRANS	   6
 #define MOD_POLICYDB_VERSION_MLS_USERS	   6
 #define MOD_POLICYDB_VERSION_POLCAP	   7
+#define MOD_POLICYDB_VERSION_PERMISSIVE	   8
 
 #define MOD_POLICYDB_VERSION_MIN MOD_POLICYDB_VERSION_BASE
-#define MOD_POLICYDB_VERSION_MAX MOD_POLICYDB_VERSION_POLCAP
+#define MOD_POLICYDB_VERSION_MAX MOD_POLICYDB_VERSION_PERMISSIVE
 
 #define POLICYDB_CONFIG_MLS    1
 

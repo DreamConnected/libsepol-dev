@@ -1,3 +1,20 @@
+2.0.30 2008-06-06
+	* Fix endianness bug in the handling of network node addresses from Stephen Smalley.
+	  Only affects big endian platforms.
+	  Bug reported by John Weeks of Sun upon policy mismatch between x86 and sparc.
+
+2.0.29 2008-05-27
+	* Merge user and role mapping support from Joshua Brindle.
+
+2.0.28 2008-05-05
+	* Fix mls_level_convert() to gracefully handle an empty user declaration/require from Stephen Smalley.
+
+2.0.27 2008-04-18
+	* Belatedly merge test for policy downgrade from Todd Miller.
+
+2.0.26 2008-03-24
+	* Add permissive domain support from Eric Paris.
+
 2.0.25 2008-03-04
 	* Drop unused ->buffer field from struct policy_file.
 

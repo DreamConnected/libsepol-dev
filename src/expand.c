@@ -41,6 +41,8 @@ typedef struct expand_state {
 	int verbose;
 	uint32_t *typemap;
 	uint32_t *boolmap;
+	uint32_t *rolemap;
+	uint32_t *usermap;
 	policydb_t *base;
 	policydb_t *out;
 	sepol_handle_t *handle;
@@ -50,6 +52,23 @@ typedef struct expand_state {
 static void expand_state_init(expand_state_t * state)
 {
 	memset(state, 0, sizeof(expand_state_t));
+}
+
+static int map_ebitmap(ebitmap_t * src, ebitmap_t * dst, uint32_t * map)
+{
+	unsigned int i;
+	ebitmap_node_t *tnode;
+	ebitmap_init(dst);
+
+	ebitmap_for_each_bit(src, tnode, i) {
+		if (!ebitmap_node_get_bit(tnode, i))
+			continue;
+		if (!map[i])
+			continue;
+		if (ebitmap_set_bit(dst, map[i] - 1, 1))
+			return -1;
+	}
+	return 0;
 }
 
 static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
@@ -92,6 +111,7 @@ static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	memset(new_type, 0, sizeof(type_datum_t));
 
 	new_type->flavor = type->flavor;
+	new_type->flags = type->flags;
 	new_type->s.value = ++state->out->p_types.nprim;
 	if (new_type->s.value > UINT16_MAX) {
 		free(new_id);
@@ -111,6 +131,12 @@ static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		ERR(state->handle, "hashtab overflow");
 		return -1;
 	}
+
+	if (new_type->flags & TYPE_FLAGS_PERMISSIVE)
+		if (ebitmap_set_bit(&state->out->permissive_map, new_type->s.value, 1)) {
+			ERR(state->handle, "Out of memory!\n");
+			return -1;
+		}
 
 	return 0;
 }
@@ -143,7 +169,7 @@ static int attr_convert_callback(hashtab_key_t key, hashtab_datum_t datum,
 		ERR(state->handle, "attribute %s vanished!", id);
 		return -1;
 	}
-	if (convert_type_ebitmap(&type->types, &tmp_union, state->typemap)) {
+	if (map_ebitmap(&type->types, &tmp_union, state->typemap)) {
 		ERR(state->handle, "out of memory");
 		return -1;
 	}
@@ -288,6 +314,14 @@ static int constraint_node_clone(constraint_node_t ** dst,
 								    type_names,
 								    &new_expr->
 								    names, 1)) {
+						goto out_of_mem;
+					}
+				} else if (new_expr->attr & CEXPR_ROLE) {
+					if (map_ebitmap(&expr->names, &new_expr->names, state->rolemap)) {
+						goto out_of_mem;
+					}
+				} else if (new_expr->attr & CEXPR_USER) {
+					if (map_ebitmap(&expr->names, &new_expr->names, state->usermap)) {
 						goto out_of_mem;
 					}
 				} else {
@@ -480,6 +514,8 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	else
 		assert(0);	/* unreachable */
 
+	new_alias->flags = alias->flags;
+
 	ret = hashtab_insert(state->out->p_types.table,
 			     (hashtab_key_t) new_id,
 			     (hashtab_datum_t) new_alias);
@@ -492,6 +528,32 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	}
 
 	state->typemap[alias->s.value - 1] = new_alias->s.value;
+
+	if (new_alias->flags & TYPE_FLAGS_PERMISSIVE)
+		if (ebitmap_set_bit(&state->out->permissive_map, new_alias->s.value, 1)) {
+			ERR(state->handle, "Out of memory!");
+			return -1;
+		}
+
+	return 0;
+}
+
+static int role_remap_dominates(hashtab_key_t key __attribute__ ((unused)), hashtab_datum_t datum, void *data)
+{
+	ebitmap_t mapped_roles;
+	role_datum_t *role = (role_datum_t *) datum;
+	expand_state_t *state = (expand_state_t *) data;
+
+	if (map_ebitmap(&role->dominates, &mapped_roles, state->rolemap))
+		return -1;
+
+	ebitmap_destroy(&role->dominates);	
+	
+	if (ebitmap_cpy(&role->dominates, &mapped_roles))
+		return -1;
+
+	ebitmap_destroy(&mapped_roles);
+
 	return 0;
 }
 
@@ -509,8 +571,11 @@ static int role_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	role = (role_datum_t *) datum;
 	state = (expand_state_t *) data;
 
-	if (strcmp(id, OBJECT_R) == 0)
+	if (strcmp(id, OBJECT_R) == 0) {
+		/* object_r is always value 1 */
+		state->rolemap[role->s.value - 1] = 1;
 		return 0;
+	}
 
 	if (!is_id_enabled(id, state->base, SYM_ROLES)) {
 		/* identifier's scope is not enabled */
@@ -536,8 +601,9 @@ static int role_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 			return -1;
 		}
 
-		new_role->s.value = role->s.value;
 		state->out->p_roles.nprim++;
+		new_role->s.value = state->out->p_roles.nprim;
+		state->rolemap[role->s.value - 1] = new_role->s.value;
 		ret = hashtab_insert(state->out->p_roles.table,
 				     (hashtab_key_t) new_id,
 				     (hashtab_datum_t) new_role);
@@ -550,10 +616,9 @@ static int role_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		}
 	}
 
-	if (!(&new_role->dominates.node)) {
-		ebitmap_init(&new_role->dominates);
-	}
-
+	/* The dominates bitmap is going to be wrong for the moment, 
+ 	 * we'll come back later and remap them, after we are sure all 
+ 	 * the roles have been added */
 	if (ebitmap_union(&new_role->dominates, &role->dominates)) {
 		ERR(state->handle, "Out of memory!");
 		return -1;
@@ -567,10 +632,6 @@ static int role_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		ebitmap_destroy(&tmp_union_types);
 		ERR(state->handle, "Out of memory!");
 		return -1;
-	}
-
-	if (!(&new_role->types.types.node)) {
-		ebitmap_init(&new_role->types.types);
 	}
 
 	if (ebitmap_union(&new_role->types.types, &tmp_union_types)) {
@@ -676,8 +737,9 @@ static int user_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		}
 		memset(new_user, 0, sizeof(user_datum_t));
 
-		new_user->s.value = user->s.value;
 		state->out->p_users.nprim++;
+		new_user->s.value = state->out->p_users.nprim;
+		state->usermap[user->s.value - 1] = new_user->s.value;
 
 		new_id = strdup(id);
 		if (!new_id) {
@@ -740,14 +802,10 @@ static int user_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	ebitmap_init(&tmp_union);
 
 	/* get global roles for this user */
-	if (role_set_expand(&user->roles, &tmp_union, state->base)) {
+	if (role_set_expand(&user->roles, &tmp_union, state->base, state->rolemap)) {
 		ERR(state->handle, "Out of memory!");
 		ebitmap_destroy(&tmp_union);
 		return -1;
-	}
-
-	if (!(&new_user->roles.roles.node)) {
-		ebitmap_init(&new_user->roles.roles);
 	}
 
 	if (ebitmap_union(&new_user->roles.roles, &tmp_union)) {
@@ -922,14 +980,16 @@ static int copy_role_allows(expand_state_t * state, role_allow_rule_t * rules)
 		ebitmap_init(&roles);
 		ebitmap_init(&new_roles);
 
-		if (role_set_expand(&cur->roles, &roles, state->out)) {
+		if (role_set_expand(&cur->roles, &roles, state->out, state->rolemap)) {
 			ERR(state->handle, "Out of memory!");
 			return -1;
 		}
-		if (role_set_expand(&cur->new_roles, &new_roles, state->out)) {
+
+		if (role_set_expand(&cur->new_roles, &new_roles, state->out, state->rolemap)) {
 			ERR(state->handle, "Out of memory!");
 			return -1;
 		}
+
 		ebitmap_for_each_bit(&roles, snode, i) {
 			if (!ebitmap_node_get_bit(snode, i))
 				continue;
@@ -989,7 +1049,7 @@ static int copy_role_trans(expand_state_t * state, role_trans_rule_t * rules)
 		ebitmap_init(&roles);
 		ebitmap_init(&types);
 
-		if (role_set_expand(&cur->roles, &roles, state->out)) {
+		if (role_set_expand(&cur->roles, &roles, state->out, state->rolemap)) {
 			ERR(state->handle, "Out of memory!");
 			return -1;
 		}
@@ -1042,7 +1102,7 @@ static int copy_role_trans(expand_state_t * state, role_trans_rule_t * rules)
 				memset(n, 0, sizeof(role_trans_t));
 				n->role = i + 1;
 				n->type = j + 1;
-				n->new_role = cur->new_role;
+				n->new_role = state->rolemap[cur->new_role - 1];
 				if (l) {
 					l->next = n;
 				} else {
@@ -1642,8 +1702,8 @@ static int cond_node_copy(expand_state_t * state, cond_node_t * cn)
 static int context_copy(context_struct_t * dst, context_struct_t * src,
 			expand_state_t * state)
 {
-	dst->user = src->user;
-	dst->role = src->role;
+	dst->user = state->usermap[src->user - 1];
+	dst->role = state->rolemap[src->role - 1];
 	dst->type = state->typemap[src->type - 1];
 	return mls_context_cpy(dst, src);
 }
@@ -1826,23 +1886,6 @@ static int type_attr_remove(hashtab_key_t key
 	return 0;
 }
 
-int convert_type_ebitmap(ebitmap_t * src, ebitmap_t * dst, uint32_t * typemap)
-{
-	unsigned int i;
-	ebitmap_node_t *tnode;
-	ebitmap_init(dst);
-
-	ebitmap_for_each_bit(src, tnode, i) {
-		if (!ebitmap_node_get_bit(tnode, i))
-			continue;
-		if (!typemap[i])
-			continue;
-		if (ebitmap_set_bit(dst, typemap[i] - 1, 1))
-			return -1;
-	}
-	return 0;
-}
-
 /* converts typeset using typemap and expands into ebitmap_t types using the attributes in the passed in policy.
  * this should not be called until after all the blocks have been processed and the attributes in target policy
  * are complete. */
@@ -1854,10 +1897,10 @@ int expand_convert_type_set(policydb_t * p, uint32_t * typemap,
 
 	type_set_init(&tmpset);
 
-	if (convert_type_ebitmap(&set->types, &tmpset.types, typemap))
+	if (map_ebitmap(&set->types, &tmpset.types, typemap))
 		return -1;
 
-	if (convert_type_ebitmap(&set->negset, &tmpset.negset, typemap))
+	if (map_ebitmap(&set->negset, &tmpset.negset, typemap))
 		return -1;
 
 	tmpset.flags = set->flags;
@@ -1899,12 +1942,14 @@ int expand_rule(sepol_handle_t * handle,
 	return retval;
 }
 
-int role_set_expand(role_set_t * x, ebitmap_t * r, policydb_t * p)
+int role_set_expand(role_set_t * x, ebitmap_t * r, policydb_t * p, uint32_t * rolemap)
 {
 	unsigned int i;
 	ebitmap_node_t *rnode;
+	ebitmap_t mapped_roles;
 
 	ebitmap_init(r);
+	ebitmap_init(&mapped_roles);
 
 	if (x->flags & ROLE_STAR) {
 		for (i = 0; i < p->p_roles.nprim++; i++)
@@ -1913,12 +1958,22 @@ int role_set_expand(role_set_t * x, ebitmap_t * r, policydb_t * p)
 		return 0;
 	}
 
-	ebitmap_for_each_bit(&x->roles, rnode, i) {
+	if (rolemap) {
+		if (map_ebitmap(&x->roles, &mapped_roles, rolemap))
+			return -1;
+	} else {
+		if (ebitmap_cpy(&mapped_roles, &x->roles))
+			return -1;
+	}
+
+	ebitmap_for_each_bit(&mapped_roles, rnode, i) {
 		if (ebitmap_node_get_bit(rnode, i)) {
 			if (ebitmap_set_bit(r, i, 1))
 				return -1;
 		}
 	}
+
+	ebitmap_destroy(&mapped_roles);
 
 	/* if role is to be complimented, invert the entire bitmap here */
 	if (x->flags & ROLE_COMP) {
@@ -2223,7 +2278,8 @@ static int copy_and_expand_avrule_block(expand_state_t * state)
  */
 int expand_module_avrules(sepol_handle_t * handle, policydb_t * base,
 			  policydb_t * out, uint32_t * typemap,
-			  uint32_t * boolmap, int verbose,
+			  uint32_t * boolmap, uint32_t * rolemap,
+			  uint32_t * usermap, int verbose,
 			  int expand_neverallow)
 {
 	expand_state_t state;
@@ -2234,6 +2290,8 @@ int expand_module_avrules(sepol_handle_t * handle, policydb_t * base,
 	state.out = out;
 	state.typemap = typemap;
 	state.boolmap = boolmap;
+	state.rolemap = rolemap;
+	state.usermap = usermap;
 	state.handle = handle;
 	state.verbose = verbose;
 	state.expand_neverallow = expand_neverallow;
@@ -2289,6 +2347,18 @@ int expand_module(sepol_handle_t * handle,
 
 	state.boolmap = (uint32_t *)calloc(state.base->p_bools.nprim, sizeof(uint32_t));
 	if (!state.boolmap) {
+		ERR(handle, "Out of memory!");
+		goto cleanup;
+	}
+
+	state.rolemap = (uint32_t *)calloc(state.base->p_roles.nprim, sizeof(uint32_t));
+	if (!state.rolemap) {
+		ERR(handle, "Out of memory!");
+		goto cleanup;
+	}
+
+	state.usermap = (uint32_t *)calloc(state.base->p_users.nprim, sizeof(uint32_t));
+	if (!state.usermap) {
 		ERR(handle, "Out of memory!");
 		goto cleanup;
 	}
@@ -2389,6 +2459,11 @@ int expand_module(sepol_handle_t * handle,
 
 	}
 
+	/* remap role dominates bitmaps */
+	 if (hashtab_map(state.out->p_roles.table, role_remap_dominates, &state)) {
+		goto cleanup;
+	}
+
 	if (copy_and_expand_avrule_block(&state) < 0) {
 		ERR(handle, "Error during expand");
 		goto cleanup;
@@ -2448,6 +2523,8 @@ int expand_module(sepol_handle_t * handle,
       cleanup:
 	free(state.typemap);
 	free(state.boolmap);
+	free(state.rolemap);
+	free(state.usermap);
 	return retval;
 }
 

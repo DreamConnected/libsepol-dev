@@ -1,3 +1,10 @@
+libsepol (2.0.30-1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * New version needed for latest policy.
+
+ -- Russell Coker <russell@coker.com.au>  Fri, 11 Jul 2008 23:55:10 +1000
+
 libsepol (2.0.25-2) unstable; urgency=low
 
   * Record the new location of the repository for this package (moved to a

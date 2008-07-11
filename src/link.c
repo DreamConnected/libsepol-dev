@@ -405,6 +405,8 @@ static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 			    state->cur_mod_name, id);
 			return -1;
 		}
+		/* permissive should pass to the base type */
+		base_type->flags |= (type->flags & TYPE_FLAGS_PERMISSIVE);
 	} else {
 		if (state->verbose)
 			INFO(state->handle, "copying type %s", id);
@@ -418,6 +420,7 @@ static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 			goto cleanup;
 		}
 		new_type->primary = type->primary;
+		new_type->flags = type->flags;
 		new_type->flavor = type->flavor;
 		/* for attributes, the writing of new_type->types is
 		   done in type_fix_callback() */
@@ -441,6 +444,7 @@ static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		}
 		new_type->primary = type->primary;
 		new_type->flavor = type->flavor;
+		new_type->flags = type->flags;
 		new_type->s.value = base_type->s.value;
 		if ((new_id = strdup(id)) == NULL) {
 			goto cleanup;
@@ -702,6 +706,8 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		return -1;
 	}
 
+	target_type->flags |= (type->flags & TYPE_FLAGS_PERMISSIVE);
+
 	base_type = hashtab_search(state->base->p_types.table, id);
 	if (base_type == NULL) {
 		if (state->verbose)
@@ -713,6 +719,7 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		}
 		/* the linked copy always has TYPE_ALIAS style aliases */
 		new_type->primary = target_type->s.value;
+		new_type->flags = target_type->flags;
 		new_type->flavor = TYPE_ALIAS;
 		new_type->s.value = state->base->p_types.nprim + 1;
 		if ((new_id = strdup(id)) == NULL) {
@@ -747,6 +754,7 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 
 		base_type->flavor = TYPE_ALIAS;
 		base_type->primary = target_type->s.value;
+		base_type->flags |= (target_type->flags & TYPE_FLAGS_PERMISSIVE);
 
 	}
 	/* the aliases map points from its value to its primary so when this module 
@@ -854,6 +862,10 @@ static int mls_level_convert(mls_semantic_level_t * src, mls_semantic_level_t * 
 	mls_semantic_cat_t *src_cat, *new_cat;
 
 	if (!mod->policy->mls)
+		return 0;
+
+	/* Required not declared. */
+	if (!src->sens)
 		return 0;
 
 	assert(mod->map[SYM_LEVELS][src->sens - 1]);
