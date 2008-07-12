@@ -1,5 +1,6 @@
 prefix=@prefix@
-libdir=@libdir@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
 includedir=@includedir@
 
 Name: libsepol
