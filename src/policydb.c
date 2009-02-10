@@ -1215,21 +1215,13 @@ int symtab_insert(policydb_t * pol, uint32_t sym,
 	/* FIX ME - the failures after the hashtab_insert will leave
 	 * the policy in a inconsistent state. */
 	rc = hashtab_insert(pol->symtab[sym].table, key, datum);
-	if (rc == 0) {
+	if (rc == SEPOL_OK) {
 		/* if no value is passed in the symbol is not primary
 		 * (i.e. aliases) */
 		if (value)
 			*value = ++pol->symtab[sym].nprim;
-	} else if (rc == SEPOL_EEXIST && scope == SCOPE_REQ) {
+	} else if (rc == SEPOL_EEXIST) {
 		retval = 1;	/* symbol not added -- need to free() later */
-	} else if (rc == SEPOL_EEXIST && scope == SCOPE_DECL) {
-		if (sym == SYM_ROLES || sym == SYM_USERS) {
-			/* allow multiple declarations for these two */
-			retval = 1;
-		} else {
-			/* duplicate declarations not allowed for all else */
-			return -2;
-		}
 	} else {
 		return rc;
 	}
@@ -1256,21 +1248,15 @@ int symtab_insert(policydb_t * pol, uint32_t sym,
 			free(scope_datum);
 			return rc;
 		}
-	} else if (scope_datum->scope == SCOPE_DECL) {
+	} else if (scope_datum->scope == SCOPE_DECL && scope == SCOPE_DECL) {
 		/* disallow multiple declarations for non-roles/users */
 		if (sym != SYM_ROLES && sym != SYM_USERS) {
 			return -2;
 		}
 	} else if (scope_datum->scope == SCOPE_REQ && scope == SCOPE_DECL) {
-		/* appending to required symbol only allowed for roles/users */
-		if (sym == SYM_ROLES || sym == SYM_USERS) {
-			scope_datum->scope = SCOPE_DECL;
-		} else {
-			return -2;
-		}
-
+		scope_datum->scope = SCOPE_DECL;
 	} else if (scope_datum->scope != scope) {
-		/* scope does not match */
+		/* This only happens in DECL then REQUIRE case, which is handled by caller */
 		return -2;
 	}
 

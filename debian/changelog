@@ -1,3 +1,15 @@
+libsepol (2.0.32-1) unstable; urgency=low
+
+  * New upstream release
+    + Allow require then declare in the source policy from Joshua
+      Brindle. 
+    + Fix mls_semantic_level_expand() to handle a user require w/o MLS
+      information from Stephen Smalley. 
+  * Updated the watch and copyright files to reflect the new source
+    location. 
+
+ -- Manoj Srivastava <srivasta@debian.org>  Mon, 09 Feb 2009 23:51:49 -0600
+
 libsepol (2.0.30-2) unstable; urgency=low
 
   * Added exec_prefix to libselinux.pc.

@@ -1625,7 +1625,6 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 	if (p->policyvers < POLICYDB_VERSION_PERMISSIVE &&
 	    p->policy_type == POLICY_KERN) {
 		ebitmap_node_t *tnode;
-		unsigned int i;
 
 		ebitmap_for_each_bit(&p->permissive_map, tnode, i) {
 			if (ebitmap_node_get_bit(tnode, i)) {

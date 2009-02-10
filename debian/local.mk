@@ -50,7 +50,7 @@ CLEAN/sepol-utils::
 debian/stamp/build/libsepol1:
 	$(checkdir)
 	$(REASON)
-	@test -d debian/stamp/build || mkdir debian/stamp/build
+	@test -d debian/stamp/build || mkdir -p debian/stamp/build
 	$(MAKE) CC="$(CC)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
 	@echo done > $@
 
@@ -84,7 +84,7 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	  fi;										 \
 	done
 endif
-	@test -d debian/stamp/install || mkdir debian/stamp/install
+	@test -d debian/stamp/install || mkdir -p debian/stamp/install
 	@echo done > $@
 
 debian/stamp/install/libsepol1-dev:
@@ -119,7 +119,7 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	  fi;										 \
 	done
 endif
-	@test -d debian/stamp/install || mkdir debian/stamp/install
+	@test -d debian/stamp/install || mkdir -p debian/stamp/install
 	@echo done > $@
 
 debian/stamp/install/sepol-utils:
@@ -147,7 +147,7 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	  fi;									    \
 	done
 endif
-	@test -d debian/stamp/install || mkdir debian/stamp/install
+	@test -d debian/stamp/install || mkdir -p debian/stamp/install
 	@echo done > $@
 
 
@@ -167,7 +167,7 @@ debian/stamp/binary/libsepol1:
 	chown -R root:root   $(TMPTOP)
 	chmod -R u+w,go=rX   $(TMPTOP)
 	dpkg --build	     $(TMPTOP) ..
-	@test -d debian/stamp/binary || mkdir debian/stamp/binary
+	@test -d debian/stamp/binary || mkdir -p debian/stamp/binary
 	@echo done > $@
 
 debian/stamp/binary/libsepol1-dev:
@@ -180,7 +180,7 @@ debian/stamp/binary/libsepol1-dev:
 	chown -R root:root   $(TMPTOP)
 	chmod -R u+w,go=rX   $(TMPTOP)
 	dpkg --build	     $(TMPTOP) ..
-	@test -d debian/stamp/binary || mkdir debian/stamp/binary
+	@test -d debian/stamp/binary || mkdir -p debian/stamp/binary
 	@echo done > $@
 
 debian/stamp/binary/sepol-utils:
@@ -198,5 +198,5 @@ debian/stamp/binary/sepol-utils:
 	chown -R root:root   $(TMPTOP)
 	chmod -R u+w,go=rX   $(TMPTOP)
 	dpkg --build	     $(TMPTOP) ..
-	@test -d debian/stamp/binary || mkdir debian/stamp/binary
+	@test -d debian/stamp/binary || mkdir -p debian/stamp/binary
 	@echo done > $@

@@ -1,3 +1,9 @@
+2.0.32 2008-07-07
+	* Allow require then declare in the source policy from Joshua Brindle.
+
+2.0.31 2008-06-13
+	* Fix mls_semantic_level_expand() to handle a user require w/o MLS information from Stephen Smalley.
+
 2.0.30 2008-06-06
 	* Fix endianness bug in the handling of network node addresses from Stephen Smalley.
 	  Only affects big endian platforms.
