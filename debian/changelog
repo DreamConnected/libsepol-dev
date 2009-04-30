@@ -1,3 +1,15 @@
+libsepol (2.0.36-1) unstable; urgency=low
+
+  * New upstream release
+    + Fix boolean state smashing from Joshua Brindle.
+    + Fix alias field in module format, caused by boundary format change
+      from Caleb Case.
+    + Add bounds support from KaiGai Kohei.
+    + Fix invalid aliases bug from Joshua Brindle.
+    + Revert patch that removed expand_rule.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Wed, 29 Apr 2009 20:43:17 -0500
+
 libsepol (2.0.32-1) unstable; urgency=low
 
   * New upstream release
