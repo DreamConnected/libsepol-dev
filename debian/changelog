@@ -1,3 +1,10 @@
+libsepol (2.0.37-1) unstable; urgency=low
+
+  * New upstream release
+    + Add method to check disable dontaudit flag from Christopher Pardy.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Thu, 13 Aug 2009 23:51:54 -0500
+
 libsepol (2.0.36-1) unstable; urgency=low
 
   * New upstream release
@@ -14,11 +21,11 @@ libsepol (2.0.32-1) unstable; urgency=low
 
   * New upstream release
     + Allow require then declare in the source policy from Joshua
-      Brindle. 
+      Brindle.
     + Fix mls_semantic_level_expand() to handle a user require w/o MLS
-      information from Stephen Smalley. 
+      information from Stephen Smalley.
   * Updated the watch and copyright files to reflect the new source
-    location. 
+    location.
 
  -- Manoj Srivastava <srivasta@debian.org>  Mon, 09 Feb 2009 23:51:49 -0600
 
@@ -49,11 +56,11 @@ libsepol (2.0.25-1) unstable; urgency=low
   * New upstream release
     * Drop unused ->buffer field from struct policy_file.
     * Add policy_file_init() initalizer for struct policy_file and use it,
-      from Todd C. Miller. 
+      from Todd C. Miller.
     * Accept "Flask" as an alternate identifier string in kernel policies
-      from Stephen Smalley. 
+      from Stephen Smalley.
     * Add support for open_perms policy capability from Eric Paris.
-  
+
 
  -- Manoj Srivastava <srivasta@debian.org>  Mon, 17 Mar 2008 13:29:44 -0500
 
@@ -62,7 +69,7 @@ libsepol (2.0.21-1) unstable; urgency=low
   * New upstream SVN HEAD.
     * Fix invalid memory allocation in policydb_index_others() from Jason Tang.
     * Port of Yuichi Nakamura's tune avtab to reduce memory usage patch
-      from the kernel avtab to libsepol from Stephen Smalley. 
+      from the kernel avtab to libsepol from Stephen Smalley.
     * Add support for consuming avrule_blocks during expansion to reduce
       peak memory usage from Joshua Brindle.
     * Added support for policy capabilities from Todd Miller.
@@ -71,9 +78,9 @@ libsepol (2.0.21-1) unstable; urgency=low
     * clarify and reduce neverallow error reporting from Stephen Smalley.
     * Reject self aliasing at link time from Stephen Smalley.
     * Allow handle_unknown in base to be overridden by semanage.conf from
-      Stephen Smalley. 
+      Stephen Smalley.
     * Fixed bug in require checking from Stephen Smalley.
-    * Added user hierarchy checking from Todd Miller.       
+    * Added user hierarchy checking from Todd Miller.
 
  -- Manoj Srivastava <srivasta@debian.org>  Thu, 28 Feb 2008 08:30:19 -0600
 
@@ -83,7 +90,7 @@ libsepol (2.0.11-1) unstable; urgency=low
     * Pass CFLAGS to CC even on link command, per Dennis Gilmore.
     * Merged support for the handle_unknown policydb flag from Eric Paris.
     * Moved next_entry and put_entry out-of-line to reduce code size from
-      Ulrich Drepper. 
+      Ulrich Drepper.
     * Fixed module_package_read_offsets bug introduced by the prior patch.
     * Eliminate unaligned accesses from policy reading code from Stephen
       Smalley.                                           Closes: Bug#439539
@@ -111,9 +118,9 @@ libsepol (2.0.3-1) unstable; urgency=low
 
   * New upstream bugfix SVN HEAD.
     + Merged fix from Karl to remap booleans at expand time to avoid holes
-      in the symbol table. 
+      in the symbol table.
     + Merged add boolmap argument to expand_module_avrules() from Chris
-      PeBenito. 
+      PeBenito.
 
  -- Manoj Srivastava <srivasta@debian.org>  Sun,  6 May 2007 16:38:09 -0500
 
@@ -150,14 +157,14 @@ libsepol (1.14-3) unstable; urgency=low
     Using init directly is bad form, according to sysvinit maintainer.
   * Make the dev package depend on the exact ${binary:Version}, not the
     ${Source-Version}, which should make this package friendlier to
-    binNMUs. 
+    binNMUs.
 
  -- Manoj Srivastava <srivasta@debian.org>  Mon, 26 Feb 2007 10:09:10 -0600
 
 libsepol (1.14-2) unstable; urgency=high
 
   * Compile with -fPIC instead of -fpic. This fixes a FTBS for rpm on
-    sparc. 
+    sparc.
 
  -- Manoj Srivastava <srivasta@debian.org>  Wed, 15 Nov 2006 01:31:58 -0600
 
@@ -183,7 +190,7 @@ libsepol (1.12.26-1) unstable; urgency=low
   * Merged conditionally expand neverallows patch from Jeremy Mowery.
   * Merged refactor expander patch from Jeremy Mowery.
   * Merged range transition enhancements and user format changes Darrel
-    Goeddel 
+    Goeddel
   * Provide md5sums
 
  -- Manoj Srivastava <srivasta@debian.org>  Wed,  6 Sep 2006 16:24:16 -0500
@@ -247,16 +254,16 @@ libsepol (1.12-1) unstable; urgency=low
     * Merged bug fix patch from Ivan Gyurdiev.
     * Added a defined flag to level_datum_t for use by checkpolicy.
     * Merged nodecon support patch from Ivan Gyurdiev.
-    * Merged cleanups patch from Ivan Gyurdiev.	
+    * Merged cleanups patch from Ivan Gyurdiev.
     * Merged optionals in base patch from Joshua Brindle.
     * Merged seuser/user_extra support patch from Joshua Brindle.
     * Merged fix patch from Ivan Gyurdiev.
-    * Merged clone record on set_con patch from Ivan Gyurdiev.	
+    * Merged clone record on set_con patch from Ivan Gyurdiev.
     * Merged assertion copying bugfix from Joshua Brindle.
     * Merged sepol_av_to_string patch from Joshua Brindle.
     * Merged cond_expr mapping and package section count bug fixes
       from Joshua Brindle.
-    * Merged improve port/fcontext API patch from Ivan Gyurdiev.	
+    * Merged improve port/fcontext API patch from Ivan Gyurdiev.
     * Merged fixes for overflow bugs on 64-bit from Ivan Gyurdiev.
     * Merged size_t -> unsigned int patch from Ivan Gyurdiev.
     * Merged 2nd const in APIs patch from Ivan Gyurdiev.
@@ -299,7 +306,7 @@ libsepol (1.10-1) unstable; urgency=low
 
   * New upstream release
     * Updated version for release.
-    * Dropped handle from user_del_role interface.  
+    * Dropped handle from user_del_role interface.
     * Merged remove defrole from sepol patch from Ivan Gyurdiev.
     * Merged module function and map file cleanup from Ivan Gyurdiev.
     * Merged MLS and genusers cleanups from Ivan Gyurdiev.
@@ -317,10 +324,10 @@ libsepol (1.10-1) unstable; urgency=low
       Added hidden_def for exported symbols used within libsepol.
       Added hidden for symbols that should not be exported by
       the wildcards in libsepol.map.
-    * Merged record interface, record bugfix, and set_roles patches 
+    * Merged record interface, record bugfix, and set_roles patches
       from Ivan Gyurdiev.
-    * Merged count specification change from Ivan Gyurdiev. 
-    * Added further checking and error reporting to 
+    * Merged count specification change from Ivan Gyurdiev.
+    * Added further checking and error reporting to
       sepol_module_package_read and _info.
     * Merged sepol handle passing, DEBUG conversion, and memory leak
       fix patches from Ivan Gyurdiev.
@@ -334,8 +341,8 @@ libsepol (1.10-1) unstable; urgency=low
     * Merged query/exists and count patches from Ivan Gyurdiev.
     * Merged fix for pruned types in expand code from Joshua Brindle.
     * Merged new module package format code from Joshua Brindle.
-    * Merged context interface cleanup, record conversion code, 
-      key passing, and bug fix patches from Ivan Gyurdiev.               
+    * Merged context interface cleanup, record conversion code,
+      key passing, and bug fix patches from Ivan Gyurdiev.
     * Merged users cleanup patch from Ivan Gyurdiev.
     * Merged user record memory leak fix from Ivan Gyurdiev.
     * Merged reorganize users patch from Ivan Gyurdiev.
@@ -343,7 +350,7 @@ libsepol (1.10-1) unstable; urgency=low
       and hierarchy checking on expansion.
     * Reworked check_assertions() and hierarchy_check_constraints()
       to take handles and use callback-based error reporting.
-    * Changed expand_module() to call check_assertions() and 
+    * Changed expand_module() to call check_assertions() and
       hierarchy_check_constraints() prior to returning the expanded
       policy.
     * Changed sepol_module_package_set_file_contexts to copy the
@@ -353,9 +360,9 @@ libsepol (1.10-1) unstable; urgency=low
     * Added handle argument to policydb_from_image/to_image.
     * Added sepol_module_package_set_file_contexts interface.
     * Dropped sepol_module_package_create_file interface.
-    * Reworked policydb_read/write, policydb_from_image/to_image, 
+    * Reworked policydb_read/write, policydb_from_image/to_image,
       and sepol_module_package_read/write to use callback-based error
-      reporting system rather than DEBUG.  
+      reporting system rather than DEBUG.
     * Reworked link_packages, link_modules, and expand_module to use
       callback-based error reporting system rather than error buffering.
     * Merged conditional expression mapping fix in the module linking
@@ -380,9 +387,9 @@ libsepol (1.10-1) unstable; urgency=low
          Caller must do so first.
       2) policydb_init no longer takes policy_type argument.
          Caller must set policy_type separately.
-      3) expand_module automatically enables the global branch.  
+      3) expand_module automatically enables the global branch.
          Caller no longer needs to do so.
-      4) policydb_write uses the policy_type and policyvers from the 
+      4) policydb_write uses the policy_type and policyvers from the
          policydb itself, and sepol_set_policyvers() has been removed.
     * Merged function renaming and static cleanup from Ivan Gyurdiev.
     * Merged bug fix for check_assertions handling of no assertions
@@ -399,7 +406,7 @@ libsepol (1.10-1) unstable; urgency=low
     * Merged interface record patch from Ivan Gyurdiev.
     * Merged fix for sepol_enable/disable_debug from Ivan
       Gyurdiev.
-    * Merged stddef.h patch and debug conversion patch from 
+    * Merged stddef.h patch and debug conversion patch from
       Ivan Gyurdiev.
     * Fixed expand_avtab and expand_cond_av_list to keep separate
       entries with identical keys but different enabled flags.
@@ -417,31 +424,31 @@ libsepol (1.8-1) unstable; urgency=low
         Jason Tang (Tresys).
       * Merged fixes for resource leaks on error paths and
         change to scope_destroy from Joshua Brindle (Tresys).
-      * Merged more fixes for resource leaks on error paths 
-        from Serge Hallyn (IBM).  Bugs found by Coverity. 
+      * Merged more fixes for resource leaks on error paths
+        from Serge Hallyn (IBM).  Bugs found by Coverity.
       * Changed to treat all type conflicts as fatal errors.
-      * Merged several error handling fixes from 
-        Serge Hallyn (IBM).  Bugs found by Coverity.	
+      * Merged several error handling fixes from
+        Serge Hallyn (IBM).  Bugs found by Coverity.
       * Fixed further memory leaks found by valgrind.
       * Fixed several memory leaks found by valgrind.
       * Fixed empty list test in cond_write_av_list.  Bug found by
         Coverity, reported by Serge Hallyn (IBM).
-      * Merged patch to policydb_write to check errors 
+      * Merged patch to policydb_write to check errors
         when writing the type->attribute reverse map from
         Serge Hallyn (IBM).  Bug found by Coverity.
       * Fixed policydb_destroy to properly handle NULL type_attr_map
         or attr_type_map.
       * Fixed use of uninitialized data by expand_avtab_node by
         clearing type_val_to_struct in policydb_index_others.
-      * Improved memory use by SELinux by both reducing the avtab 
+      * Improved memory use by SELinux by both reducing the avtab
         node size and reducing the number of avtab nodes (by not
         expanding attributes in TE rules when possible).  Added
         expand_avtab and expand_cond_av_list functions for use by
         assertion checker, hierarchy checker, compatibility code,
         and dispol.  Added new inline ebitmap operators and converted
-        existing users of ebitmaps to the new operators for greater 
+        existing users of ebitmaps to the new operators for greater
         efficiency.
-        Note:  The binary policy format version has been incremented to 
+        Note:  The binary policy format version has been incremented to
         version 20 as a result of these changes.
       * Fixed bug in constraint_node_clone handling of name sets.
       * Fix range_trans_clone to map the type values properly.
@@ -451,16 +458,16 @@ libsepol (1.8-1) unstable; urgency=low
       * Merged user, context, port records patch from Ivan Gyurdiev.
       * Merged key extract function patch from Ivan Gyurdiev.
       * Merged mls_context_to_sid bugfix from Ivan Gyurdiev.
-      * Merged context reorganization, memory leak fixes, 
+      * Merged context reorganization, memory leak fixes,
         port and interface loading, replacements for genusers and
         genbools, debug traceback, and bugfix patches from Ivan Gyurdiev.
       * Merged uninitialized variable bugfix from Dan Walsh.
       * Merged debug support, policydb conversion functions from Ivan
-        Gyurdiev (Red Hat). 
+        Gyurdiev (Red Hat).
       * Removed genpolbools and genpolusers utilities.
       * Merged hierarchy check fix from Joshua Brindle (Tresys).
       * Merged header file cleanup and memory leak fix from Ivan Gyurdiev
-       (Red Hat). 
+       (Red Hat).
       * Merged genbools debugging message cleanup from Red Hat.
       * Merged loadable module support from Tresys Technology.
   * libsepol1: Priority should be required, thanks to Matt Kraai.
@@ -471,7 +478,7 @@ libsepol (1.8-1) unstable; urgency=low
 libsepol (1.6-2) unstable; urgency=low
 
   * Modify sections of generated binaries. sepol-utils belongs in admin,
-    really. 
+    really.
 
  -- Manoj Srivastava <srivasta@debian.org>  Wed, 10 Aug 2005 13:28:02 -0500
 
@@ -482,7 +489,7 @@ libsepol (1.6-1) unstable; urgency=low
         * License changed to LGPL v2.1, see COPYING.
         * Added sepol_genbools_policydb and sepol_genusers_policydb for
           audit2why.
-        * Added sepol_ prefix to Flask types to avoid 
+        * Added sepol_ prefix to Flask types to avoid
           namespace collision with libselinux.
         * Added sepol_compute_av_reason() for audit2why.
         * Fixed bug in role hierarchy checker.
@@ -520,7 +527,7 @@ libsepol (1.2-3) unstable; urgency=high
 libsepol (1.2-2) unstable; urgency=low
 
   * Update download location and copyright file, since the locations we
-    were pointing to are now forbidden (return a code 403). 
+    were pointing to are now forbidden (return a code 403).
 
  -- Manoj Srivastava <srivasta@debian.org>  Wed, 24 Nov 2004 14:02:32 -0600
 
@@ -529,7 +536,7 @@ libsepol (1.2-1) unstable; urgency=low
   * New upstream release. Changes:
     * MLS build fixes.
     * Added sepol_set_policydb_from_file and sepol_check_context for
-      setfiles. 
+      setfiles.
   * Even though the API has changed, the soname has not been bumped
     upstream on the grounds that no one is using this yet. Since we have
     not yet shipped libsepol, I guess I am OK with that.

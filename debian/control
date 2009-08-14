@@ -4,7 +4,7 @@ VCS-Browser: http://git.debian.org/git/?p=users/srivasta/debian/libsepol.git
 Priority: optional
 Section: libs
 Maintainer: Manoj Srivastava <srivasta@debian.org>
-Standards-Version: 3.8.1.0
+Standards-Version: 3.8.2.0
 Build-Depends: file
 
 Package: sepol-utils
