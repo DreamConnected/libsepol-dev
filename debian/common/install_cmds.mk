@@ -1,6 +1,6 @@
 ######################### -*- Mode: Makefile-Gmake -*- ########################
 ## install_cmds.mk ---
-## Author           : Manoj Srivastava ( srivasta@glaurung.internal.golden-gryphon.com )
+## Author           : Manoj Srivastava ( srivasta@golden-gryphon.com )
 ## Created On       : Fri Jun 16 14:40:20 2006
 ## Created On Node  : glaurung.internal.golden-gryphon.com
 ## Last Modified By : Manoj Srivastava
@@ -44,13 +44,13 @@ define create_md5sum
         cd $$1 ;                                                   \
        find . -type f                                              \
               ! -regex './DEBIAN/.*'                               \
-              ! -regex './etc/.*'     $(EXTRA_MD5SUM_EXCLUDE)      \
+              ! -regex './var/.*'     $(EXTRA_MD5SUM_EXCLUDE)      \
               -printf '%P\0' | xargs -r0 md5sum > DEBIAN/md5sums ; \
        if [ -z "DEBIAN/md5sums" ] ; then                           \
            rm -f "DEBIAN/md5sums" ;                                \
        fi ;                                                        \
     } ;                                                            \
-    create_md5sums_fn 
+    create_md5sums_fn
 endef
 
 #Local variables:

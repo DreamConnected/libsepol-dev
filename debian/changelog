@@ -1,3 +1,18 @@
+libsepol (2.0.37-2) unstable; urgency=low
+
+  * [f7ba986]: [libsepol]: common code update: Make sure the jobserver is
+    no killed.
+  * [b8570c3]: [libsepol] only run init -u when not in a chroot
+    This fix was done 10 days ago, I just forgot to upload the new
+    version; and then I was wondering how the bugs could possibly happen,
+    since the code in front of me would prevent that.
+    Bug fix: "postinst script fails in chroot environment", thanks to
+    Ondřej Surý (Closes: #543347).
+    Bug fix: "telinit doesn&#39;t work inside chroot", thanks to Sylvain
+    Le Gall (Closes: #543344).
+
+ -- Manoj Srivastava <srivasta@debian.org>  Mon, 24 Aug 2009 09:36:01 -0500
+
 libsepol (2.0.37-1) unstable; urgency=low
 
   * New upstream release

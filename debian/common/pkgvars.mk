@@ -91,8 +91,7 @@ package = $(notdir $@)
 
 ifeq  (,$(filter parallel=%,$(FAILS_PARALLEL_BUILD)))
   ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
-    NUMJOBS = $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
-    MAKEFLAGS += -j$(NUMJOBS)
+    NUMJOBS = $(patsubst parallel=%,-j%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
   endif
 endif
 
