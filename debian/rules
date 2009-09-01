@@ -33,6 +33,10 @@
 # Include dpkg-architecture generated variables
 include debian/common/archvars.mk
 
+ifneq ($(DEB_HOST_ARCH_OS),linux)
+$(error This is a linux only package. Aborting build.)
+endif
+
 # Set variables with information extracted from control and changelog files
 include debian/common/pkgvars.mk
 

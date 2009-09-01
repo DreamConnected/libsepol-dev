@@ -4,9 +4,9 @@
 ## Created On       : Sat Nov 15 10:42:10 2003
 ## Created On Node  : glaurung.green-gryphon.com
 ## Last Modified By : Manoj Srivastava
-## Last Modified On : Fri Oct 20 14:24:16 2006
-## Last Machine Used: glaurung.internal.golden-gryphon.com
-## Update Count     : 22
+## Last Modified On : Tue Sep  1 16:53:00 2009
+## Last Machine Used: anzu.internal.golden-gryphon.com
+## Update Count     : 29
 ## Status           : Unknown, Use with caution!
 ## HISTORY          : 
 ## Description      : 
@@ -52,6 +52,17 @@ debian/stamp/build/libsepol1:
 	$(REASON)
 	@test -d debian/stamp/build || mkdir -p debian/stamp/build
 	$(MAKE) CC="$(CC)" CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)"
+ifeq (,$(strip $(filter nocheck,$(DEB_BUILD_OPTIONS))))
+  ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
+	@echo Checking libs
+	extra=$$($(SHELL) debian/common/checklibs); \
+         if [ -n "$$extra" ]; then                  \
+           echo "Extra libraries: $$extra";         \
+           exit 1;                                  \
+         fi
+	$(SHELL) debian/common/get_shlib_ver
+  endif
+endif
 	@echo done > $@
 
 
@@ -157,6 +168,7 @@ debian/stamp/binary/libsepol1:
 	$(TESTROOT)
 	$(install_script)    debian/postrm	     $(TMPTOP)/DEBIAN/postrm
 	$(install_script)    debian/postinst	     $(TMPTOP)/DEBIAN/postinst
+	dpkg-gensymbols      -p$(package)            -P$(TMPTOP) -c4
 	k=`find $(TMPTOP) -type f | ( while read i; do		 \
 	    if file -b $$i | egrep -q "^ELF.*shared object"; then	 \
 	      j="$$j $$i";					 \

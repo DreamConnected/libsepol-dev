@@ -5,9 +5,9 @@
 # Created On       : Fri Sep 29 15:36:22 2006
 # Created On Node  : glaurung.internal.golden-gryphon.com
 # Last Modified By : Manoj Srivastava
-# Last Modified On : Fri Sep 29 22:53:27 2006
-# Last Machine Used: glaurung.internal.golden-gryphon.com
-# Update Count     : 43
+# Last Modified On : Tue Sep  1 16:06:35 2009
+# Last Machine Used: anzu.internal.golden-gryphon.com
+# Update Count     : 45
 # Status           : Unknown, Use with caution!
 # HISTORY          : 
 # Description      : 
@@ -41,10 +41,11 @@ readelf -s -D -W $(find . -type f -print0 | xargs -0r  file | grep " ELF" | \
   perl -ple 's/.*\s(\S+)\s*$/\^$1\$/g' | sort -u > search_patterns.txt;
 
 # Find all the libraries needed in this tree 
-objdump -T --private-headers $(find . -type f -print0  | xargs -0r file | grep " ELF" | \
+objdump -T --private-headers $(find . -type f -print0  | \
+  xargs -0r file | egrep "ELF.*(shared object|executable)" | \
   awk '{print $1}' | sed -e 's/:$//') | grep NEEDED | sort -u | awk '{print $2}' | 
     while read lib; do
-        # For each library, see where it lives o the file system
+        # For each library, see where it lives on the file system
         LIB=
         for library_dir in "/lib" "/usr/lib" $EXTRA_LIBRARY_PATHS; do
             if [ -e "$library_dir/$lib" ]; then

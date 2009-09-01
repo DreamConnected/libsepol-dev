@@ -47,7 +47,7 @@ Description: Security Enhanced Linux library for changing policy binaries
 Package: libsepol1-dev
 Section: libdevel
 Architecture: any
-Provides:  libsepol-dev
+Provides: libsepol-dev
 Conflicts: libsepol-dev
 Depends: ${shlibs:Depends},  libsepol1 (= ${binary:Version})
 Description: Security Enhanced Linux policy library and development files

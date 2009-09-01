@@ -1,3 +1,20 @@
+libsepol (2.0.38-1) unstable; urgency=low
+
+  * New upstream release
+     Check last offset in the module package against the file size.
+     Reported by Manoj Srivastava for bug filed by Max Kellermann.
+  * Bug fix: "out of memory", thanks to Max Kellermann   (Closes: #543915).
+  * Bug fix: "/etc/.initctl: ENOENT breaks debootstrap on kfreebsd",
+    thanks to Philipp Kern. This package has been removed from all !linux
+    architectures, and no longer builds on them.         (Closes: #543938).
+  * First cut at providing symbols files.
+  *  Check for extra libraries and shlib version numbers.  Unless there is
+    a nocheck option in the deb build options variable, now we look to see
+    if there are extra libraries we have linked to. Might need to back
+    this out later, if this causes problems on the buildds.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Tue, 01 Sep 2009 16:58:24 -0500
+
 libsepol (2.0.37-2) unstable; urgency=low
 
   * [f7ba986]: [libsepol]: common code update: Make sure the jobserver is
