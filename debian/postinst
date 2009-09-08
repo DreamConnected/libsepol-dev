@@ -153,17 +153,26 @@ case "$1" in
 
     ### done! now we'll just clear up our cruft.
     #rm -f $tempfile
-    if [ -x /sbin/init ] && [ -x /bin/readlink ] && [ -d /proc/1 ] ; then
+
+    if [ -x /sbin/init ] && [ -d /proc/1 ] &&
+        [ "$(stat -c %d/%i /sbin/init)" = "$(stat -Lc %d/%i /proc/1/exe 2>/dev/null)" ] ; then
+        # So, init exists, and there is a linuxy /proc, and the inode of the executable
+        # of the process with uid 1 is the same as /sbin/init (ok, no init=/bin/sh going on)
+
         if [ "$(stat -c %d/%i /)" = "$(stat -Lc %d/%i /proc/1/root 2>/dev/null)" ]; then
             # the devicenumber/inode pair of / is the same as that of
             # /sbin/init's root, so we're *not* in a chroot
 
-            # Use telinit if available, it is better form, according
-            # to the sysvinit maintainer.
-            if [ -x /sbin/telinit ]; then
-                (telinit u ; sleep 1)
-            else
-                (init u ; sleep 1)
+            # Final sanity check. Make sure there is a /dev/initctl
+            # for us to talk to
+            if [ -e /dev/initctl ]; then
+                # Use telinit if available, it is better form, according
+                # to the sysvinit maintainer.
+                if [ -x /sbin/telinit ]; then
+                    (telinit u ; sleep 1)
+                else
+                    (init u ; sleep 1)
+                fi
             fi
         fi
     fi

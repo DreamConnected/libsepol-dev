@@ -28,7 +28,7 @@ Section: libs
 Priority: required
 Architecture: any
 Depends: ${shlibs:Depends}
-Description: Security Enhanced Linux library for changing policy binaries
+Description: SELinux library for manipulating binary security policies
  Security-enhanced Linux is a patch of the Linux kernel and a number
  of utilities with enhanced security functionality designed to add
  mandatory access controls to Linux.  The Security-enhanced Linux
@@ -50,8 +50,8 @@ Architecture: any
 Provides: libsepol-dev
 Conflicts: libsepol-dev
 Depends: ${shlibs:Depends},  libsepol1 (= ${binary:Version})
-Description: Security Enhanced Linux policy library and development files
- libsepol allows programs to easily modify SELinux policy binaries.  This
+Description: SELinux binary policy maniulation library and development files
+ libsepol allows programs to easily modify SELinux binary policies.  This
  means changing the default values for booleans, or reading the policy for
  analysis.
  .

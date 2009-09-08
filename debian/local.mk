@@ -55,11 +55,15 @@ debian/stamp/build/libsepol1:
 ifeq (,$(strip $(filter nocheck,$(DEB_BUILD_OPTIONS))))
   ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
 	@echo Checking libs
-	extra=$$($(SHELL) debian/common/checklibs); \
-         if [ -n "$$extra" ]; then                  \
-           echo "Extra libraries: $$extra";         \
-           exit 1;                                  \
-         fi
+	xtra=$$($(SHELL) debian/common/checklibs);  \
+	if [ -n "$$extra" ]; then                   \
+	  echo "Extra libraries: $$extra";          \
+	  echo "IA64 has a spurious libsepol.so.1"; \
+	fi
+  endif
+endif
+ifeq (,$(strip $(filter nocheck,$(DEB_BUILD_OPTIONS))))
+  ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
 	$(SHELL) debian/common/get_shlib_ver
   endif
 endif
@@ -88,13 +92,7 @@ debian/stamp/install/libsepol1:
 	gzip -9fqr	    $(DOCDIR)/
 # Make sure the copyright file is not compressed
 	$(install_file)	     debian/copyright	     $(DOCDIR)/copyright
-ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
-	find $(TMPTOP) -type f | while read i; do					 \
-	  if file -b $$i | egrep -q "^ELF.*shared object"; then				 \
-	    strip --strip-unneeded --remove-section=.comment --remove-section=.note $$i; \
-	  fi;										 \
-	done
-endif
+	$(strip-lib)
 	@test -d debian/stamp/install || mkdir -p debian/stamp/install
 	@echo done > $@
 
@@ -123,13 +121,7 @@ debian/stamp/install/libsepol1-dev:
 	gzip -9fqr	    $(MANDIR)/
 # Make sure the copyright file is not compressed
 	$(install_file)	     debian/copyright	     $(DOCDIR)/copyright
-ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
-	find $(TMPTOP) -type f | while read i; do					 \
-	  if file -b $$i | egrep -q "^ELF.*shared object"; then				 \
-	    strip --strip-unneeded --remove-section=.comment --remove-section=.note $$i; \
-	  fi;										 \
-	done
-endif
+	$(strip-lib)
 	@test -d debian/stamp/install || mkdir -p debian/stamp/install
 	@echo done > $@
 
@@ -151,13 +143,7 @@ debian/stamp/install/sepol-utils:
 	gzip -9fqr	    $(MANDIR)/
 # Make sure the copyright file is not compressed
 	$(install_file)	     debian/copyright	     $(DOCDIR)/copyright
-ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
-	find $(TMPTOP) -type f | while read i; do				    \
-	  if file -b $$i | egrep -q "^ELF.*executable"; then			    \
-	    strip --strip-all --remove-section=.comment --remove-section=.note $$i; \
-	  fi;									    \
-	done
-endif
+	$(strip-exec)
 	@test -d debian/stamp/install || mkdir -p debian/stamp/install
 	@echo done > $@
 
@@ -169,11 +155,7 @@ debian/stamp/binary/libsepol1:
 	$(install_script)    debian/postrm	     $(TMPTOP)/DEBIAN/postrm
 	$(install_script)    debian/postinst	     $(TMPTOP)/DEBIAN/postinst
 	dpkg-gensymbols      -p$(package)            -P$(TMPTOP) -c4
-	k=`find $(TMPTOP) -type f | ( while read i; do		 \
-	    if file -b $$i | egrep -q "^ELF.*shared object"; then	 \
-	      j="$$j $$i";					 \
-	    fi;							 \
-	   done; echo $$j; )`; if [ -n "$$k" ]; then dpkg-shlibdeps $$k; fi
+	$(get-shlib-deps)
 	dpkg-gencontrol	     -p$(package) -isp	     -P$(TMPTOP)
 	$(create_md5sum)     $(TMPTOP)
 	chown -R root:root   $(TMPTOP)

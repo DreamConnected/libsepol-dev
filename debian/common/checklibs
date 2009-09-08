@@ -5,9 +5,9 @@
 # Created On       : Fri Sep 29 15:36:22 2006
 # Created On Node  : glaurung.internal.golden-gryphon.com
 # Last Modified By : Manoj Srivastava
-# Last Modified On : Tue Sep  1 16:06:35 2009
+# Last Modified On : Wed Sep  2 01:16:46 2009
 # Last Machine Used: anzu.internal.golden-gryphon.com
-# Update Count     : 45
+# Update Count     : 47
 # Status           : Unknown, Use with caution!
 # HISTORY          : 
 # Description      : 
@@ -40,6 +40,9 @@ readelf -s -D -W $(find . -type f -print0 | xargs -0r  file | grep " ELF" | \
  awk '{print $1}' | sed -e 's/:$//') | grep UND | grep -v LOCAL |
   perl -ple 's/.*\s(\S+)\s*$/\^$1\$/g' | sort -u > search_patterns.txt;
 
+LOCAL_LIBS=$(find . -type f -print0  | xargs -0r file | egrep "ELF.*shared object" | \
+    awk '{print $1}' | sed -e 's/:$//' -e 's,/[^/]*$,,')
+
 # Find all the libraries needed in this tree 
 objdump -T --private-headers $(find . -type f -print0  | \
   xargs -0r file | egrep "ELF.*(shared object|executable)" | \
@@ -47,7 +50,7 @@ objdump -T --private-headers $(find . -type f -print0  | \
     while read lib; do
         # For each library, see where it lives on the file system
         LIB=
-        for library_dir in "/lib" "/usr/lib" $EXTRA_LIBRARY_PATHS; do
+        for library_dir in "/lib" "/usr/lib" $LOCAL_LIBS $EXTRA_LIBRARY_PATHS; do
             if [ -e "$library_dir/$lib" ]; then
                  LIB="$library_dir/$lib";
                  break

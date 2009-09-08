@@ -95,6 +95,73 @@ ifeq  (,$(filter parallel=%,$(FAILS_PARALLEL_BUILD)))
   endif
 endif
 
+# Define canned sequences used to strip executables and libraries,
+# keeping in mind the directives in DEB_BUILD_OPTIONS
+ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+define strip-exec
+find $(TMPTOP) -type f | while read i; do                                    \
+   if file -b $$i | egrep -q "^ELF.*executable"; then                        \
+     strip --strip-all --remove-section=.comment --remove-section=.note $$i; \
+   fi;                                                                       \
+ done
+endef
+
+define strip-lib
+find $(TMPTOP) -type f | while read i; do                                         \
+   if file -b $$i | egrep -q "^ELF.*shared object"; then                          \
+     strip --strip-unneeded --remove-section=.comment --remove-section=.note $$i; \
+   fi;                                                                            \
+done
+endef
+else
+define strip-exec
+@echo Not strippping executables as asked
+endef
+
+define strip-lib
+@echo Not strippping libraries as asked
+endef
+
+endif
+
+# this canned command specifies how to run dpkg-shlibs to add things
+# to debian/substvars by scanning executables and libraries; this
+# should suffice for the common case. Some rules files might need some
+# changes to the command sequence, though
+define get-shlib-deps
+k=`find $(TMPTOP) -type f | ( while read i; do          \
+    if file -b $$i |                                    \
+      egrep -q "^ELF.*(executable.*dynamically linked|shared object)"; then   \
+        j="$$j $$i";                                     \
+    fi;                                                  \
+done; echo $$j; )`; if [ -n "$$k" ]; then dpkg-shlibdeps $$k; fi
+endef
+
+# This canned sequence checks to see if all the libraries we link to
+# actually provide some symbols needed by some executable ot library
+# in the package itself.
+ifeq (,$(strip $(filter nocheck,$(DEB_BUILD_OPTIONS))))
+  ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
+define check-libraries
+echo Checking libs
+xtra=$$($(SHELL) debian/common/checklibs); \
+if [ -n "$$extra" ]; then                  \
+  echo "Extra libraries: $$extra";         \
+  exit 1;                                  \
+fi
+endef
+  else
+define check-libraries
+echo Not checking libs
+endef
+  endif
+else
+define check-libraries
+echo Not checking libs
+endef
+endif
+
+
 #Local variables:
 #mode: makefile
 #End:

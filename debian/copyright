@@ -8,9 +8,9 @@ Fri, 20 Aug 2004 17:26:18 +1000.
 
 libsepol is
  Copyright (C) 2003, 2004 Stephen Smalley <sds@epoch.ncsc.mil>
- Copyright (C) 2003, 2004 Red Hat, Inc.
+ Copyright (C) 2003-2007  Red Hat, Inc.
  Copyright (C) 2004, 2005 Trusted Computer Solutions, Inc.
- Copyright (C) 2003, 2004, 2005 Tresys Technology, LLC
+ Copyright (C) 2003-2008  Tresys Technology, LLC
 
 
     This library is free software; you can redistribute it and/or
@@ -32,7 +32,7 @@ Public License can be found in `/usr/share/common-licenses/LGPL'.
 
  This package is maintained by Manoj Srivastava <srivasta@debian.org>.
 
- The Debian specific changes are © 2005, 2006, Manoj Srivastava
+ The Debian specific changes are © 2005-2008, Manoj Srivastava
  <srivasta@debian.org>, and distributed under the terms of the GNU
  General Public License, version 2.
 
