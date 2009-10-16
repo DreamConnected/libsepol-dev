@@ -51,6 +51,13 @@ checkpo:
 # arch-buildpackage likes to call this
 prebuild:
 
+ifneq (,$(shell if [ -f $(DEBIANDIR)/watch ]; then echo yes; fi))
+.PHONY: get-orig-source
+get-orig-source:
+	cd $(DEBIANDIR)/.. &&                                        \
+	  uscan --verbose --rename --destdir $(DEBIANDIR)../.. || true
+endif
+
 # OK. We have two sets of rules here, one for arch dependent packages,
 # and one for arch independent packages. We have already calculated a
 # list of each of these packages.
@@ -68,12 +75,12 @@ prebuild:
 # start before the previous stage is all done.				  #
 ###########################################################################
 
-#################################################################################
-# In the following, the do_* targets make sure all the real non-generic work is #
-# done, but are not in the direct line of dependencies. This makes sure	        #
-# that previous step in the order is all up to date before any of the per       #
-# package target dependencies are run.					        #
-#################################################################################
+###########################################################################
+# In the following, the do_* targets make sure all the real non-generic   #
+# work is done, but are not in the direct line of dependencies. This      #
+# makes sure that previous step in the order is all up to date before any #
+# of the per package target dependencies are run.		 	  #
+###########################################################################
 
 
 #######################################################################

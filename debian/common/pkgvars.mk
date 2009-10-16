@@ -87,7 +87,8 @@ DEB_ARCH_PACKAGES := $(shell perl -e '                                          
                          }' debian/control )
 
 # This package is what we get after removing the psuedo dirs we use in rules
-package = $(notdir $@)
+package   = $(notdir $@)
+DEBIANDIR = $(dir $(firstword $(MAKEFILE_LIST)))
 
 ifeq  (,$(filter parallel=%,$(FAILS_PARALLEL_BUILD)))
   ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
