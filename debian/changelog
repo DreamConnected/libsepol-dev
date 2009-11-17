@@ -1,3 +1,12 @@
+libsepol (2.0.40-2) unstable; urgency=low
+
+  * Fix typo found by lintian.
+  * [25329c6]: [spelling fix]: cannnot -> cannot and suport -> support
+    This was reported after a lintian check found this on any package
+    linked with libsepol. Closes: #556390
+
+ -- Manoj Srivastava <srivasta@debian.org>  Tue, 17 Nov 2009 10:29:54 -0600
+
 libsepol (2.0.40-1) unstable; urgency=low
 
   * New upstream point release
