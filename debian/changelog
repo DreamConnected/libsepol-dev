@@ -1,3 +1,11 @@
+libsepol (2.0.40-1) unstable; urgency=low
+
+  * New upstream point release
+    + Added pkgconfig file. This eliminates the last patch we were
+      carrying against upstream.
+
+ -- Manoj Srivastava <srivasta@debian.org>  Tue, 17 Nov 2009 09:53:02 -0600
+
 libsepol (2.0.39-1) unstable; urgency=low
 
   * New upstream point release. Adds support for building Xen policies

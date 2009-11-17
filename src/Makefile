@@ -1,6 +1,6 @@
 # Installation directories.
-PREFIX ?= /usr
-INCDIR ?= $(PREFIX)/include
+PREFIX ?= $(DESTDIR)/usr
+INCLUDEDIR ?= $(PREFIX)/include
 LIBDIR ?= $(PREFIX)/lib
 SHLIBDIR ?= $(DESTDIR)/lib
 
@@ -27,7 +27,7 @@ $(LIBSO): $(LOBJS)
 	ln -sf $@ $(TARGET) 
 
 $(LIBPC): $(LIBPC).in
-	sed -e 's/@VERSION@/$(VERSION)/; s:@prefix@:$(PREFIX):; s:@libdir@:$(LIBDIR):; s:@includedir@:$(INCDIR):' < $< > $@
+	sed -e 's/@VERSION@/$(VERSION)/; s:@prefix@:$(PREFIX):; s:@libdir@:$(LIBDIR):; s:@includedir@:$(INCLUDEDIR):' < $< > $@
 
 %.o:  %.c 
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
@@ -36,19 +36,19 @@ $(LIBPC): $(LIBPC).in
 	$(CC) $(CFLAGS) -fPIC -DSHARED -c -o $@ $<
 
 install: all
-	test -d $(DESTDIR)$(LIBDIR) || install -m 755 -d $(DESTDIR)$(LIBDIR)
-	install -m 644 $(LIBA) $(DESTDIR)$(LIBDIR)
-	test -d $(DESTDIR)$(LIBDIR)/pkgconfig || install -m 755 -d $(DESTDIR)$(LIBDIR)/pkgconfig
-	install -m 644 $(LIBPC) $(DESTDIR)$(LIBDIR)/pkgconfig
+	test -d $(LIBDIR) || install -m 755 -d $(LIBDIR)
+	install -m 644 $(LIBA) $(LIBDIR)
 	test -d $(SHLIBDIR) || install -m 755 -d $(SHLIBDIR)
 	install -m 755 $(LIBSO) $(SHLIBDIR)
-	cd $(DESTDIR)$(LIBDIR) && ln -sf ../../`basename $(SHLIBDIR)`/$(LIBSO) $(TARGET)
+	test -d $(LIBDIR)/pkgconfig || install -m 755 -d $(LIBDIR)/pkgconfig
+	install -m 644 $(LIBPC) $(LIBDIR)/pkgconfig
+	cd $(LIBDIR) && ln -sf ../../`basename $(SHLIBDIR)`/$(LIBSO) $(TARGET)
 
 relabel:
 	/sbin/restorecon $(SHLIBDIR)/$(LIBSO)
 
 clean: 
-	-rm -f $(OBJS) $(LOBJS) $(LIBA) $(LIBSO) $(TARGET) $(LIBPC)
+	-rm -f $(LIBPC) $(OBJS) $(LOBJS) $(LIBA) $(LIBSO) $(TARGET)
 
 indent:
 	../../scripts/Lindent $(wildcard *.[ch])

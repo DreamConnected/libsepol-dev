@@ -4,9 +4,8 @@ libdir=${exec_prefix}/lib
 includedir=@includedir@
 
 Name: libsepol
-Description: Security Enhanced Linux policy library
+Description: SELinux policy library
 Version: @VERSION@
-URL: http://www.nsa.gov/selinux/
+URL: http://userspace.selinuxproject.org/
 Libs: -L${libdir} -lsepol
 Cflags: -I${includedir}
-

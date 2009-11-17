@@ -157,7 +157,7 @@ case "$1" in
     if [ -x /sbin/init ] && [ -d /proc/1 ] &&
         [ "$(stat -c %d/%i /sbin/init)" = "$(stat -Lc %d/%i /proc/1/exe 2>/dev/null)" ] ; then
         # So, init exists, and there is a linuxy /proc, and the inode of the executable
-        # of the process with uid 1 is the same as /sbin/init (ok, no init=/bin/sh going on)
+        # of the process with pid 1 is the same as /sbin/init (ok, no init=/bin/sh going on)
 
         if [ "$(stat -c %d/%i /)" = "$(stat -Lc %d/%i /proc/1/root 2>/dev/null)" ]; then
             # the devicenumber/inode pair of / is the same as that of
