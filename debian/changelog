@@ -1,3 +1,11 @@
+libsepol (2.0.41-1) unstable; urgency=low
+
+  * Added myself to the uploaders.
+  * This version is a trivial new upstream release, so it seems that we might
+    as well just include it for Squeeze.
+
+ -- Russell Coker <russell@coker.com.au>  Wed, 26 May 2010 14:54:26 +1000
+
 libsepol (2.0.40-2) unstable; urgency=low
 
   * Fix typo found by lintian.
