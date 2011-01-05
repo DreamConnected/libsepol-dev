@@ -1,3 +1,9 @@
+libsepol (2.0.42-1) unstable; urgency=low
+
+  * New Upstream ver: Fix compliation under GCC 4.6 by Justin Mattock
+
+ -- Russell Coker <russell@coker.com.au>  Wed, 05 Jan 2011 20:02:28 +1100
+
 libsepol (2.0.41-1) unstable; urgency=low
 
   * Added myself to the uploaders.
