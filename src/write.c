@@ -462,26 +462,46 @@ static int cat_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 	return POLICYDB_SUCCESS;
 }
 
-static int role_trans_write(role_trans_t * r, struct policy_file *fp)
+static int role_trans_write(policydb_t *p, struct policy_file *fp)
 {
+	role_trans_t *r = p->role_tr;
 	role_trans_t *tr;
 	uint32_t buf[3];
 	size_t nel, items;
+	int new_roletr = (p->policy_type == POLICY_KERN &&
+			  p->policyvers >= POLICYDB_VERSION_ROLETRANS);
+	int warning_issued = 0;
 
 	nel = 0;
 	for (tr = r; tr; tr = tr->next)
-		nel++;
+		if(new_roletr || tr->tclass == SECCLASS_PROCESS)
+			nel++;
+
 	buf[0] = cpu_to_le32(nel);
 	items = put_entry(buf, sizeof(uint32_t), 1, fp);
 	if (items != 1)
 		return POLICYDB_ERROR;
 	for (tr = r; tr; tr = tr->next) {
+		if (!new_roletr && tr->tclass != SECCLASS_PROCESS) {
+			if (!warning_issued)
+				WARN(fp->handle, "Discarding role_transition "
+				     "rules for security classes other than "
+				     "\"process\"");
+			warning_issued = 1;
+			continue;
+		}
 		buf[0] = cpu_to_le32(tr->role);
 		buf[1] = cpu_to_le32(tr->type);
 		buf[2] = cpu_to_le32(tr->new_role);
 		items = put_entry(buf, sizeof(uint32_t), 3, fp);
 		if (items != 3)
 			return POLICYDB_ERROR;
+		if (new_roletr) {
+			buf[0] = cpu_to_le32(tr->tclass);
+			items = put_entry(buf, sizeof(uint32_t), 1, fp);
+			if (items != 1)
+				return POLICYDB_ERROR;
+		}
 	}
 
 	return POLICYDB_SUCCESS;
@@ -507,6 +527,42 @@ static int role_allow_write(role_allow_t * r, struct policy_file *fp)
 		if (items != 2)
 			return POLICYDB_ERROR;
 	}
+	return POLICYDB_SUCCESS;
+}
+
+static int filename_trans_write(filename_trans_t * r, struct policy_file *fp)
+{
+	filename_trans_t *ft;
+	uint32_t buf[4];
+	size_t nel, items, len;
+
+	nel = 0;
+	for (ft = r; ft; ft = ft->next)
+		nel++;
+	buf[0] = cpu_to_le32(nel);
+	items = put_entry(buf, sizeof(uint32_t), 1, fp);
+	if (items != 1)
+		return POLICYDB_ERROR;
+	for (ft = r; ft; ft = ft->next) {
+		len = strlen(ft->name);
+		buf[0] = cpu_to_le32(len);
+		items = put_entry(buf, sizeof(uint32_t), 1, fp);
+		if (items != 1)
+			return POLICYDB_ERROR;
+
+		items = put_entry(ft->name, sizeof(char), len, fp);
+		if (items != len)
+			return POLICYDB_ERROR;
+
+		buf[0] = cpu_to_le32(ft->stype);
+		buf[1] = cpu_to_le32(ft->ttype);
+		buf[2] = cpu_to_le32(ft->tclass);
+		buf[3] = cpu_to_le32(ft->otype);
+		items = put_entry(buf, sizeof(uint32_t), 4, fp);
+		if (items != 4)
+			return POLICYDB_ERROR;
+	}
+
 	return POLICYDB_SUCCESS;
 }
 
@@ -937,6 +993,17 @@ static int role_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 			return POLICYDB_ERROR;
 	} else {
 		if (type_set_write(&role->types, fp))
+			return POLICYDB_ERROR;
+	}
+
+	if (p->policy_type != POLICY_KERN &&
+	    p->policyvers >= MOD_POLICYDB_VERSION_ROLEATTRIB) {
+		buf[0] = cpu_to_le32(role->flavor);
+		items = put_entry(buf, sizeof(uint32_t), 1, fp);
+		if (items != 1)
+			return POLICYDB_ERROR;
+
+		if (ebitmap_write(&role->roles, fp))
 			return POLICYDB_ERROR;
 	}
 
@@ -1428,24 +1495,53 @@ static int avrule_write_list(avrule_t * avrules, struct policy_file *fp)
 	return POLICYDB_SUCCESS;
 }
 
-static int role_trans_rule_write(role_trans_rule_t * t, struct policy_file *fp)
+static int only_process(ebitmap_t *in)
+{
+	unsigned int i;
+	ebitmap_node_t *node;
+
+	ebitmap_for_each_bit(in, node, i) {
+		if (ebitmap_node_get_bit(node, i) &&
+		    i != SECCLASS_PROCESS - 1)
+			return 0;
+	}
+	return 1;
+}
+
+static int role_trans_rule_write(policydb_t *p, role_trans_rule_t * t,
+				 struct policy_file *fp)
 {
 	int nel = 0;
 	size_t items;
 	uint32_t buf[1];
 	role_trans_rule_t *tr;
+	int warned = 0;
+	int new_role = p->policyvers >= MOD_POLICYDB_VERSION_ROLETRANS;
 
 	for (tr = t; tr; tr = tr->next)
-		nel++;
+		if (new_role || only_process(&tr->classes))
+			nel++;
+
 	buf[0] = cpu_to_le32(nel);
 	items = put_entry(buf, sizeof(uint32_t), 1, fp);
 	if (items != 1)
 		return POLICYDB_ERROR;
 	for (tr = t; tr; tr = tr->next) {
+		if (!new_role && !only_process(&tr->classes)) {
+			if (!warned)
+				WARN(fp->handle, "Discarding role_transition "
+					"rules for security classes other than "
+					"\"process\"");
+			warned = 1;
+			continue;
+		}
 		if (role_set_write(&tr->roles, fp))
 			return POLICYDB_ERROR;
 		if (type_set_write(&tr->types, fp))
 			return POLICYDB_ERROR;
+		if (new_role)
+			if (ebitmap_write(&tr->classes, fp))
+				return POLICYDB_ERROR;
 		buf[0] = cpu_to_le32(tr->new_role);
 		items = put_entry(buf, sizeof(uint32_t), 1, fp);
 		if (items != 1)
@@ -1471,6 +1567,47 @@ static int role_allow_rule_write(role_allow_rule_t * r, struct policy_file *fp)
 		if (role_set_write(&ra->roles, fp))
 			return POLICYDB_ERROR;
 		if (role_set_write(&ra->new_roles, fp))
+			return POLICYDB_ERROR;
+	}
+	return POLICYDB_SUCCESS;
+}
+
+static int filename_trans_rule_write(filename_trans_rule_t * t, struct policy_file *fp)
+{
+	int nel = 0;
+	size_t items;
+	uint32_t buf[2], len;
+	filename_trans_rule_t *ftr;
+
+	for (ftr = t; ftr; ftr = ftr->next)
+		nel++;
+
+	buf[0] = cpu_to_le32(nel);
+	items = put_entry(buf, sizeof(uint32_t), 1, fp);
+	if (items != 1)
+		return POLICYDB_ERROR;
+
+	for (ftr = t; ftr; ftr = ftr->next) {
+		len = strlen(ftr->name);
+		buf[0] = cpu_to_le32(len);
+		items = put_entry(buf, sizeof(uint32_t), 1, fp);
+		if (items != 1)
+			return POLICYDB_ERROR;
+
+		items = put_entry(ftr->name, sizeof(char), len, fp);
+		if (items != len)
+			return POLICYDB_ERROR;
+
+		if (type_set_write(&ftr->stypes, fp))
+			return POLICYDB_ERROR;
+		if (type_set_write(&ftr->ttypes, fp))
+			return POLICYDB_ERROR;
+
+		buf[0] = cpu_to_le32(ftr->tclass);
+		buf[1] = cpu_to_le32(ftr->otype);
+
+		items = put_entry(buf, sizeof(uint32_t), 2, fp);
+		if (items != 2)
 			return POLICYDB_ERROR;
 	}
 	return POLICYDB_SUCCESS;
@@ -1539,10 +1676,15 @@ static int avrule_decl_write(avrule_decl_t * decl, int num_scope_syms,
 	}
 	if (cond_write_list(p, decl->cond_list, fp) == -1 ||
 	    avrule_write_list(decl->avrules, fp) == -1 ||
-	    role_trans_rule_write(decl->role_tr_rules, fp) == -1 ||
+	    role_trans_rule_write(p, decl->role_tr_rules, fp) == -1 ||
 	    role_allow_rule_write(decl->role_allow_rules, fp) == -1) {
 		return POLICYDB_ERROR;
 	}
+
+	if (p->policyvers >= MOD_POLICYDB_VERSION_FILENAME_TRANS &&
+	    filename_trans_rule_write(decl->filename_trans_rules, fp))
+		return POLICYDB_ERROR;
+
 	if (p->policyvers >= MOD_POLICYDB_VERSION_RANGETRANS &&
 	    range_trans_rule_write(decl->range_tr_rules, fp) == -1) {
 		return POLICYDB_ERROR;
@@ -1815,10 +1957,17 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 			if (cond_write_list(p, p->cond_list, fp))
 				return POLICYDB_ERROR;
 		}
-		if (role_trans_write(p->role_tr, fp))
+		if (role_trans_write(p, fp))
 			return POLICYDB_ERROR;
 		if (role_allow_write(p->role_allow, fp))
 			return POLICYDB_ERROR;
+		if (p->policyvers >= POLICYDB_VERSION_FILENAME_TRANS) {
+			if (filename_trans_write(p->filename_trans, fp))
+				return POLICYDB_ERROR;
+		} else {
+			if (p->filename_trans)
+				WARN(fp->handle, "Discarding filename type transition rules");
+		}
 	} else {
 		if (avrule_block_write(p->global, num_syms, p, fp) == -1) {
 			return POLICYDB_ERROR;

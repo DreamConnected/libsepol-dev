@@ -1,3 +1,16 @@
+libsepol (2.1.0-1.1) unstable; urgency=low
+
+  * Made it NOT be a Debian native package.
+  * Made myself the maintainer as Manoj has been busy for a while.
+
+ -- Russell Coker <russell@coker.com.au>  Tue, 30 Aug 2011 14:41:02 +1000
+
+libsepol (2.1.0-1) unstable; urgency=low
+
+  * New Upstream version: new role transition and role attribute support.
+
+ -- Russell Coker <russell@coker.com.au>  Mon, 29 Aug 2011 21:40:52 +1000
+
 libsepol (2.0.42-1) unstable; urgency=low
 
   * New Upstream ver: Fix compliation under GCC 4.6 by Justin Mattock

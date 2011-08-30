@@ -3,8 +3,8 @@ VCS-Git: git://git.debian.org/~srivasta/debian/libsepol.git
 VCS-Browser: http://git.debian.org/git/?p=users/srivasta/debian/libsepol.git
 Priority: optional
 Section: libs
-Maintainer: Manoj Srivastava <srivasta@debian.org>
-Uploaders: Russell Coker <russell@coker.com.au>
+Maintainer: Russell Coker <russell@coker.com.au>
+Uploaders: Manoj Srivastava <srivasta@debian.org>
 Standards-Version: 3.8.3.0
 Build-Depends: file
 
