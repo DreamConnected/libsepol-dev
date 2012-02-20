@@ -26,7 +26,7 @@ LINTIANDIR = $(TMPTOP)/usr/share/lintian/overrides
 
 PREFIX  = /usr
 BINDIR  = $(TMPTOP)$(PREFIX)/bin
-LIBDIR  = $(TMPTOP)/lib
+LIBDIR  = $(TMPTOP)/lib/$(DEB_HOST_MULTIARCH)
 INCLUDE = $(TMPTOP)$(PREFIX)/include
 INCDIR  = $(INCLUDE)/sepol
 

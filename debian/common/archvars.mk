@@ -80,6 +80,7 @@ export DEB_HOST_ARCH_CPU   := $(shell $(DPKG_ARCH) $(ha) -qDEB_HOST_ARCH_CPU    
 export DEB_HOST_GNU_CPU    := $(shell $(DPKG_ARCH) $(ha) -qDEB_HOST_GNU_CPU)
 export DEB_HOST_GNU_SYSTEM := $(shell $(DPKG_ARCH) $(ha) -qDEB_HOST_GNU_SYSTEM)
 export DEB_HOST_GNU_TYPE   := $(shell $(DPKG_ARCH) $(ha) -qDEB_HOST_GNU_TYPE)
+export DEB_HOST_MULTIARCH  := $(shell $(DPKG_ARCH) $(ha) -qDEB_HOST_MULTIARCH)
 
 # arrgh. future proofing
 ifeq ($(DEB_HOST_GNU_SYSTEM), linux)

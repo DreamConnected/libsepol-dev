@@ -81,7 +81,7 @@ debian/stamp/install/libsepol1:
 	$(make_directory)   $(LIBDIR)
 	$(make_directory)   $(TMPTOP)/DEBIAN
 	$(install_file)	    debian/shlibs	     $(TMPTOP)/DEBIAN
-	$(MAKE)		    DESTDIR=$(TMPTOP) -C src install
+	$(MAKE)		    DESTDIR=$(TMPTOP) SHLIBDIR=$(LIBDIR) -C src install
 	rm -f		    $(LIBDIR)/libsepol.a
 	rm -f		    $(LIBDIR)/libsepol.so
 	test ! -e           $(LIBDIR)/libsepol.pc || rm -f $(LIBDIR)/libsepol.pc
@@ -89,7 +89,7 @@ debian/stamp/install/libsepol1:
 	chmod 0644          $(LIBDIR)/libsepol.so.1
 	$(install_file)	    debian/changelog	     $(DOCDIR)/changelog.Debian
 	$(install_file)	    ChangeLog		     $(DOCDIR)/changelog
-	gzip -9fqr	    $(DOCDIR)/
+	gzip -9fnqr	    $(DOCDIR)/
 # Make sure the copyright file is not compressed
 	$(install_file)	     debian/copyright	     $(DOCDIR)/copyright
 	$(strip-lib)
@@ -111,14 +111,14 @@ debian/stamp/install/libsepol1-dev:
 	$(MAKE)		    DESTDIR=$(TMPTOP) -C man install
 	rm -rf		    $(MAN8DIR)
 	$(MAKE)		    DESTDIR=$(TMPTOP) -C include install
-	$(MAKE)		    DESTDIR=$(TMPTOP) -C src install
-	rm -rf		    $(LIBDIR)
-	rm -f		    $(TMPTOP)/usr/lib/libsepol.so
-	ln -s               /lib/libsepol.so.1       $(TMPTOP)/usr/lib/libsepol.so
+	$(MAKE)		    DESTDIR=$(TMPTOP) LIBDIR=$(TMPTOP)/usr/lib/$(DEB_HOST_MULTIARCH) SHLIBDIR=$(LIBDIR) -C src install
+	rm -rf		    $(TMPTOP)/lib
+	rm -f		    $(TMPTOP)/usr/lib/$(DEB_HOST_MULTIARCH)/libsepol.so
+	ln -s               /lib/$(DEB_HOST_MULTIARCH)/libsepol.so.1 $(TMPTOP)/usr/lib/$(DEB_HOST_MULTIARCH)/libsepol.so
 	$(install_file)	    debian/changelog	     $(DOCDIR)/changelog.Debian
 	$(install_file)	    ChangeLog		     $(DOCDIR)/changelog
-	gzip -9fqr	    $(DOCDIR)/
-	gzip -9fqr	    $(MANDIR)/
+	gzip -9fqnr	    $(DOCDIR)/
+	gzip -9fqnr	    $(MANDIR)/
 # Make sure the copyright file is not compressed
 	$(install_file)	     debian/copyright	     $(DOCDIR)/copyright
 	$(strip-lib)
@@ -139,8 +139,8 @@ debian/stamp/install/sepol-utils:
 	$(MAKE) DESTDIR=$(TMPTOP) -C utils install
 	$(install_file)	     debian/changelog	     $(DOCDIR)/changelog.Debian
 	$(install_file)	    ChangeLog		     $(DOCDIR)/changelog
-	gzip -9fqr	    $(DOCDIR)/
-	gzip -9fqr	    $(MANDIR)/
+	gzip -9fnqr	    $(DOCDIR)/
+	gzip -9fnqr	    $(MANDIR)/
 # Make sure the copyright file is not compressed
 	$(install_file)	     debian/copyright	     $(DOCDIR)/copyright
 	$(strip-exec)

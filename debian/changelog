@@ -1,3 +1,23 @@
+libsepol (2.1.4-1) unstable; urgency=low
+
+  * New upstream version, changes to handling of tunables and moved some code
+    from mcstrans to libsepol.
+  * Added new symbols expand_module_avrules, sepol_get_preserve_tunables,
+    and sepol_set_preserve_tunables.
+
+ -- Russell Coker <russell@coker.com.au>  Mon, 20 Feb 2012 15:25:22 +1100
+
+libsepol (2.1.0-1.2) unstable; urgency=low
+
+  * Non-maintainer upload since maintainer is busy
+  * Build for multiarch, setting Pre-Depends multiarch-support in our shared
+    lib package, closes: #638018
+  * Always use -n with gzip, to avoid encoding timestamps in the gzip file;
+    this ensures compressed docs and other files are identical across
+    multiple builds, required for multiarch.
+
+ -- Riku Voipio <riku.voipio@linaro.org>  Fri, 16 Dec 2011 17:43:47 +0200
+
 libsepol (2.1.0-1.1) unstable; urgency=low
 
   * Made it NOT be a Debian native package.

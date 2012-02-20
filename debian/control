@@ -6,12 +6,13 @@ Section: libs
 Maintainer: Russell Coker <russell@coker.com.au>
 Uploaders: Manoj Srivastava <srivasta@debian.org>
 Standards-Version: 3.8.3.0
-Build-Depends: file
+Build-Depends: file, dpkg-dev (>= 1.16.0)
 
 Package: sepol-utils
 Section: admin
 Architecture: any
 Depends: ${shlibs:Depends}
+Multi-Arch: foreign
 Conflicts: checkpolicy (<= 1.20)
 Description: Security Enhanced Linux policy utility programs
  This package provides a utility for a Security-enhanced
@@ -28,6 +29,8 @@ Package: libsepol1
 Priority: required
 Architecture: any
 Depends: ${shlibs:Depends}
+Pre-Depends: multiarch-support
+Multi-Arch: same
 Description: SELinux library for manipulating binary security policies
  Security-enhanced Linux is a patch of the Linux kernel and a number
  of utilities with enhanced security functionality designed to add
@@ -50,6 +53,7 @@ Architecture: any
 Provides: libsepol-dev
 Conflicts: libsepol-dev
 Depends: ${shlibs:Depends},  libsepol1 (= ${binary:Version})
+Multi-Arch: same
 Description: SELinux binary policy maniulation library and development files
  libsepol allows programs to easily modify SELinux binary policies.  This
  means changing the default values for booleans, or reading the policy for
