@@ -1,0 +1,28 @@
+1.2 2004-10-07
+	* MLS build fixes.
+	* Added sepol_set_policydb_from_file and sepol_check_context for setfiles.
+
+1.0 2004-08-19
+	* Initial public release.
+
+0.4 2004-08-13
+	* Merged patch from Dan Walsh to ignore case on booleans.
+	* Changed sepol_genbools* to preserve the original policy version.
+	* Replaced exported global variables with set functions. 
+	* Moved genpolbools utility from checkpolicy to libsepol.
+	* Added man pages for sepol_genbools* and genpolbools.
+
+0.3 2004-08-10
+	* Added ChangeLog, COPYING, spec file.
+	* Added sepol_genbools_array() for load_policy.
+	* Created libsepol.map to limit exported symbols in shared library. 
+
+0.2 2004-08-09
+	* Exported other functions for checkpolicy and friends.
+	* Renamed service and sidtab functions to avoid libselinux conflict.
+	* Removed original code from checkpolicy, which now uses libsepol.
+	* Code cleanup:  kill legacy references to kernel types/functions.
+
+0.1 2004-08-06
+	* Moved checkpolicy core logic into a library.
+	* Exported sepol_genbools() for load_policy.
