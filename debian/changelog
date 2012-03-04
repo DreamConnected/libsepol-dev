@@ -6,10 +6,11 @@ libsepol (2.1.4-2) UNRELEASED; urgency=low
   * debian/control:
     - Bump Standards-Version to 3.9.3 (no further changes)
     - Fix typo in Description (Closes: #639704)
+    - Drop Conflict against checkpolicy (<= 1.20), it's long time gone
   * debian/patches/fix-pc-file.patch: Properly set multi-arch path in .pc file
     (Closes: #658440)
 
- -- Laurent Bigonville <bigon@debian.org>  Sun, 04 Mar 2012 20:38:38 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Sun, 04 Mar 2012 20:41:11 +0100
 
 libsepol (2.1.4-1) unstable; urgency=low
 
