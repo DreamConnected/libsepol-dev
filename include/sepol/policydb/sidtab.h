@@ -8,10 +8,10 @@
  * of security context structures indexed by SID value.
  */
 
-#ifndef _SIDTAB_H_
-#define _SIDTAB_H_
+#ifndef _SEPOL_POLICYDB_SIDTAB_H_
+#define _SEPOL_POLICYDB_SIDTAB_H_
 
-#include <sepol/context.h>
+#include <sepol/policydb/context.h>
 
 typedef struct sidtab_node {
 	sepol_security_id_t sid;        /* security identifier */

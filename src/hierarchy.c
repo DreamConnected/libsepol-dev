@@ -24,17 +24,19 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <sepol/policydb.h>
-#include <sepol/conditional.h>
-#include <sepol/hierarchy.h>
-#include <sepol/expand.h>
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/conditional.h>
+#include <sepol/policydb/hierarchy.h>
+#include <sepol/policydb/expand.h>
+
+#include "debug.h"
 
 typedef struct hierarchy_args {
 	policydb_t *p;
 	avtab_t    *expa; /* expanded avtab */
 	/* This tells check_avtab_hierarchy to check this list in addition to the unconditional avtab */
 	cond_av_list_t *opt_cond_list; 
-	char errmsg[ERRMSG_LEN];
+	sepol_handle_t *handle;
 } hierarchy_args_t;
 
 /* This merely returns the string part before the last '.'
@@ -62,10 +64,8 @@ static int find_parent(char *type, char **parent)
 	
 	*parent = (char *)malloc(sizeof(char) * (i + 1));
 
-	if (!(*parent))  {
-		fprintf(stderr, "Memory Error\n");
+	if (!(*parent))
 		return -1;
-	}
 	memset(*parent, 0, (i + 1));
 	memcpy(*parent, type, i);
 		
@@ -101,12 +101,12 @@ static int check_type_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
 	t2 = hashtab_search(a->p->p_types.table, parent);
 	if (!t2) {
 		/* If the parent does not exist this type is an orphan, not legal */
-		snprintf(a->errmsg, ERRMSG_LEN, "type %s does not exist, %s is an orphan",
+		ERR(a->handle, "type %s does not exist, %s is an orphan",
 			parent,a->p->p_type_val_to_name[t->value - 1]);
 		return 1;
 	} else if (t2->isattr) {
 			/* The parent is an attribute but the child isn't, not legal */
-			snprintf(a->errmsg, ERRMSG_LEN, "type %s is a child of an attribute",
+			ERR(a->handle, "type %s is a child of an attribute",
 			a->p->p_type_val_to_name[t->value - 1]);
 		return 1;
 	}
@@ -143,7 +143,7 @@ static int check_avtab_hierarchy_callback(avtab_key_t *k, avtab_datum_t *d, void
 		t = hashtab_search(a->p->p_types.table, parent);
 		if (!t) {
 			/* If the parent does not exist this type is an orphan, not legal */
-			snprintf(a->errmsg, ERRMSG_LEN, "type %s doesn't exist, %s is an orphan",
+			ERR(a->handle, "type %s doesn't exist, %s is an orphan",
 				parent,a->p->p_type_val_to_name[k->target_type - 1]);
 			free(parent);
 			return 1;
@@ -182,7 +182,7 @@ static int check_avtab_hierarchy_callback(avtab_key_t *k, avtab_datum_t *d, void
 	if (parent) {
 		t2 = hashtab_search(a->p->p_types.table, parent);
 		if (!t2) {
-			snprintf(a->errmsg, ERRMSG_LEN, "type %s doesn't exist, %s is an orphan",
+			ERR(a->handle, "type %s doesn't exist, %s is an orphan",
 				parent, a->p->p_type_val_to_name[k->target_type - 1]);
 			free(parent);
 			return 1;
@@ -245,7 +245,7 @@ static int check_avtab_hierarchy_callback(avtab_key_t *k, avtab_datum_t *d, void
 	}
 	
 	/* At this point there is a violation of the hierarchal constraint, send error condition back */
-	snprintf(a->errmsg, ERRMSG_LEN,"hierachy violation between types %s and %s",
+	ERR(a->handle,"hierarchy violation between types %s and %s",
 			a->p->p_type_val_to_name[k->source_type - 1],
 			a->p->p_type_val_to_name[k->target_type - 1]);
 	return 1;
@@ -302,7 +302,7 @@ static int check_cond_avtab_hierarchy(cond_list_t *cond_list, hierarchy_args_t *
 	return 0;
 
 oom:
-	snprintf(args->errmsg, ERRMSG_LEN, "out of memory on conditional av list expansion");
+	ERR(args->handle, "out of memory on conditional av list expansion");
 	return 1;
 }
 
@@ -331,7 +331,7 @@ static int check_role_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
 	rp = hashtab_search(a->p->p_roles.table, parent);
 	if (!rp) {
 		/* Orphan role */
-		snprintf(a->errmsg, ERRMSG_LEN, "role %s doesn't exist, %s is an orphan",
+		ERR(a->handle, "role %s doesn't exist, %s is an orphan",
 				parent,a->p->p_role_val_to_name[r->value - 1]);
 		free(parent);
 		return 1;
@@ -345,7 +345,7 @@ static int check_role_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
 	if (!ebitmap_cmp(&eb, &rp->types.types)) {
 		ebitmap_destroy(&eb);
 		/* This is a violation of the hiearchal constraint, return error condition */
-		snprintf(a->errmsg, ERRMSG_LEN, "Role hierarchy violation, %s exceeds %s",
+		ERR(a->handle, "Role hierarchy violation, %s exceeds %s",
 				   a->p->p_role_val_to_name[r->value - 1],
 				   parent);
 		return 1;
@@ -356,7 +356,7 @@ static int check_role_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
 	return 0;
 }
 
-int hierarchy_check_constraints(policydb_t *p, char *error_msg, uint32_t error_len)
+int hierarchy_check_constraints(sepol_handle_t *handle, policydb_t *p)
 {
 	hierarchy_args_t args;
 	avtab_t expa;
@@ -371,6 +371,7 @@ int hierarchy_check_constraints(policydb_t *p, char *error_msg, uint32_t error_l
 	args.p = p;
 	args.expa = &expa;
 	args.opt_cond_list = NULL;
+	args.handle = handle;
 
 	if (hashtab_map(p->p_types.table, check_type_hierarchy_callback, &args)) 
 		goto bad;
@@ -388,14 +389,11 @@ int hierarchy_check_constraints(policydb_t *p, char *error_msg, uint32_t error_l
 	return 0;
 
 bad:
-	if (args.errmsg)
-		error_msg = strncpy(error_msg, args.errmsg, error_len);
-
 	avtab_destroy(&expa);
 	return -1;
 
 oom:
-	strncpy(error_msg, "Out of memory", error_len);
+	ERR(handle, "Out of memory");
 	return -1;
 }
 

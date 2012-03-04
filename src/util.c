@@ -25,8 +25,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <sepol/flask_types.h>
-#include <sepol/policydb.h>
+#include <sepol/policydb/flask_types.h>
+#include <sepol/policydb/policydb.h>
 
 /* Add an unsigned integer to a dynamically reallocated array.  *cnt
  * is a reference pointer to the number of values already within array
@@ -61,11 +61,9 @@ int type_set_or(type_set_t *dst, type_set_t *a, type_set_t *b)
         type_set_init(dst);
 
         if (ebitmap_or(&dst->types, &a->types, &b->types)) {
-                fprintf(stderr, "Memory error\n");
                 return -1;
         }
         if (ebitmap_or(&dst->negset, &a->negset, &b->negset)) {
-                fprintf(stderr, "Memory error\n");
                 return -1;
         }
 

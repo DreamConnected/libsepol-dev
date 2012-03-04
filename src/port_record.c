@@ -1,8 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <sepol/port_record.h>
-#include <sepol/context_record.h>
+#include "port_internal.h"
+#include "context_internal.h"
 #include "debug.h"
 
 struct sepol_port {
@@ -13,7 +13,7 @@ struct sepol_port {
 	int proto;
 
 	/* Context */
-	sepol_context_t con;
+	sepol_context_t* con;
 };
 
 struct sepol_port_key {
@@ -26,15 +26,16 @@ struct sepol_port_key {
 
 /* Key */
 int sepol_port_key_create(
+	sepol_handle_t* handle,
 	int low, int high, int proto, 
-	sepol_port_key_t* key_ptr) {
+	sepol_port_key_t** key_ptr) {
 
-	sepol_port_key_t tmp_key = 
-		(sepol_port_key_t) malloc(sizeof(struct sepol_port_key));
+	sepol_port_key_t* tmp_key = 
+		(sepol_port_key_t*) malloc(sizeof(sepol_port_key_t));
 
 	if (!tmp_key) {
-		DEBUG(__FUNCTION__, "out of memory, could not create "
-			"port key\n");
+		ERR(handle, "out of memory, could not create "
+			"port key");
 		return STATUS_ERR;
 	}
 
@@ -45,26 +46,43 @@ int sepol_port_key_create(
 	*key_ptr = tmp_key;
 	return STATUS_SUCCESS;
 }
+hidden_def(sepol_port_key_create)
 
-int sepol_port_key_extract(sepol_port_t port, sepol_port_key_t* key_ptr) {
+void sepol_port_key_unpack(
+	sepol_port_key_t* key,
+	int* low, int* high, int* proto) {
+
+	*low = key->low;
+	*high = key->high;
+	*proto = key->proto;
+}
+hidden_def(sepol_port_key_unpack)
+
+int sepol_port_key_extract(
+	sepol_handle_t* handle,	
+	sepol_port_t* port, 
+	sepol_port_key_t** key_ptr) {
+
 	if (sepol_port_key_create(
-		port->low, port->high, port->proto, key_ptr) < 0) {
-		DEBUG(__FUNCTION__, "could not extract key from "
-			"port %s %d:%d\n", sepol_port_get_proto_str(port),
+		handle, port->low, port->high, port->proto, key_ptr) < 0) {
+
+		ERR(handle, "could not extract key from port %s %d:%d", 
+			sepol_port_get_proto_str(port),
 			port->low, port->high);
+
 		return STATUS_ERR;
 	}
 
 	return STATUS_SUCCESS;
 }
 
-void sepol_port_key_free(sepol_port_key_t key) {
+void sepol_port_key_free(sepol_port_key_t* key) {
 	free(key);
 }
 
 int sepol_port_compare(
-	sepol_port_t port, 
-	sepol_port_key_t key) {
+	sepol_port_t* port, 
+	sepol_port_key_t* key) {
 
 	if ((port->low <= key->low) && 
 	    (port->high >= key->high) &&
@@ -75,32 +93,35 @@ int sepol_port_compare(
 }
 
 /* Port */
-int sepol_port_get_low(sepol_port_t port) {
+int sepol_port_get_low(sepol_port_t* port) {
 	return port->low;
 }
+hidden_def(sepol_port_get_low)
 
-int sepol_port_get_high(sepol_port_t port) {
+int sepol_port_get_high(sepol_port_t* port) {
 	return port->high;
 }
+hidden_def(sepol_port_get_high)
 
-int sepol_port_set_port(sepol_port_t port, int port_num) {
+void sepol_port_set_port(sepol_port_t* port, int port_num) {
 	port->low = port_num;
 	port->high = port_num;
-	return STATUS_SUCCESS;
 }
 
-int sepol_port_set_range(sepol_port_t port, int low, int high) {
+void sepol_port_set_range(sepol_port_t* port, int low, int high) {
 	port->low = low;
 	port->high = high;
-	return STATUS_SUCCESS;
 }
+hidden_def(sepol_port_set_range)
 
 /* Protocol */
-int sepol_port_get_proto(sepol_port_t port) {
+int sepol_port_get_proto(sepol_port_t* port) {
+
 	return port->proto;
 }
+hidden_def(sepol_port_get_proto)
 
-const char* sepol_port_get_proto_str(sepol_port_t port) {
+const char* sepol_port_get_proto_str(sepol_port_t* port) {
 	switch (port->proto) {
 		case SEPOL_PROTO_UDP:
 			return "udp";
@@ -110,20 +131,27 @@ const char* sepol_port_get_proto_str(sepol_port_t port) {
 			return "???";
 	}	
 }
+hidden_def(sepol_port_get_proto_str)
 
-int sepol_port_set_proto(sepol_port_t port, int proto) {
+void sepol_port_set_proto(
+	sepol_port_t* port, 
+	int proto) {
+
 	port->proto = proto;
-	return STATUS_SUCCESS;
 }
+hidden_def(sepol_port_set_proto)
 
 /* Create */
-int sepol_port_create(sepol_port_t* port) {
-	sepol_port_t tmp_port = 
-		(sepol_port_t) malloc(sizeof(struct sepol_port));
+int sepol_port_create(
+	sepol_handle_t* handle,
+	sepol_port_t** port) {
+
+	sepol_port_t* tmp_port = 
+		(sepol_port_t*) malloc(sizeof(sepol_port_t));
 
         if (!tmp_port) {
-		DEBUG(__FUNCTION__, "out of memory, could not create "
-			"port record\n");
+		ERR(handle, "out of memory, could not create "
+			"port record");
 		return STATUS_ERR;
 	}
 
@@ -135,12 +163,16 @@ int sepol_port_create(sepol_port_t* port) {
 
 	return STATUS_SUCCESS;
 }
+hidden_def(sepol_port_create)
 
 /* Deep copy clone */
-int sepol_port_clone(sepol_port_t port, sepol_port_t* port_ptr) {
+int sepol_port_clone(
+	sepol_handle_t* handle,
+	sepol_port_t* port, 
+	sepol_port_t** port_ptr) {
 
-	sepol_port_t new_port = NULL;
-	if (sepol_port_create(&new_port) < 0)
+	sepol_port_t* new_port = NULL;
+	if (sepol_port_create(handle, &new_port) < 0)
 		goto err;
 
 	new_port->low = port->low;
@@ -148,33 +180,36 @@ int sepol_port_clone(sepol_port_t port, sepol_port_t* port_ptr) {
 	new_port->proto = port->proto;
 
 	if (port->con && 
-	   (sepol_context_clone(port->con, &new_port->con) < 0))
+	   (sepol_context_clone(handle, port->con, &new_port->con) < 0))
 		goto err;	
 
 	*port_ptr = new_port;
 	return STATUS_SUCCESS;
 
 	err:
-	DEBUG(__FUNCTION__, "could not clone port record\n");
+	ERR(handle, "could not clone port record");
 	sepol_port_free(new_port);
 	return STATUS_ERR;
 }
 
 /* Destroy */
-void sepol_port_free(sepol_port_t port) {
+void sepol_port_free(sepol_port_t* port) {
 	if (!port)
 		return;
 	
 	sepol_context_free(port->con);
 	free(port);
 }
+hidden_def(sepol_port_free)
 
 /* Context */
-sepol_context_t sepol_port_get_con(sepol_port_t port) {
+sepol_context_t* sepol_port_get_con(sepol_port_t* port) {
 	return port->con;
 }
+hidden_def(sepol_port_get_con)
 
-int sepol_port_set_con(sepol_port_t port, sepol_context_t con) {
+void sepol_port_set_con(sepol_port_t* port, sepol_context_t* con) {
+	sepol_context_free(port->con);
 	port->con = con;
-	return STATUS_SUCCESS;
 }
+hidden_def(sepol_port_set_con)

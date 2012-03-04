@@ -22,24 +22,12 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <sepol/conditional.h>
+#ifndef _SEPOL_POLICYDB_HIERARCHY_H_
+#define _SEPOL_POLICYDB_HIERARCHY_H_
 
-#ifndef _SEPOL_EXPAND_H
-#define _SEPOL_EXPAND_H
+#include <sepol/policydb/policydb.h>
 
-extern int expand_module(policydb_t *base, policydb_t *out,
-                        int verbose, char *error_buf, size_t error_buf_size);
-extern int expand_convert_type_set(policydb_t *p, uint32_t *typemap, type_set_t *set, ebitmap_t *types, unsigned char alwaysexpand);
-extern int type_set_expand(type_set_t *set, ebitmap_t *t, policydb_t *p, unsigned char alwaysexpand);
-extern int role_set_expand(role_set_t *x, ebitmap_t *r, policydb_t *p);
-extern int expand_rule(policydb_t *source_pol,
-                avrule_t *source_rule, avtab_t *dest_avtab,
-                cond_av_list_t **cond, cond_av_list_t **other,
-                int enabled, char **error_msg);
-
-extern int expand_avtab(policydb_t *p, avtab_t *a, avtab_t *expa);
-
-extern int expand_cond_av_list(policydb_t *p, cond_av_list_t *l,
-			       cond_av_list_t **newl, avtab_t *expa);
+extern int hierarchy_check_constraints(sepol_handle_t *handle,
+				       policydb_t *p);
 
 #endif

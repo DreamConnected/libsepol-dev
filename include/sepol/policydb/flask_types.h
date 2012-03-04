@@ -5,8 +5,8 @@
  * Author : Stephen Smalley, <sds@epoch.ncsc.mil> 
  */
 
-#ifndef _LINUX_FLASK_TYPES_H_
-#define _LINUX_FLASK_TYPES_H_
+#ifndef _SEPOL_POLICYDB_FLASK_TYPES_H_
+#define _SEPOL_POLICYDB_FLASK_TYPES_H_
 
 /*
  * The basic Flask types and constants.

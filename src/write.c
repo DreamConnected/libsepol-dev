@@ -34,41 +34,23 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include <sepol/ebitmap.h>
-#include <sepol/avtab.h>
-#include <sepol/mls.h>
-#include <sepol/policydb.h>
-#include <sepol/conditional.h>
-#include <sepol/expand.h>
+#include <sepol/policydb/ebitmap.h>
+#include <sepol/policydb/avtab.h>
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/conditional.h>
+#include <sepol/policydb/expand.h>
 
 #include "debug.h"
 #include "private.h"
+#include "mls.h"
 
-static unsigned int policyvers = POLICYDB_VERSION_MAX;
-static unsigned int policy_type = POLICY_KERN;
+struct policy_data
+{
+	struct policy_file *fp;
+	struct policydb *p;
+};
 
 static int avrule_write_list(avrule_t *avrules, struct policy_file *fp);
-
-int sepol_set_policyvers(unsigned int type, unsigned int version)
-{
-	if (type == POLICY_KERN || type == POLICY_BASE) {
-		if (version < POLICYDB_VERSION_MIN || version > POLICYDB_VERSION_MAX)
-			return -EINVAL;
-	}
-        else if (type == POLICY_MOD) {
-                if (version < MOD_POLICYDB_VERSION_MIN ||
-                    version > MOD_POLICYDB_VERSION_MAX) {
-                        return -EINVAL;
-                }
-        }
-        else {
-                /* illegal policy type */
-                return -1;
-        }
-	policyvers = version;
-	policy_type = type;
-	return 0;
-}
 
 static int ebitmap_write(ebitmap_t * e, struct policy_file * fp)
 {
@@ -114,7 +96,8 @@ static uint16_t spec_order[] = {
 	AVTAB_MEMBER
 };
 
-static int avtab_write_item(avtab_ptr_t cur, struct policy_file *fp, 
+static int avtab_write_item(policydb_t *p,
+			    avtab_ptr_t cur, struct policy_file *fp, 
 	                    unsigned merge, unsigned commit,
 			    uint32_t *nel)
 {
@@ -123,7 +106,7 @@ static int avtab_write_item(avtab_ptr_t cur, struct policy_file *fp,
 	uint32_t buf32[10], lookup, val;
 	size_t items, items2;
 	unsigned set;
-	unsigned int oldvers = (policy_type == POLICY_KERN && policyvers < POLICYDB_VERSION_AVTAB);
+	unsigned int oldvers = (p->policy_type == POLICY_KERN && p->policyvers < POLICYDB_VERSION_AVTAB);
 	unsigned int i;
 
 	if (oldvers) {
@@ -166,12 +149,12 @@ static int avtab_write_item(avtab_ptr_t cur, struct policy_file *fp,
 		}
 
 		if (!(val & (AVTAB_AV | AVTAB_TYPE))) {
-			DEBUG(__FUNCTION__, "null entry\n");
+			ERR(fp->handle, "null entry");
 			return -1;
 		}
 		if ((val & AVTAB_AV) && (val & AVTAB_TYPE)) {
-			DEBUG(__FUNCTION__, "entry has both access " 
-			      "vectors and types\n");
+			ERR(fp->handle, "entry has both access " 
+			      "vectors and types");
 			return -1;
 		}
 
@@ -193,7 +176,7 @@ static int avtab_write_item(avtab_ptr_t cur, struct policy_file *fp,
 					}
 
 					if (!node) {
-						DEBUG(__FUNCTION__, "missing node\n");
+						ERR(fp->handle, "missing node");
 						return -1;
 					}
 					buf32[items++] = cpu_to_le32(node->datum.data);
@@ -208,7 +191,7 @@ static int avtab_write_item(avtab_ptr_t cur, struct policy_file *fp,
 		}
 
 		if (set) {
-			DEBUG(__FUNCTION__, "data count wrong\n");
+			ERR(fp->handle, "data count wrong");
 			return -1;
 		}
 
@@ -257,7 +240,7 @@ static int avtab_write(struct policydb *p,
 	avtab_ptr_t cur;
 	uint32_t nel;
 	size_t items;
-	unsigned int oldvers = (policy_type == POLICY_KERN && policyvers < POLICYDB_VERSION_AVTAB);
+	unsigned int oldvers = (p->policy_type == POLICY_KERN && p->policyvers < POLICYDB_VERSION_AVTAB);
 
 
 	if (oldvers) {
@@ -286,7 +269,7 @@ static int avtab_write(struct policydb *p,
 		for (cur = a->htable[i]; cur; cur = cur->next) {
 			/* If old format, compute final nel.
 			   If new format, write out the items. */
-			if (avtab_write_item(cur, fp, 1, !oldvers, &nel)) {
+			if (avtab_write_item(p, cur, fp, 1, !oldvers, &nel)) {
 				rc = -1;
 				goto out;
 			}
@@ -305,7 +288,7 @@ static int avtab_write(struct policydb *p,
 		avtab_reset_merged(a);
 		for (i = 0; i < AVTAB_SIZE; i++) {
 			for (cur = a->htable[i]; cur; cur = cur->next) {
-				if (avtab_write_item(cur, fp, 1, 1, NULL)) {
+				if (avtab_write_item(p, cur, fp, 1, 1, NULL)) {
 					rc = -1;
 					goto out;
 				}
@@ -374,12 +357,13 @@ static int mls_write_range_helper(mls_range_t * r,
 	return 0;
 }
 
-static int sens_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int sens_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
 	level_datum_t *levdatum;
 	uint32_t buf[32];
 	size_t items, items2, len;
-	struct policy_file *fp = p;
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
 
 	levdatum = (level_datum_t *) datum;
 
@@ -401,13 +385,13 @@ static int sens_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	return 0;
 }
 
-static int cat_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int cat_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
 	cat_datum_t *catdatum;
 	uint32_t buf[32];
 	size_t items, items2, len;
-	struct policy_file *fp = p;
-
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
 
 	catdatum = (cat_datum_t *) datum;
 
@@ -509,12 +493,13 @@ static int type_set_write(type_set_t *x, struct policy_file *fp)
 	return 0;
 }
 
-static int cond_write_bool(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int cond_write_bool(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
 	cond_bool_datum_t *booldatum;
 	uint32_t buf[3], len;
 	unsigned int items, items2;
-	struct policy_file *fp = p;
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
 
 	booldatum = (cond_bool_datum_t*)datum;
 
@@ -548,7 +533,7 @@ static int cond_write_av_list(policydb_t *p,
 	cond_av_list_t *cur_list, *new_list = NULL;
 	avtab_t expa;
 	uint32_t len, items;
-	unsigned int oldvers = (policy_type == POLICY_KERN && policyvers < POLICYDB_VERSION_AVTAB);
+	unsigned int oldvers = (p->policy_type == POLICY_KERN && p->policyvers < POLICYDB_VERSION_AVTAB);
 	int rc = -1;
 
 	if (oldvers) {
@@ -577,7 +562,7 @@ static int cond_write_av_list(policydb_t *p,
 
 	for (cur_list = list; cur_list != NULL; cur_list = cur_list->next) {
 		if (cur_list->node->parse_context)
-			if (avtab_write_item(cur_list->node, fp, 0, 1, NULL))
+			if (avtab_write_item(p, cur_list->node, fp, 0, 1, NULL))
 				goto out;
 	}
 
@@ -622,7 +607,7 @@ static int cond_write_node(policydb_t *p,
 			return -1;
 	}
 
-        if (policy_type == POLICY_KERN) {
+        if (p->policy_type == POLICY_KERN) {
 		if (cond_write_av_list(p, node->true_list, fp) != 0)
 			return -1;
 		if (cond_write_av_list(p, node->false_list, fp) != 0)
@@ -662,7 +647,7 @@ static int cond_write_list(policydb_t *p, cond_list_t *list, struct policy_file 
  * Write a security context structure
  * to a policydb binary representation file.
  */
-static int context_write(context_struct_t * c, struct policy_file * fp)
+static int context_write(struct policydb *p, context_struct_t * c, struct policy_file * fp)
 {
 	uint32_t buf[32];
 	size_t items, items2;
@@ -674,7 +659,8 @@ static int context_write(context_struct_t * c, struct policy_file * fp)
 	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
 	if (items2 != items)
 		return -1;
-	if (policyvers >= POLICYDB_VERSION_MLS)
+	if ((p->policyvers >= POLICYDB_VERSION_MLS && p->policy_type == POLICY_KERN) ||
+	    (p->policyvers >= MOD_POLICYDB_VERSION_MLS && p->policy_type == POLICY_BASE))
 		if (mls_write_range_helper(&c->range, fp))
 			return -1;
 
@@ -688,12 +674,13 @@ static int context_write(context_struct_t * c, struct policy_file * fp)
  * binary representation file.
  */
 
-static int perm_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int perm_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
 	perm_datum_t *perdatum;
 	uint32_t buf[32];
 	size_t items, items2, len;
-	struct policy_file *fp = p;
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
 
 	perdatum = (perm_datum_t *) datum;
 
@@ -713,12 +700,13 @@ static int perm_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 }
 
 
-static int common_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int common_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
 	common_datum_t *comdatum;
 	uint32_t buf[32];
 	size_t items, items2, len;
-	struct policy_file *fp = p;
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
 
 	comdatum = (common_datum_t *) datum;
 
@@ -736,13 +724,14 @@ static int common_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	if (items != len)
 		return -1;
 
-	if (hashtab_map(comdatum->permissions.table, perm_write, fp))
+	if (hashtab_map(comdatum->permissions.table, perm_write, pd))
 		return -1;
 
 	return 0;
 }
 
-static int write_cons_helper(constraint_node_t *node, int allowxtarget,
+static int write_cons_helper(policydb_t *p,
+	                     constraint_node_t *node, int allowxtarget,
                              struct policy_file *fp)
 {
 	constraint_node_t *c;
@@ -776,7 +765,7 @@ static int write_cons_helper(constraint_node_t *node, int allowxtarget,
 				if (ebitmap_write(&e->names, fp)) {
                                         return -1;
                                 }
-                                if (policy_type != POLICY_KERN &&
+                                if (p->policy_type != POLICY_KERN &&
                                     type_set_write(e->type_names, fp)) {
 					return -1;
                                 }
@@ -790,13 +779,15 @@ static int write_cons_helper(constraint_node_t *node, int allowxtarget,
 	return 0;
 }
 
-static int class_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int class_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
 	class_datum_t *cladatum;
 	constraint_node_t *c;
 	uint32_t buf[32], ncons;
 	size_t items, items2, len, len2;
-	struct policy_file *fp = p;
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
+	struct policydb *p = pd->p;
 
 	cladatum = (class_datum_t *) datum;
 
@@ -834,13 +825,14 @@ static int class_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 		if (items != len2)
 			return -1;
 	}
-	if (hashtab_map(cladatum->permissions.table, perm_write, fp))
+	if (hashtab_map(cladatum->permissions.table, perm_write, pd))
 		return -1;
 
-	if (write_cons_helper(cladatum->constraints, 0, fp))
+	if (write_cons_helper(p, cladatum->constraints, 0, fp))
 		return -1;
 
-	if (policyvers >= POLICYDB_VERSION_VALIDATETRANS) {
+	if ((p->policy_type == POLICY_KERN && p->policyvers >= POLICYDB_VERSION_VALIDATETRANS) ||
+	    (p->policy_type == POLICY_BASE && p->policyvers >= MOD_POLICYDB_VERSION_VALIDATETRANS)) {
 		/* write out the validatetrans rule */
 		ncons = 0;
 		for (c = cladatum->validatetrans; c; c = c->next) {
@@ -850,19 +842,21 @@ static int class_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 		items = put_entry(buf, sizeof(uint32_t), 1, fp);
 		if (items != 1)
 			return -1;
-		if (write_cons_helper(cladatum->validatetrans, 1, fp))
+		if (write_cons_helper(p, cladatum->validatetrans, 1, fp))
 			return -1;
 	}
 
 	return 0;
 }
 
-static int role_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int role_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
 	role_datum_t *role;
 	uint32_t buf[32];
 	size_t items, items2, len;
-	struct policy_file *fp = p;
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
+	struct policydb *p = pd->p;
 
 	role = (role_datum_t *) datum;
 
@@ -880,7 +874,7 @@ static int role_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 
 	if (ebitmap_write(&role->dominates, fp))
 		return -1;
-	if (policy_type == POLICY_KERN) {
+	if (p->policy_type == POLICY_KERN) {
 		if (ebitmap_write(&role->types.types, fp))
 			return -1;
 	} else {
@@ -891,12 +885,14 @@ static int role_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	return 0;
 }
 
-static int type_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int type_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
 	type_datum_t *typdatum;
 	uint32_t buf[32];
 	size_t items, items2, len;
-	struct policy_file *fp = p;
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
+	struct policydb *p = pd->p;
 
 	typdatum = (type_datum_t *) datum;
 
@@ -905,14 +901,14 @@ static int type_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	buf[items++] = cpu_to_le32(len);
 	buf[items++] = cpu_to_le32(typdatum->value);
 	buf[items++] = cpu_to_le32(typdatum->primary);
-	if (policy_type != POLICY_KERN) {
+	if (p->policy_type != POLICY_KERN) {
 		buf[items++] = cpu_to_le32(typdatum->isattr);
 	}
 	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
 	if (items != items2)
 		return -1;
 		
-	if (policy_type != POLICY_KERN) {
+	if (p->policy_type != POLICY_KERN) {
 		if (ebitmap_write(&typdatum->types, fp))
 			return -1;
 	}
@@ -924,13 +920,14 @@ static int type_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	return 0;
 }
 
-static int user_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int user_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
 	user_datum_t *usrdatum;
 	uint32_t buf[32];
 	size_t items, items2, len;
-	struct policy_file *fp = p;
-
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
+	struct policydb *p = pd->p;
 
 	usrdatum = (user_datum_t *) datum;
 
@@ -946,14 +943,18 @@ static int user_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	if (items != len)
 		return -1;
 
-	if (policy_type == POLICY_KERN) {
+	if (p->policy_type == POLICY_KERN) {
 		if (ebitmap_write(&usrdatum->roles.roles, fp))
 			return -1;
 	} else {
 		if (role_set_write(&usrdatum->roles, fp))
 			return -1;
 	}
-	if (policyvers >= POLICYDB_VERSION_MLS) {
+	/* Users are allowed in non-mls modules, so the empty field will be present
+	   in modules with users >= MOD_POLICYDB_VERSION_MLS */
+	if ((p->policyvers >= POLICYDB_VERSION_MLS && p->policy_type == POLICY_KERN) ||
+	    (p->policyvers >= MOD_POLICYDB_VERSION_MLS && p->policy_type == POLICY_MOD) ||
+	    (p->policyvers >= MOD_POLICYDB_VERSION_MLS && p->policy_type == POLICY_BASE)) {
 		if (mls_write_range_helper(&usrdatum->range, fp))
 			return -1;
 		if (mls_write_level(&usrdatum->dfltlevel, fp))
@@ -997,7 +998,7 @@ static int ocontext_write (struct policydb_compat_info *info, policydb_t * p,
 				items = put_entry(buf, sizeof(uint32_t), 1, fp);
 				if (items != 1)
 					return -1;
-				if (context_write(&c->context[0], fp))
+				if (context_write(p, &c->context[0], fp))
 					return -1;
 				break;
 			case OCON_FS:
@@ -1010,9 +1011,9 @@ static int ocontext_write (struct policydb_compat_info *info, policydb_t * p,
 				items = put_entry(c->u.name, 1, len, fp);
 				if (items != len)
 					return -1;
-				if (context_write(&c->context[0], fp))
+				if (context_write(p, &c->context[0], fp))
 					return -1;
-				if (context_write(&c->context[1], fp))
+				if (context_write(p, &c->context[1], fp))
 					return -1;
 				break;
 			case OCON_PORT:
@@ -1025,7 +1026,7 @@ static int ocontext_write (struct policydb_compat_info *info, policydb_t * p,
 				items = put_entry(buf, sizeof(uint32_t), 3, fp);
 				if (items != 3)
 					return -1;
-				if (context_write(&c->context[0], fp))
+				if (context_write(p, &c->context[0], fp))
 					return -1;
 				break;
 			case OCON_NODE:
@@ -1034,7 +1035,7 @@ static int ocontext_write (struct policydb_compat_info *info, policydb_t * p,
 				items = put_entry(buf, sizeof(uint32_t), 2, fp);
 				if (items != 2)
 					return -1;
-				if (context_write(&c->context[0], fp))
+				if (context_write(p, &c->context[0], fp))
 					return -1;
 				break;
 			case OCON_FSUSE:
@@ -1047,7 +1048,7 @@ static int ocontext_write (struct policydb_compat_info *info, policydb_t * p,
 				items = put_entry(c->u.name, 1, len, fp);
 				if (items != len)
 					return -1;
-				if (context_write(&c->context[0], fp))
+				if (context_write(p, &c->context[0], fp))
 					return -1;
 				break;
 			case OCON_NODE6:
@@ -1058,7 +1059,7 @@ static int ocontext_write (struct policydb_compat_info *info, policydb_t * p,
 				items = put_entry(buf, sizeof(uint32_t), 8, fp);
 				if (items != 8)
 					return -1;
-				if (context_write(&c->context[0], fp))
+				if (context_write(p, &c->context[0], fp))
 					return -1;
 				break;	
 			}
@@ -1108,7 +1109,7 @@ static int genfs_write (policydb_t *p, struct policy_file *fp) {
 			items = put_entry(buf, sizeof(uint32_t), 1, fp);
 			if (items != 1)
 				return -1;
-			if (context_write(&c->context[0], fp))
+			if (context_write(p, &c->context[0], fp))
 				return -1;
 		}
 	}
@@ -1282,7 +1283,9 @@ static int scope_index_write(scope_index_t *scope_index, unsigned int num_scope_
 }
 
 static int avrule_decl_write(avrule_decl_t *decl, int num_scope_syms,
+			     policydb_t *p,
                              struct policy_file *fp) {
+	struct policy_data pd;
         uint32_t buf[2];
         int i;
         buf[0] = cpu_to_le32(decl->decl_id);
@@ -1290,7 +1293,7 @@ static int avrule_decl_write(avrule_decl_t *decl, int num_scope_syms,
         if (put_entry(buf, sizeof(uint32_t), 2, fp) != 2) {
                 return -1;
         }
-        if (cond_write_list(NULL, decl->cond_list, fp) == -1 ||
+        if (cond_write_list(p, decl->cond_list, fp) == -1 ||
             avrule_write_list(decl->avrules, fp) == -1 ||
             role_trans_rule_write(decl->role_tr_rules, fp) == -1 ||
             role_allow_rule_write(decl->role_allow_rules, fp) == -1) {
@@ -1300,13 +1303,15 @@ static int avrule_decl_write(avrule_decl_t *decl, int num_scope_syms,
             scope_index_write(&decl->declared, num_scope_syms, fp) == -1) {
                 return -1;
         }
+	pd.fp = fp;
+	pd.p = p;
         for (i = 0; i < num_scope_syms; i++) {
 		buf[0] = cpu_to_le32(decl->symtab[i].nprim);
 		buf[1] = cpu_to_le32(decl->symtab[i].table->nel);
                 if (put_entry(buf, sizeof(uint32_t), 2, fp) != 2) {
                         return -1;
                 }
-		if (hashtab_map(decl->symtab[i].table, write_f[i], fp)) {
+		if (hashtab_map(decl->symtab[i].table, write_f[i], &pd)) {
 			return -1;
                 }
         }
@@ -1314,6 +1319,7 @@ static int avrule_decl_write(avrule_decl_t *decl, int num_scope_syms,
 }
 
 static int avrule_block_write(avrule_block_t *block, int num_scope_syms,
+			      policydb_t *p,
                               struct policy_file *fp) {
         /* first write a count of the total number of blocks */
         uint32_t buf[1], num_blocks = 0;
@@ -1339,7 +1345,7 @@ static int avrule_block_write(avrule_block_t *block, int num_scope_syms,
                         return -1;
                 }
                 for (decl = cur->branch_list; decl != NULL; decl = decl->next) {
-                        if (avrule_decl_write(decl, num_scope_syms, fp) == -1) {
+                        if (avrule_decl_write(decl, num_scope_syms, p, fp) == -1) {
                                 return -1;
                         }
                 }
@@ -1347,10 +1353,11 @@ static int avrule_block_write(avrule_block_t *block, int num_scope_syms,
         return 0;
 }
 
-static int scope_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int scope_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 {
         scope_datum_t *scope = (scope_datum_t *) datum;
-        struct policy_file *fp = (struct policy_file *) p;
+	struct policy_data *pd = ptr;
+	struct policy_file *fp = pd->fp;
         uint32_t static_buf[32], *dyn_buf = NULL, *buf;
         size_t key_len = strlen(key);
         unsigned int items = 2 + scope->decl_ids_len, i;
@@ -1396,10 +1403,14 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
 	uint32_t buf[32], config;
 	size_t items, items2, len;
 	struct policydb_compat_info *info;
+	struct policy_data pd;
 	char *policydb_str;
 
+	pd.fp = fp;
+	pd.p = p;
+
 	config = 0;
-	if (sepol_mls_enabled())
+	if (p->mls)
 		config |= POLICYDB_CONFIG_MLS;
 
 	/* Write the magic number and string identifiers. */
@@ -1423,17 +1434,17 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
 
 	/* Write the version, config, and table sizes. */
 	items = 0;
-	info = policydb_lookup_compat(policyvers, p->policy_type);
+	info = policydb_lookup_compat(p->policyvers, p->policy_type);
 	if (!info) {
-		DEBUG(__FUNCTION__, "compatibility lookup failed for policy "
-			"version %d\n", policyvers);
+		ERR(fp->handle, "compatibility lookup failed for policy "
+			"version %d", p->policyvers);
 		return -1;
 	}
 
         if (p->policy_type != POLICY_KERN) {
 		buf[items++] = cpu_to_le32(p->policy_type);
 	}
-	buf[items++] = cpu_to_le32(policyvers);
+	buf[items++] = cpu_to_le32(p->policyvers);
 	buf[items++] = cpu_to_le32(config);
 	buf[items++] = cpu_to_le32(info->sym_num);
 	buf[items++] = cpu_to_le32(info->ocon_num);
@@ -1468,17 +1479,17 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
 		items = put_entry(buf, sizeof(uint32_t), 2, fp);
 		if (items != 2)
 			return -1;
-		if (hashtab_map(p->symtab[i].table, write_f[i], fp))
+		if (hashtab_map(p->symtab[i].table, write_f[i], &pd))
 			return -1;
 	}
 
 	if (p->policy_type == POLICY_KERN) {
 		if (avtab_write(p, &p->te_avtab, fp))
 			return -1;
-                if (policyvers < POLICYDB_VERSION_BOOL) {
+                if (p->policyvers < POLICYDB_VERSION_BOOL) {
                         if (p->p_bools.nprim)
-				DEBUG(__FUNCTION__, "Warning! Discarding "
-					"booleans and conditional rules\n");
+				WARN(fp->handle, "Discarding "
+					"booleans and conditional rules");
                 }
                 else {
                         if (cond_write_list(p, p->cond_list, fp))
@@ -1490,7 +1501,7 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
                         return -1;
         }
         else {
-                if (avrule_block_write(p->global, num_syms, fp) == -1) {
+                if (avrule_block_write(p->global, num_syms, p, fp) == -1) {
                         return -1;
                 }
                 
@@ -1499,7 +1510,7 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
                         if (put_entry(buf, sizeof(uint32_t), 1, fp) != 1) {
                                 return -1;
                         }
-                        if (hashtab_map(p->scope[i].table, scope_write, fp))
+                        if (hashtab_map(p->scope[i].table, scope_write, &pd))
                                 return -1;
                 }
         }
@@ -1509,13 +1520,14 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
                 return -1;
         }
 
-        if (policyvers >= POLICYDB_VERSION_MLS) {
+	if ((p->policyvers >= POLICYDB_VERSION_MLS && p->policy_type == POLICY_KERN) ||
+	    (p->policyvers >= MOD_POLICYDB_VERSION_MLS && p->policy_type == POLICY_BASE)) {
                 if (range_write(p, fp)) {
                         return -1;
                 }
         }
 
-	if (policy_type == POLICY_KERN && policyvers >= POLICYDB_VERSION_AVTAB) {
+	if (p->policy_type == POLICY_KERN && p->policyvers >= POLICYDB_VERSION_AVTAB) {
 		for (i = 0; i < p->p_types.nprim; i++) {
 			if (ebitmap_write(&p->type_attr_map[i], fp) == -1)
 				return -1;

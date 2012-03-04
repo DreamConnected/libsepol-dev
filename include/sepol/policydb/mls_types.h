@@ -28,12 +28,12 @@
  * Type definitions for the multi-level security (MLS) policy.
  */
 
-#ifndef _MLS_TYPES_H_
-#define _MLS_TYPES_H_
+#ifndef _SEPOL_POLICYDB_MLS_TYPES_H_
+#define _SEPOL_POLICYDB_MLS_TYPES_H_
 
 #include <stdint.h>
-#include <sepol/ebitmap.h>
-#include <sepol/flask_types.h>
+#include <sepol/policydb/ebitmap.h>
+#include <sepol/policydb/flask_types.h>
 
 typedef struct mls_level {
 	uint32_t sens; 	   /* sensitivity */
@@ -44,22 +44,40 @@ typedef struct mls_range {
 	mls_level_t level[2]; /* low == level[0], high == level[1] */
 } mls_range_t;
 
-extern int sepol_mls_enabled(void);
+static inline int mls_level_cpy(
+	struct mls_level* dst,
+	struct mls_level* src) {
+
+	dst->sens = src->sens;
+	if (ebitmap_cpy(&dst->cat, &src->cat) < 0)
+		return -1;
+	return 0;
+}
+
+static inline void mls_level_init(
+	struct mls_level* level) {
+
+	memset(level, 0, sizeof(mls_level_t));
+}
+
+static inline void mls_level_destroy(
+	struct mls_level* level) {
+
+	if (level == NULL)
+		return;
+
+	ebitmap_destroy(&level->cat);
+	mls_level_init(level);
+}
 
 static inline int mls_level_eq(struct mls_level *l1, struct mls_level *l2)
 {
-	if (!sepol_mls_enabled())
-		return 1;
-
 	return ((l1->sens == l2->sens) &&
 	        ebitmap_cmp(&l1->cat, &l2->cat));
 }
 
 static inline int mls_level_dom(struct mls_level *l1, struct mls_level *l2)
 {
-	if (!sepol_mls_enabled())
-		return 1;
-
 	return ((l1->sens >= l2->sens) &&
 	        ebitmap_contains(&l1->cat, &l2->cat));
 }
@@ -74,7 +92,23 @@ static inline int mls_level_dom(struct mls_level *l1, struct mls_level *l2)
 (mls_level_dom(&(r2).level[0], &(r1).level[0]) && \
  mls_level_dom(&(r1).level[1], &(r2).level[1]))
 
+static inline int mls_range_cpy(
+	mls_range_t * dst,
+	mls_range_t * src)  {
+
+	if (mls_level_cpy(&dst->level[0], &src->level[0]) < 0)
+		goto err;
+
+	if (mls_level_cpy(&dst->level[1], &src->level[0]) < 0)
+		goto err_destroy;
+
+	return 0;
+
+	err_destroy:
+	mls_level_destroy(&dst->level[0]);
+
+	err:
+	return -1;
+}
+
 #endif
-
-/* FLASK */
-

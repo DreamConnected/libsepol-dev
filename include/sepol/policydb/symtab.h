@@ -10,10 +10,10 @@
  * using the hash table type (hashtab).
  */ 
 
-#ifndef _SYMTAB_H_
-#define _SYMTAB_H_
+#ifndef _SEPOL_POLICYDB_SYMTAB_H_
+#define _SEPOL_POLICYDB_SYMTAB_H_
 
-#include <sepol/hashtab.h>
+#include <sepol/policydb/hashtab.h>
 
 typedef struct {
 	hashtab_t table;	/* hash table (keyed on a string) */

@@ -11,8 +11,8 @@
  * provided by the creator of the table.
  */
 
-#ifndef _HASHTAB_H_
-#define _HASHTAB_H_
+#ifndef _SEPOL_POLICYDB_HASHTAB_H_
+#define _SEPOL_POLICYDB_HASHTAB_H_
 
 #include <stdint.h>
 #include <errno.h>

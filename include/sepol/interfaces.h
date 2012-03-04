@@ -1,28 +1,51 @@
+#ifndef __SEPOL_INTERFACES_H_
+#define __SEPOL_INTERFACES_H_
+
 #include <sepol/policydb.h>
-#include <sepol/context_record.h>
+#include <sepol/iface_record.h>
+#include <sepol/handle.h>
 
-/* High level representation of an interface */
-typedef struct sepol_iface {
-        const char* name;
-        sepol_context_t netif_con;
-        sepol_context_t netmsg_con;
-} sepol_iface_t;
+/* Return the number of interfaces */
+extern int sepol_iface_count(
+	sepol_handle_t* handle,
+	sepol_policydb_t* p,
+	unsigned int* response);
 
-/* Create a low level interface structure from
- * a high level representation */
-extern int sepol_iface_create(
-	policydb_t* policydb,
-	ocontext_t** iface,
+/* Check if an interface exists */
+extern int sepol_iface_exists(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	sepol_iface_key_t* key,
+	int* response);
+
+/* Query an interface - returns the interface, 
+ * or NULL if not found */
+extern int sepol_iface_query(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	sepol_iface_key_t* key,
+	sepol_iface_t** response);
+
+/* Modify an interface, or add it, if the key
+ * is not found */
+extern int sepol_iface_modify(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	sepol_iface_key_t* key,
 	sepol_iface_t* data);
 
-/* Get the current context mapping for this interface */
-extern int sepol_iface_get_context(
-	policydb_t* policydb,
-	sepol_iface_t* data,
-	char** ifcon_str, size_t* ifcon_str_len,
-	char** msgcon_str, size_t* msgcon_str_len);
+/* Iterate the interfaces
+ * The handler may return:
+ * -1 to signal an error condition,
+ * 1 to signal successful exit
+ * 0 to signal continue */
 
-/* Load an interface into policy */
-extern int sepol_iface_load(
-	policydb_t* policydb,
-	sepol_iface_t* data);
+extern int sepol_iface_iterate(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	int (*fn)(
+		sepol_iface_t* iface,
+		void* fn_arg),
+	void* arg);
+
+#endif

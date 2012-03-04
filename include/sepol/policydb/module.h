@@ -1,11 +1,6 @@
-/* Authors: Jason Tang <jtang@tresys.com>
- *	    Joshua Brindle <jbrindle@tresys.com>
- *          Karl MacMillan <kmacmillan@tresys.com>
+/* Author: Karl MacMillan <kmacmillan@tresys.com>
  *
- * A set of utility functions that aid policy decision when dealing
- * with hierarchal items.
- *
- * Copyright (C) 2005 Tresys Technology, LLC
+ * Copyright (C) 2004-2005 Tresys Technology, LLC
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -21,12 +16,28 @@
  *  License along with this library; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
+ 
+#ifndef _SEPOL_POLICYDB_MODULE_H_
+#define _SEPOL_POLICYDB_MODULE_H_
 
-#ifndef _SEPOL_HIERARCHY_H_
-#define _SEPOL_HIERARCHY_H_
+#include <stdlib.h>
+#include <stddef.h>
 
-#include <sepol/policydb.h>
+#include <sepol/module.h>
 
-extern int hierarchy_check_constraints(policydb_t *p, char *error_msg, uint32_t error_len);
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/conditional.h>
+
+#define SEPOL_MODULE_PACKAGE_MAGIC 0xf97cff8f
+
+struct sepol_module_package {
+	sepol_policydb_t *policy;
+	uint32_t	 version;
+	uint32_t	 num_sections;
+	char 		 *file_contexts;
+	size_t	         file_contexts_len;
+};
+
+extern int sepol_module_package_init(sepol_module_package_t *p);
 
 #endif

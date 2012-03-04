@@ -28,14 +28,82 @@
  * Implementation of the multi-level security (MLS) policy.
  */
 
-#include <sepol/mls.h>
-#include <sepol/policydb.h>
-#include <sepol/services.h>
-#include <sepol/flask.h>
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/services.h>
+#include <sepol/policydb/flask.h>
+#include <sepol/policydb/context.h>
 
 #include <stdlib.h>
 
+#include "handle.h"
+#include "debug.h"
 #include "private.h"
+#include "mls.h"
+
+int mls_to_string(
+	sepol_handle_t* handle,
+	policydb_t* policydb, 
+	context_struct_t* mls, 
+	char** str) {
+
+	char *ptr = NULL, *ptr2 = NULL;
+
+	/* Temporary buffer - length + NULL terminator */
+	int len = mls_compute_context_len(policydb, mls) + 1;
+
+	ptr = (char*) malloc(len);
+	if (ptr == NULL)
+		goto omem;
+
+	/* Final string w/ ':' cut off */
+	ptr2 = (char*) malloc(len - 1);
+	if (ptr2 == NULL)
+		goto omem;
+
+	mls_sid_to_context(policydb, mls, &ptr);
+	ptr -= len - 1;
+	strcpy(ptr2, ptr + 1);
+
+	free(ptr);
+	*str = ptr2;
+	return STATUS_SUCCESS;
+
+	omem:
+	ERR(handle, "out of memory, could not convert mls context to string");
+
+	free(ptr);
+	free(ptr2);
+	return STATUS_ERR;
+
+}
+
+int mls_from_string(
+	sepol_handle_t* handle,
+	policydb_t* policydb, 
+	const char* str, 
+	context_struct_t* mls) {
+
+	char* tmp = strdup(str);
+	char* tmp_cp = tmp;
+	if (!tmp) 
+		goto omem;
+
+	if (mls_context_to_sid(policydb, '$', &tmp_cp, mls) < 0) {
+		ERR(handle, "invalid MLS context %s", str);
+		free(tmp);
+		goto err;
+	}
+	
+	free(tmp);
+	return STATUS_SUCCESS;
+
+	omem:
+	ERR(handle, "out of memory");
+
+	err:
+	ERR(handle, "could not construct mls context structure");
+	return STATUS_ERR;
+}
 
 /*
  * Return the length in bytes for the MLS fields of the
@@ -46,7 +114,7 @@ int mls_compute_context_len(policydb_t *policydb, context_struct_t * context)
 	unsigned int i, l, len, range;
 	ebitmap_node_t *cnode;
 
-	if (!mls_enabled)
+	if (!policydb->mls)
 		return 0;
 
 	len = 1; /* for the beginning ":" */
@@ -99,7 +167,7 @@ void mls_sid_to_context(policydb_t *policydb,
 	unsigned int i, l, range, wrote_sep;
 	ebitmap_node_t *cnode;
 
-	if (!mls_enabled)
+	if (!policydb->mls)
 		return;
 
 	scontextp = *scontext;
@@ -179,7 +247,7 @@ int mls_context_isvalid(policydb_t *p, context_struct_t * c)
 	unsigned int i, l;
 	ebitmap_node_t *cnode;
 
-	if (!mls_enabled)
+	if (!p->mls)
 		return 1;
 
 	/*
@@ -238,25 +306,24 @@ int mls_context_isvalid(policydb_t *p, context_struct_t * c)
  * This function modifies the string in place, inserting
  * NULL characters to terminate the MLS fields.
  */
-int mls_context_to_sid(policydb_t *policydb,
-		       char oldc,
-		       char **scontext,
-		       context_struct_t * context)
-{
+int mls_context_to_sid(
+	policydb_t *policydb,
+	char oldc,
+	char **scontext,
+	context_struct_t * context) {
 
 	char delim;
 	char *scontextp, *p, *rngptr;
 	level_datum_t *levdatum;
 	cat_datum_t *catdatum, *rngdatum;
 	unsigned int l;
-	int rc = -EINVAL;
 
-	if (!mls_enabled)
+	if (!policydb->mls)
 		return 0;
 
 	/* No MLS component to the security context */
 	if (!oldc)
-		goto out;
+		goto err;
 
 	/* Extract low sensitivity. */
 	scontextp = p = *scontext;
@@ -271,10 +338,8 @@ int mls_context_to_sid(policydb_t *policydb,
 		levdatum = (level_datum_t *)hashtab_search(policydb->p_levels.table,
 					      (hashtab_key_t)scontextp);
 
-		if (!levdatum) {
-			rc = -EINVAL;
-			goto out;
-		}
+		if (!levdatum)	
+			goto err;
 
 		context->range.level[l].sens = levdatum->level->sens;
 
@@ -296,36 +361,29 @@ int mls_context_to_sid(policydb_t *policydb,
 
 				catdatum = (cat_datum_t *)hashtab_search(policydb->p_cats.table,
 					      (hashtab_key_t)scontextp);
+				if (!catdatum)
+					goto err;
 
-				if (!catdatum) {
-					rc = -EINVAL;
-					goto out;
-				}
-
-				rc = ebitmap_set_bit(&context->range.level[l].cat,
-				                     catdatum->value - 1, 1);
-				if (rc)
-					goto out;
+				if (ebitmap_set_bit(&context->range.level[l].cat,
+					catdatum->value - 1, 1))
+					goto err;
 
 				/* If range, set all categories in range */
 				if (rngptr) {
 					unsigned int i;
 
-					rngdatum = (cat_datum_t *)hashtab_search(policydb->p_cats.table, (hashtab_key_t)rngptr);
-					if (!rngdatum) {
-						rc = -EINVAL;
-						goto out;
-					}
+					rngdatum = (cat_datum_t *)
+						hashtab_search(policydb->p_cats.table, 
+							(hashtab_key_t)rngptr);
+					if (!rngdatum)
+						goto err;
 
-					if (catdatum->value >= rngdatum->value) {
-						rc = -EINVAL;
-						goto out;
-					}
+					if (catdatum->value >= rngdatum->value)
+						goto err;
 
 					for (i = catdatum->value; i < rngdatum->value; i++) {
-						rc = ebitmap_set_bit(&context->range.level[l].cat, i, 1);
-						if (rc)
-							goto out;
+						if (ebitmap_set_bit(&context->range.level[l].cat, i, 1))
+							goto err;
 					}
 				}
 
@@ -346,17 +404,18 @@ int mls_context_to_sid(policydb_t *policydb,
 			break;
 	}
 
+	/* High level is missing, copy low level */
 	if (l == 0) {
-		context->range.level[1].sens = context->range.level[0].sens;
-		rc = ebitmap_cpy(&context->range.level[1].cat,
-				 &context->range.level[0].cat);
-		if (rc)
-			goto out;
+		if (mls_level_cpy(&context->range.level[1], 
+			&context->range.level[0]) < 0)
+			goto err;
 	}
 	*scontext = ++p;
-	rc = 0;
-out:
-	return rc;
+
+	return STATUS_SUCCESS;
+
+	err:
+	return STATUS_ERR;
 }
 
 /*
@@ -419,9 +478,9 @@ static inline int mls_range_set(context_struct_t *context, mls_range_t *range)
 }
 
 int mls_setup_user_range(context_struct_t *fromcon, user_datum_t *user,
-                         context_struct_t *usercon)
+                         context_struct_t *usercon, int mls)
 {
-	if (mls_enabled) {
+	if (mls) {
 		mls_level_t *fromcon_sen = &(fromcon->range.level[0]);
 		mls_level_t *fromcon_clr = &(fromcon->range.level[1]);
 		mls_level_t *user_low = &(user->range.level[0]);
@@ -471,7 +530,7 @@ int mls_convert_context(policydb_t * oldp,
 	unsigned int l, i;
 	ebitmap_node_t *cnode;
 
-	if (!mls_enabled)
+	if (!oldp->mls)
 		return 0;
 
 	for (l = 0; l < 2; l++) {
@@ -511,7 +570,7 @@ int mls_compute_sid(policydb_t *policydb,
 		    uint32_t specified,
 		    context_struct_t *newcontext)
 {
-	if (!mls_enabled)
+	if (!policydb->mls)
 		return 0;
 
 	switch (specified) {
@@ -553,6 +612,3 @@ int mls_compute_sid(policydb_t *policydb,
 	}
 	return -EINVAL;
 }
-
-/* FLASK */
-

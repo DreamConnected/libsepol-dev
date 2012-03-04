@@ -15,8 +15,8 @@
  * the total bitmap.
  */
 
-#ifndef _EBITMAP_H_
-#define _EBITMAP_H_
+#ifndef _SEPOL_POLICYDB_EBITMAP_H_
+#define _SEPOL_POLICYDB_EBITMAP_H_
 
 #include <stdint.h>
 #include <string.h>

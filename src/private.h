@@ -4,7 +4,7 @@
 
 #include <byteswap.h>
 #include <endian.h>
-#include <sepol/policydb.h>
+#include <sepol/policydb/policydb.h>
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define cpu_to_le16(x) (x)
@@ -31,10 +31,6 @@ struct policydb_compat_info {
 };
 
 extern struct policydb_compat_info *policydb_lookup_compat(unsigned int version, unsigned int type);
-#ifdef __GNUC__
-__attribute__ ((format (printf, 1, 2)))
-#endif
-extern void __sepol_debug_printf(const char *fmt, ...);
 
 /* Reading from a policy "file". */
 static inline void *next_entry(struct policy_file * fp, size_t bytes)
@@ -90,4 +86,3 @@ static inline size_t put_entry(const void *ptr, size_t size, size_t n, struct po
 	return 0;
 }
 
-extern int mls_enabled;

@@ -9,7 +9,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <sepol/hashtab.h>
+#include <sepol/policydb/hashtab.h>
 
 hashtab_t hashtab_create(unsigned int (*hash_value) (hashtab_t h,
 						     hashtab_key_t key),

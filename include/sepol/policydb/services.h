@@ -5,15 +5,16 @@
  * Author : Stephen Smalley, <sds@epoch.ncsc.mil> 
  */
 
-#ifndef _SEPOL_SERVICES_H_
-#define _SEPOL_SERVICES_H_
+#ifndef _SEPOL_POLICYDB_SERVICES_H_
+#define _SEPOL_POLICYDB_SERVICES_H_
 
 /*
  * Security server interface.
  */
 
-#include <sepol/flask_types.h>
-#include <sepol/policydb.h>
+#include <sepol/policydb/flask_types.h>
+#include <sepol/policydb/policydb.h>
+#include <stddef.h>
 
 /* Set the policydb and sidtab structures to be used by
    the service functions.  If not set, then these default

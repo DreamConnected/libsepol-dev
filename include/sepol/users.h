@@ -3,44 +3,65 @@
 
 #include <sepol/policydb.h>
 #include <sepol/user_record.h>
-#include <sys/types.h>
+#include <sepol/handle.h>
+#include <stddef.h>
 
-/* Clear unused users */
-extern void sepol_clear_unused_users(
-	policydb_t* policydb);
+/*---------compatibility------------*/
 
-/* Add/delete/load users from the policy 
-   Load allows duplicates, but add does not. */
-extern int sepol_user_add(
-	policydb_t* policydb,
-	sepol_user_t user); 
+/* Given an existing binary policy (starting at 'data with length 'len')
+   and user configurations living in 'usersdir', generate a new binary
+   policy for the new user configurations.  Sets '*newdata' and '*newlen'
+   to refer to the new binary policy image. */
+extern int sepol_genusers(
+	void *data, size_t len,
+	const char *usersdir,
+	void **newdata, size_t *newlen);
 
-extern int sepol_user_del(
-	policydb_t* policydb, 
-	const char *username);
+/* Enable or disable deletion of users by sepol_genusers(3) when
+   a user in original binary policy image is not defined by the
+   new user configurations.  Defaults to disabled. */
+extern void sepol_set_delusers(int on);
 
-extern int sepol_user_load(
-	policydb_t* policydb, 
-	sepol_user_t user);
+/*--------end compatibility----------*/
 
-/* Check if users or roles are valid */
-extern int sepol_user_is_valid(
-	policydb_t* policydb,
-	const char* user);
+/* Modify the user, or add it, if the key is not found */
+extern int sepol_user_modify(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb, 
+	sepol_user_key_t* key,
+	sepol_user_t* data);
 
-extern int sepol_role_is_valid(
-	policydb_t* policydb,
-	const char* role);
+/* Return the number of users */
+extern int sepol_user_count(
+	sepol_handle_t* handle,
+	sepol_policydb_t* p,
+	unsigned int* response);
 
-/* Obtain an array of all valid users/roles */
-extern int sepol_get_valid_users(
-	policydb_t* policydb,
-	char*** users,
-	size_t* nusers);
+/* Check if the specified user exists */
+extern int sepol_user_exists(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	sepol_user_key_t* key,
+	int* response);
 
-extern int sepol_get_valid_roles(
-	policydb_t* policydb, 
-	char*** roles, 
-	size_t* nroles);
+/* Query a user - returns the user or NULL if not found */
+extern int sepol_user_query(
+	sepol_handle_t* handle,
+	sepol_policydb_t* p,
+	sepol_user_key_t* key,
+	sepol_user_t** response);
 
-#endif /* _SEPOL_USERS_H_ */
+/* Iterate the users
+ * The handler may return:
+ * -1 to signal an error condition,
+ * 1 to signal successful exit
+ * 0 to signal continue */
+extern int sepol_user_iterate(
+	sepol_handle_t* handle,
+	sepol_policydb_t* policydb,
+	int (*fn)(
+		sepol_user_t* user,
+		void* fn_arg),
+	void* arg);
+
+#endif 

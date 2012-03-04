@@ -34,9 +34,10 @@
  */
 
 #include <stdlib.h>
-#include <sepol/avtab.h>
-#include <sepol/policydb.h>
+#include <sepol/policydb/avtab.h>
+#include <sepol/policydb/policydb.h>
 
+#include "debug.h"
 #include "private.h"
 
 #define AVTAB_HASH(keyp) \
@@ -338,7 +339,7 @@ static uint16_t spec_order[] = {
 	AVTAB_MEMBER
 };
 
-int avtab_read_item(void *fp, uint32_t vers, avtab_t *a, 
+int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t *a, 
 	            int (*insertf)(avtab_t *a, avtab_key_t *k, 
 				   avtab_datum_t *d, void *p),
 		    void *p)
@@ -357,19 +358,19 @@ int avtab_read_item(void *fp, uint32_t vers, avtab_t *a,
 	if (vers < POLICYDB_VERSION_AVTAB) {
 		buf32 = next_entry(fp, sizeof(uint32_t));
 		if (!buf32) {
-			printf("security: avtab: truncated entry\n");
+			ERR(fp->handle, "truncated entry");
 			return -1;
 		}
 		items2 = le32_to_cpu(buf32[0]);
 
 		if (items2 < 5 || items2 > 8) {
-			printf("security: avtab: invalid item count\n");
+			ERR(fp->handle, "invalid item count");
 			return -1;
 		}
 
 		buf32 = next_entry(fp, sizeof(uint32_t)*items2);
 		if (!buf32) {
-			printf("security: avtab: truncated entry\n");
+			ERR(fp->handle, "truncated entry");
 			return -1;
 		}
 
@@ -377,19 +378,19 @@ int avtab_read_item(void *fp, uint32_t vers, avtab_t *a,
 		val = le32_to_cpu(buf32[items++]);
 		key.source_type = (uint16_t)val;
 		if (key.source_type != val) {
-			printf("security: avtab: truncated source type\n");
+			ERR(fp->handle, "truncated source type");
 			return -1;
 		}
 		val = le32_to_cpu(buf32[items++]);
 		key.target_type = (uint16_t)val;
 		if (key.target_type != val) {
-			printf("security: avtab: truncated target type\n");
+			ERR(fp->handle, "truncated target type");
 			return -1;
 		}
 		val = le32_to_cpu(buf32[items++]);
 		key.target_class = (uint16_t)val;
 		if (key.target_class != val) {
-			printf("security: avtab: truncated target class\n");
+			ERR(fp->handle, "truncated target class");
 			return -1;
 		}
 
@@ -397,12 +398,13 @@ int avtab_read_item(void *fp, uint32_t vers, avtab_t *a,
 		enabled = (val & AVTAB_ENABLED_OLD) ? AVTAB_ENABLED : 0;
 
 		if (!(val & (AVTAB_AV | AVTAB_TYPE))) {
-			printf("security: avtab: null entry\n");
+			ERR(fp->handle, "null entry");
 			return -1;
 		}
 		if ((val & AVTAB_AV) &&
 		    (val & AVTAB_TYPE)) {
-			printf("security: avtab: entry has both access vectors and types\n");
+			ERR(fp->handle, "entry has both access "
+				"vectors and types");
 			return -1;
 		}
 
@@ -416,7 +418,8 @@ int avtab_read_item(void *fp, uint32_t vers, avtab_t *a,
 		}
 
 		if (items != items2) {
-			printf("security: avtab: entry only had %d items, expected %d\n", items2, items);
+			ERR(fp->handle, "entry only had %d items, "
+				"expected %d", items2, items);
 			return -1;
 		}
 		return 0;
@@ -424,7 +427,7 @@ int avtab_read_item(void *fp, uint32_t vers, avtab_t *a,
 	
 	buf16 = next_entry(fp, sizeof(uint16_t)*4);
 	if (!buf16) {
-		printf("security: avtab: truncated entry\n");
+		ERR(fp->handle, "truncated entry");
 		return -1;
 	}
 	items = 0;
@@ -439,13 +442,13 @@ int avtab_read_item(void *fp, uint32_t vers, avtab_t *a,
 				set++;
 	}
 	if (!set || set > 1) {
-		printf("security: avtab: more than one specifier\n");
+		ERR(fp->handle, "more than one specifier");
 		return -1;
 	}
 		
 	buf32 = next_entry(fp, sizeof(uint32_t));
 	if (!buf32) {
-		printf("security: avtab: truncated entry\n");
+		ERR(fp->handle, "truncated entry");
 		return -1;
 	}
 	datum.data = le32_to_cpu(*buf32);
@@ -457,7 +460,7 @@ static int avtab_insertf(avtab_t *a, avtab_key_t *k, avtab_datum_t *d, void *p _
 	return avtab_insert(a, k, d);
 }
 
-int avtab_read(avtab_t * a, void * fp, uint32_t vers)
+int avtab_read(avtab_t * a, struct policy_file * fp, uint32_t vers)
 {
 	unsigned int i;
 	int rc;
@@ -467,22 +470,22 @@ int avtab_read(avtab_t * a, void * fp, uint32_t vers)
 
 	buf = next_entry(fp, sizeof(uint32_t));
 	if (!buf) {
-		printf("security: avtab: truncated table\n");
+		ERR(fp->handle, "truncated table");
 		goto bad;
 	}
 	nel = le32_to_cpu(buf[0]);
 	if (!nel) {
-		printf("security: avtab: table is empty\n");
+		ERR(fp->handle, "table is empty");
 		goto bad;
 	}
 	for (i = 0; i < nel; i++) {
 		rc = avtab_read_item(fp, vers, a, avtab_insertf, NULL);
 		if (rc) {
 			if (rc == -ENOMEM)
-				printf("security: avtab: out of memory\n");
+				ERR(fp->handle, "out of memory");
 			if (rc == -EEXIST)
-				printf("security: avtab: duplicate entry\n");
-			printf("Failed on entry %d of %u\n", i, nel);
+				ERR(fp->handle, "duplicate entry");
+			ERR(fp->handle, "failed on entry %d of %u", i, nel);
 			goto bad;
 		}
 	}

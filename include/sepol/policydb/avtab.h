@@ -32,8 +32,8 @@
  * tables.
  */
 
-#ifndef _AVTAB_H_
-#define _AVTAB_H_
+#ifndef _SEPOL_POLICYDB_AVTAB_H_
+#define _SEPOL_POLICYDB_AVTAB_H_
 
 #include <sys/types.h>
 #include <stdint.h>
@@ -92,12 +92,13 @@ extern int avtab_map(avtab_t * h,
 
 extern void avtab_hash_eval(avtab_t * h, char *tag);
 
-extern int avtab_read_item(void *fp, uint32_t vers, avtab_t *a, 
+struct policy_file;
+extern int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t *a, 
 			   int (*insert)(avtab_t *a, avtab_key_t *k, 
 					 avtab_datum_t *d, void *p),
 			   void *p);
 
-extern int avtab_read(avtab_t * a, void * fp, uint32_t vers);
+extern int avtab_read(avtab_t * a, struct policy_file * fp, uint32_t vers);
 
 extern avtab_ptr_t avtab_insert_nonunique(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum);
 

@@ -16,12 +16,12 @@
  * identity.   
  */
 
-#ifndef _CONSTRAINT_H_
-#define _CONSTRAINT_H_
+#ifndef _SEPOL_POLICYDB_CONSTRAINT_H_
+#define _SEPOL_POLICYDB_CONSTRAINT_H_
 
-#include <sepol/policydb.h>
-#include <sepol/ebitmap.h>
-#include <sepol/flask_types.h>
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/ebitmap.h>
+#include <sepol/policydb/flask_types.h>
 
 #define CEXPR_MAXDEPTH 5
 

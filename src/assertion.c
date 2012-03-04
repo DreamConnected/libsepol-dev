@@ -1,7 +1,7 @@
 /* Authors: Joshua Brindle <jbrindle@tresys.com>
  *              
  * Assertion checker for avtab entries, taken from 
- * checkpolicy.c by Steve Smalley
+ * checkpolicy.c by Stephen Smalley <sds@tycho.nsa.gov>
  *              
  * Copyright (C) 2005 Tresys Technology, LLC
  *
@@ -20,10 +20,11 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#include <sepol/avtab.h>
-#include <sepol/policydb.h>
-#include <sepol/expand.h>
+#include <sepol/policydb/avtab.h>
+#include <sepol/policydb/policydb.h>
+#include <sepol/policydb/expand.h>
 
+#include "debug.h"
 
 /* This isn't exactly the best place to put this but it will do 
    until something else needs it */
@@ -80,9 +81,8 @@ static char *av_to_string(policydb_t *policydbp, uint32_t tclass, sepol_access_v
         return avbuf;
 }
 
-/* These should probably return the error to the caller but it may get very long
-   when there are lots of assertion violations, may try to fix this later */
-static int check_assertion_helper(policydb_t *p, 
+static int check_assertion_helper(sepol_handle_t *handle,
+				  policydb_t *p, 
 				  avtab_t *te_avtab, avtab_t *te_cond_avtab,
 				  unsigned int stype, unsigned int ttype,
 				  class_perm_node_t *perm, unsigned long line)
@@ -113,20 +113,27 @@ static int check_assertion_helper(policydb_t *p,
         return 0;
 
 err:
-	fprintf(stderr, "assertion on line %lu violated by allow %s %s:%s {%s };\n",
-		line, p->p_type_val_to_name[stype], p->p_type_val_to_name[ttype],
-		p->p_class_val_to_name[curperm->class - 1],
-		av_to_string(p, curperm->class, node->datum.data & curperm->data));
+	ERR(handle, "assertion on line %lu violated by allow %s %s:%s {%s };",
+	    line, p->p_type_val_to_name[stype], p->p_type_val_to_name[ttype],
+	    p->p_class_val_to_name[curperm->class - 1],
+	    av_to_string(p, curperm->class, node->datum.data & curperm->data));
 	return -1;
 }
 
-int check_assertions(policydb_t *p, avrule_t *avrules)
+int check_assertions(sepol_handle_t *handle, policydb_t *p, avrule_t *avrules)
 {
         avrule_t *a;
 	avtab_t te_avtab, te_cond_avtab;
 	ebitmap_node_t *snode, *tnode;
         unsigned int i, j;
 	int errors = 0;
+
+	if (!avrules) {
+		/* Since assertions are stored in avrules, if it is NULL
+		   there won't be any to check. This also prevents an invalid
+		   free if the avtabs are never initialized */
+		return 0;
+	}
 
 	if (avrules) {
 		if (avtab_init(&te_avtab))
@@ -150,27 +157,24 @@ int check_assertions(policydb_t *p, avrule_t *avrules)
                 if (!(a->specified & AVRULE_NEVERALLOW))
        			continue; 
 
-		/* The assertions pretty much have to be pre-expanded since we no 
-		   longer have access to attributes and such */
-			
 		ebitmap_for_each_bit(stypes, snode, i) {
                         if (!ebitmap_node_get_bit(snode, i))
                                 continue;
                         if (a->flags & RULE_SELF) {
-				if (check_assertion_helper(p, &te_avtab, &te_cond_avtab, i, i, a->perms, a->line))
+				if (check_assertion_helper(handle, p, &te_avtab, &te_cond_avtab, i, i, a->perms, a->line))
                                         errors++;
                         }
 			ebitmap_for_each_bit(ttypes, tnode, j) {
                                 if (!ebitmap_node_get_bit(tnode, j))
                                         continue;
-                                if (check_assertion_helper(p, &te_avtab, &te_cond_avtab, i, j, a->perms, a->line))
+                                if (check_assertion_helper(handle, p, &te_avtab, &te_cond_avtab, i, j, a->perms, a->line))
                                     errors++;
                         }
                 }
         }
 
 	if (errors) {
-		fprintf(stderr, "%d assertion violations occured\n", errors);
+		ERR(handle, "%d assertion violations occured", errors);
 		avtab_destroy(&te_avtab);
 		avtab_destroy(&te_cond_avtab);
 		return -1;
@@ -181,6 +185,6 @@ int check_assertions(policydb_t *p, avrule_t *avrules)
         return 0;
 
 oom:
-    fprintf(stderr, "Out of memory - unable to check assertions\n");	
+    ERR(handle, "Out of memory - unable to check assertions");	
     return -1;
 }

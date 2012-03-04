@@ -9,8 +9,8 @@
 
 #include <stdlib.h>
 
-#include <sepol/ebitmap.h>
-#include <sepol/policydb.h>
+#include <sepol/policydb/ebitmap.h>
+#include <sepol/policydb/policydb.h>
 
 #include "private.h"
 

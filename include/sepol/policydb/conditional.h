@@ -18,13 +18,13 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef _CONDITIONAL_H_
-#define _CONDITIONAL_H_
+#ifndef _SEPOL_POLICYDB_CONDITIONAL_H_
+#define _SEPOL_POLICYDB_CONDITIONAL_H_
 
-#include <sepol/flask_types.h>
-#include <sepol/avtab.h>
-#include <sepol/symtab.h>
-#include <sepol/policydb.h>
+#include <sepol/policydb/flask_types.h>
+#include <sepol/policydb/avtab.h>
+#include <sepol/policydb/symtab.h>
+#include <sepol/policydb/policydb.h>
 
 #define COND_EXPR_MAXDEPTH 10
 
@@ -93,6 +93,7 @@ extern cond_expr_t *cond_copy_expr(cond_expr_t *expr);
 
 extern int cond_normalize_expr(policydb_t *p, cond_node_t *cn);
 extern void cond_node_destroy(cond_node_t *node);
+extern void cond_expr_destroy(cond_expr_t *expr);
 
 extern cond_node_t *cond_node_find(
 	policydb_t *p, 
