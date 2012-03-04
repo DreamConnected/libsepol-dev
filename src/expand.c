@@ -1700,7 +1700,9 @@ err:
 	return -1;
 }
 
-
+/* Linking should always be done before calling expand, even if
+ * there is only a base since all optionals are dealt with at link time
+ */
 int expand_module(sepol_handle_t *handle,
 		  policydb_t *base, policydb_t *out,
 		  int verbose, int check)

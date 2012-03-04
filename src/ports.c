@@ -43,27 +43,31 @@ static inline int ipproto2sepol(
  * a high level representation */
 static int port_from_record(
 	sepol_handle_t* handle,
-	policydb_t* policydb,
+	const policydb_t* policydb,
 	ocontext_t** port,
-	sepol_port_t* data) {
+	const sepol_port_t* data) {
 
 	ocontext_t* tmp_port = NULL;
 	context_struct_t* tmp_con = NULL;
 	int tmp_proto;
+
+	int low = sepol_port_get_low(data);
+	int high = sepol_port_get_high(data);
+	int proto = sepol_port_get_proto(data);
 
 	tmp_port = (ocontext_t *) calloc(1, sizeof(ocontext_t));
 	if (!tmp_port) 
 		goto omem;
 	
 	/* Process protocol */
-	tmp_proto = sepol2ipproto(handle, sepol_port_get_proto(data));
+	tmp_proto = sepol2ipproto(handle, proto);
 	if (tmp_proto < 0)
 		goto err;
 	tmp_port->u.port.protocol = tmp_proto;
 
 	/* Port range */
-	tmp_port->u.port.low_port = sepol_port_get_low(data);
-	tmp_port->u.port.high_port = sepol_port_get_high(data);
+	tmp_port->u.port.low_port = low;
+	tmp_port->u.port.high_port = high;
 	if (tmp_port->u.port.low_port > tmp_port->u.port.high_port) {
 		ERR(handle, "low port %d exceeds high port %d",
 			tmp_port->u.port.low_port, 
@@ -93,13 +97,14 @@ static int port_from_record(
         }
 	context_destroy(tmp_con);
 	free(tmp_con);
-	ERR(handle, "error creating port structure");
+	ERR(handle, "could not create port structure for range %u:%u (%s)",
+		low, high, sepol_port_get_proto_str(proto));
 	return STATUS_ERR;
 }
 
 static int port_to_record (
 	sepol_handle_t* handle,
-	policydb_t* policydb,
+	const policydb_t* policydb,
 	ocontext_t* port,
 	sepol_port_t** record) {
 
@@ -107,7 +112,7 @@ static int port_to_record (
 	int low = port->u.port.low_port;
 	int high = port->u.port.high_port;
 	context_struct_t* con = &port->context[0];
-	int rec_proto;
+	int rec_proto = -1;
 
 	sepol_context_t* tmp_con = NULL;
 	sepol_port_t* tmp_record = NULL;
@@ -125,16 +130,16 @@ static int port_to_record (
 	if (context_to_record(handle, policydb, con, &tmp_con) < 0)
 		goto err;
 
-	sepol_port_set_con(tmp_record, tmp_con);
-	tmp_con = NULL;
+	if (sepol_port_set_con(handle, tmp_record, tmp_con) < 0)
+		goto err;
 
+	sepol_context_free(tmp_con);
 	*record = tmp_record;
 	return STATUS_SUCCESS;
 
 	err:
-	/* FIXME: print protocol string */
-	ERR(handle, "could not convert port range %u - %u (protocol: %u)"
-		"to record", low, high, proto);
+	ERR(handle, "could not convert port range %u - %u (%s) "
+		"to record", low, high, sepol_port_get_proto_str(rec_proto));
 	sepol_context_free(tmp_con);
 	sepol_port_free(tmp_record);
 	return STATUS_ERR;
@@ -143,12 +148,12 @@ static int port_to_record (
 /* Return the number of ports */
 extern int sepol_port_count(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
+	const sepol_policydb_t* p,
 	unsigned int* response) {
 
 	unsigned int count = 0;
 	ocontext_t *c, *head;
-	policydb_t* policydb = &p->p;
+	const policydb_t* policydb = &p->p;
 
 	head = policydb->ocontexts[OCON_PORT];
 	for (c =  head; c != NULL; c = c->next)
@@ -163,15 +168,17 @@ extern int sepol_port_count(
 /* Check if a port exists */
 int sepol_port_exists (
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
-	sepol_port_key_t* key,
+	const sepol_policydb_t* p,
+	const sepol_port_key_t* key,
 	int* response) {
 
-	policydb_t *policydb = &p->p;
+	const policydb_t *policydb = &p->p;
 	ocontext_t *c, *head;
 
 	int low, high, proto;
+	const char* proto_str;
 	sepol_port_key_unpack(key, &low, &high, &proto);
+	proto_str = sepol_port_get_proto_str(proto);
 	proto = sepol2ipproto(handle, proto);
 	if (proto < 0)
 		goto err;
@@ -182,7 +189,7 @@ int sepol_port_exists (
 		int low2 = c->u.port.low_port;
 		int high2 = c->u.port.high_port;
 
-		if (proto == proto2 && low2 <= low && high2 >= high) {
+		if (proto == proto2 && low2 == low && high2 == high) {
 			*response = 1;
 			return STATUS_SUCCESS;
 		}
@@ -192,35 +199,36 @@ int sepol_port_exists (
 	return STATUS_SUCCESS;
 
 	err:
-	/* FIXME: print out protocol string */
-	ERR(handle, "could not check if port range %u - %u (protocol: %u) exists",
-		low, high, proto);
+	ERR(handle, "could not check if port range %u - %u (%s) exists",
+		low, high, proto_str);
 	return STATUS_ERR;
 }
 
 /* Query a port */
 int sepol_port_query(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
-	sepol_port_key_t* key,
+	const sepol_policydb_t* p,
+	const sepol_port_key_t* key,
 	sepol_port_t** response) {
 
-	policydb_t *policydb = &p->p;
-	ocontext_t *c, *l, *head;
+	const policydb_t *policydb = &p->p;
+	ocontext_t *c, *head;
 
 	int low, high, proto;
+	const char* proto_str;
 	sepol_port_key_unpack(key, &low, &high, &proto);
+	proto_str = sepol_port_get_proto_str(proto);
 	proto = sepol2ipproto(handle, proto);
 	if (proto < 0)
 		goto err;
 
 	head = policydb->ocontexts[OCON_PORT];
-	for (l = NULL, c = head; c; l = c, c = c->next) {
+	for (c = head; c; c = c->next) {
 		int proto2 = c->u.port.protocol;
 		int low2 = c->u.port.low_port;
 		int high2 = c->u.port.high_port;
 
-		if (proto == proto2 && low2 <= low && high2 >= high) {
+		if (proto == proto2 && low2 == low && high2 == high) {
 			if (port_to_record(handle, policydb, c, response) < 0)
 				goto err;
 			return STATUS_SUCCESS;
@@ -231,9 +239,8 @@ int sepol_port_query(
 	return STATUS_SUCCESS;
 
 	err: 
-	/* FIXME: print protocol string */
-	ERR(handle, "could not query port range %u - %u (protocol: %u)",
-		low, high, proto);
+	ERR(handle, "could not query port range %u - %u (%s)",
+		low, high, proto_str);
 	return STATUS_ERR;
 
 }
@@ -242,42 +249,23 @@ int sepol_port_query(
 int sepol_port_modify(
 	sepol_handle_t* handle,
 	sepol_policydb_t* p, 
-	sepol_port_key_t* key,
-	sepol_port_t* data) {
+	const sepol_port_key_t* key,
+	const sepol_port_t* data) {
 
 	policydb_t *policydb = &p->p;
-	ocontext_t *c, *head, *prev, *port = NULL;
+	ocontext_t *port = NULL;
 
 	int low, high, proto;
+	const char* proto_str;
+
 	sepol_port_key_unpack(key, &low, &high, &proto);
+	proto_str = sepol_port_get_proto_str(proto);
 	proto = sepol2ipproto(handle, proto);	
 	if (proto < 0)
 		goto err;
 
 	if (port_from_record(handle, policydb, &port, data) < 0)
 		goto err;
-
-	head = policydb->ocontexts[OCON_PORT];
-	for (c = head; c; c = c->next) {
-		int proto2 = c->u.port.protocol;
-		int low2 = c->u.port.low_port;
-		int high2 = c->u.port.high_port;
-
-		if (proto == proto2 && low2 <= low && high2 >= high) {
-
-			/* Replace */
-			port->next = c->next;
-			if (prev == NULL)
-				policydb->ocontexts[OCON_PORT] = port;
-			else
-				prev->next = port;
-			context_destroy(&c->context[0]);
-			free(c);
-
-			return STATUS_SUCCESS;
-		}
-		prev = c;
-	}
 
 	/* Attach to context list */
 	port->next = policydb->ocontexts[OCON_PORT];
@@ -286,9 +274,8 @@ int sepol_port_modify(
 	return STATUS_SUCCESS;
 
 	err:
-	/* FIXME: print protocol string */
-	ERR(handle, "could not load port range %u - %u (protocol: %u)",
-		low, high, proto);
+	ERR(handle, "could not load port range %u - %u (%s)",
+		low, high, proto_str);
 	if (port != NULL) {
 		context_destroy(&port->context[0]);
 		free(port);
@@ -298,18 +285,18 @@ int sepol_port_modify(
 
 int sepol_port_iterate(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
+	const sepol_policydb_t* p,
 	int (*fn)(
-		sepol_port_t* port,
+		const sepol_port_t* port,
 		void* fn_arg),
 	void* arg) {
 
-	policydb_t *policydb = &p->p;
-	ocontext_t *c, *l, *head;
+	const policydb_t *policydb = &p->p;
+	ocontext_t *c, *head;
 	sepol_port_t* port = NULL;	
 
 	head = policydb->ocontexts[OCON_PORT];
-	for (l = NULL, c = head; c; l = c, c = c->next) {
+	for (c = head; c; c = c->next) {
 		int status;
 
 		if (port_to_record(handle, policydb, c, &port) < 0)

@@ -16,24 +16,28 @@ extern int sepol_bool_key_create(
 	sepol_bool_key_t** key);
 
 extern void sepol_bool_key_unpack(
-	sepol_bool_key_t* key,
+	const sepol_bool_key_t* key,
 	const char** name);
 
 extern int sepol_bool_key_extract(
 	sepol_handle_t* handle,
-	sepol_bool_t* boolean,
+	const sepol_bool_t* boolean,
 	sepol_bool_key_t** key_ptr);
 
 extern void sepol_bool_key_free(
 	sepol_bool_key_t* key);
 
 extern int sepol_bool_compare(
-	sepol_bool_t* boolean,
-	sepol_bool_key_t* key);
+	const sepol_bool_t* boolean,
+	const sepol_bool_key_t* key);
+
+extern int sepol_bool_compare2(
+	const sepol_bool_t* boolean,
+	const sepol_bool_t* boolean2);
 	
 /* Name */
 extern const char* sepol_bool_get_name(
-	sepol_bool_t* boolean);
+	const sepol_bool_t* boolean);
 
 extern int sepol_bool_set_name(
 	sepol_handle_t* handle,
@@ -42,7 +46,7 @@ extern int sepol_bool_set_name(
 
 /* Value */
 extern int sepol_bool_get_value(
-	sepol_bool_t* boolean);
+	const sepol_bool_t* boolean);
 
 extern void sepol_bool_set_value(
 	sepol_bool_t* boolean, 
@@ -55,7 +59,7 @@ extern int sepol_bool_create(
 
 extern int sepol_bool_clone(
 	sepol_handle_t* handle,
-	sepol_bool_t* boolean, 
+	const sepol_bool_t* boolean, 
 	sepol_bool_t** bool_ptr);
 
 extern void sepol_bool_free(

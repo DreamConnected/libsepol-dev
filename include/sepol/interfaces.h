@@ -8,22 +8,22 @@
 /* Return the number of interfaces */
 extern int sepol_iface_count(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
+	const sepol_policydb_t* policydb,
 	unsigned int* response);
 
 /* Check if an interface exists */
 extern int sepol_iface_exists(
 	sepol_handle_t* handle,
-	sepol_policydb_t* policydb,
-	sepol_iface_key_t* key,
+	const sepol_policydb_t* policydb,
+	const sepol_iface_key_t* key,
 	int* response);
 
 /* Query an interface - returns the interface, 
  * or NULL if not found */
 extern int sepol_iface_query(
 	sepol_handle_t* handle,
-	sepol_policydb_t* policydb,
-	sepol_iface_key_t* key,
+	const sepol_policydb_t* policydb,
+	const sepol_iface_key_t* key,
 	sepol_iface_t** response);
 
 /* Modify an interface, or add it, if the key
@@ -31,8 +31,8 @@ extern int sepol_iface_query(
 extern int sepol_iface_modify(
 	sepol_handle_t* handle,
 	sepol_policydb_t* policydb,
-	sepol_iface_key_t* key,
-	sepol_iface_t* data);
+	const sepol_iface_key_t* key,
+	const sepol_iface_t* data);
 
 /* Iterate the interfaces
  * The handler may return:
@@ -42,9 +42,9 @@ extern int sepol_iface_modify(
 
 extern int sepol_iface_iterate(
 	sepol_handle_t* handle,
-	sepol_policydb_t* policydb,
+	const sepol_policydb_t* policydb,
 	int (*fn)(
-		sepol_iface_t* iface,
+		const sepol_iface_t* iface,
 		void* fn_arg),
 	void* arg);
 

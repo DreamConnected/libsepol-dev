@@ -835,7 +835,7 @@ static int (*merge_callback_f[SYM_NUM]) (hashtab_key_t key, hashtab_datum_t datu
 static int copy_avrule_list(avrule_t *list, avrule_t **dst,
                             policy_module_t *module, link_state_t *state)
 {
-        int i;
+        unsigned int i;
         avrule_t *cur, *new_rule = NULL, *tail;
         class_perm_node_t *cur_perm, *new_perm, *tail_perm = NULL;
 
@@ -869,8 +869,8 @@ static int copy_avrule_list(avrule_t *list, avrule_t **dst,
                         new_perm->class = module->map[SYM_CLASSES][cur_perm->class - 1];
                         assert(new_perm->class);
 
-                        if (new_rule->specified & AVRULE_AV) {
-                                for (i = 0; i < 32; i++) {
+                        if (new_rule->specified & (AVRULE_AV | AVRULE_NEVERALLOW)) {
+                                for (i = 0; i < module->perm_map_len[cur_perm->class - 1]; i++) {
                                         if (!(cur_perm->data & (1U << i)))
                                                 continue;
 					new_perm->data |=
@@ -1010,6 +1010,9 @@ static int copy_cond_list(cond_node_t *list, cond_node_t **dst,
                         goto cleanup;
                 /* go back through and remap the expression */
                 for (cur_expr = new_node->expr; cur_expr != NULL; cur_expr = cur_expr->next) {
+			/* expression nodes don't have a bool value of 0 - don't map them */
+			if (cur_expr->expr_type != COND_BOOL)
+				continue;
                         assert(module->map[SYM_BOOLS][cur_expr->bool - 1] != 0);
                         cur_expr->bool = module->map[SYM_BOOLS][cur_expr->bool - 1];
                 }
@@ -1358,16 +1361,24 @@ static int copy_module(link_state_t *state, policy_module_t *module) {
 /***** functions that check requirements and enable blocks in a module ******/
 
 /* borrowed from checkpolicy.c */
-static int find_perm(hashtab_key_t key, hashtab_datum_t datum, void *p)
-{
-	unsigned int *valuep;
-	perm_datum_t *perdatum;
 
-	valuep = (unsigned int *) p;
-	perdatum = (perm_datum_t *) datum;
+struct find_perm_arg {
+	unsigned int valuep;
+	hashtab_key_t key;
+};
 
-	if (*valuep == perdatum->value)
-		return (int) key;
+static int find_perm(
+	hashtab_key_t key, 
+	hashtab_datum_t datum, 
+	void *varg) {
+
+	struct find_perm_arg* arg = varg;
+
+	perm_datum_t* perdatum = (perm_datum_t *) datum;
+	if (arg->valuep == perdatum->value) {
+		arg->key = key;
+		return 1;
+	}
 
 	return 0;
 }
@@ -1424,8 +1435,12 @@ static int is_decl_requires_met(link_state_t *state,
         }
         /* check that all classes and permissions have been satisfied */
         for (i = 0; i < decl->required.class_perms_len; i++) {
+
                 bitmap = decl->required.class_perms_map + i;
 		ebitmap_for_each_bit(bitmap, node, j) {
+
+                        struct find_perm_arg fparg;
+
                         class_datum_t *cladatum;
                         uint32_t perm_value = j + 1;
                         if (!ebitmap_node_get_bit(node, j)) {
@@ -1433,10 +1448,15 @@ static int is_decl_requires_met(link_state_t *state,
                         }
                         id = pol->p_class_val_to_name[i];
                         cladatum = pol->class_val_to_struct[i];
-                        perm_id = (char *) hashtab_map(cladatum->permissions.table, find_perm, &perm_value);
-                        if (perm_id == NULL && cladatum->comdatum != NULL) {
-                                perm_id = (char *) hashtab_map(cladatum->comdatum->permissions.table, find_perm, &perm_value);
-                        }
+		
+			fparg.valuep = perm_value;
+			fparg.key = NULL;
+			
+                        hashtab_map(cladatum->permissions.table, find_perm, &fparg);
+                        if (fparg.key == NULL && cladatum->comdatum != NULL)
+                               hashtab_map(cladatum->comdatum->permissions.table, find_perm, &fparg);
+                        perm_id = fparg.key;
+
                         assert(perm_id != NULL);
                         if (!is_perm_enabled(id, perm_id, state->base)) {
                                 if (req != NULL) {
@@ -1523,14 +1543,21 @@ static int verify_module_requirements(link_state_t *state,
                 module_global->enabled = 0;
                 if (!is_decl_requires_met(state, module_global, &req)) {
                         if (req.symbol_type == SYM_CLASSES) {
+	
+                                struct find_perm_arg fparg;
+
                                 class_datum_t *cladatum;
                                 cladatum = p->class_val_to_struct[req.symbol_value - 1];
-                                char *perm_id = (char *)hashtab_map(cladatum->permissions.table, find_perm, &req.perm_value);
+
+                                fparg.valuep = req.perm_value;
+                                fparg.key = NULL;
+                                hashtab_map(cladatum->permissions.table, find_perm, &fparg);
+
                                 ERR(state->handle,
                                             "Module %s's global requirements were not met: class %s, permission %s",
                                             mod_name,
                                             p->p_class_val_to_name[req.symbol_value - 1],
-                                            perm_id);
+                                            fparg.key);
                                 return -1;
                         }
                         else {

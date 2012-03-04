@@ -159,3 +159,8 @@ int sepol_policydb_to_image(sepol_handle_t *handle,
 	return policydb_to_image(handle, &p->p, newdata, newlen);
 }
 
+int sepol_policydb_mls_enabled(
+	const sepol_policydb_t* p)  {
+
+	return p->p.mls;
+}

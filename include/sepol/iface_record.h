@@ -11,11 +11,15 @@ typedef struct sepol_iface_key sepol_iface_key_t;
 
 /* Key */
 extern int sepol_iface_compare(
-	sepol_iface_t* iface, 
-	sepol_iface_key_t* key);
+	const sepol_iface_t* iface, 
+	const sepol_iface_key_t* key);
+
+extern int sepol_iface_compare2(
+	const sepol_iface_t* iface,
+	const sepol_iface_t* iface2);
 
 extern void sepol_iface_key_unpack(
-	sepol_iface_key_t* key,
+	const sepol_iface_key_t* key,
 	const char** name);
 
 extern int sepol_iface_key_create(
@@ -25,7 +29,7 @@ extern int sepol_iface_key_create(
 
 extern int sepol_iface_key_extract(
 	sepol_handle_t* handle,
-	sepol_iface_t* iface, 
+	const sepol_iface_t* iface, 
 	sepol_iface_key_t** key_ptr);
 
 extern void sepol_iface_key_free(
@@ -33,7 +37,7 @@ extern void sepol_iface_key_free(
 
 /* Name */
 extern const char* sepol_iface_get_name(
-	sepol_iface_t* iface);
+	const sepol_iface_t* iface);
 
 extern int sepol_iface_set_name(
 	sepol_handle_t* handle,
@@ -42,16 +46,18 @@ extern int sepol_iface_set_name(
 
 /* Context */
 extern sepol_context_t* sepol_iface_get_ifcon(
-	sepol_iface_t* iface);
+	const sepol_iface_t* iface);
 
-extern void sepol_iface_set_ifcon(
+extern int sepol_iface_set_ifcon(
+	sepol_handle_t* handle,
 	sepol_iface_t* iface, 
 	sepol_context_t* con);
 
 extern sepol_context_t* sepol_iface_get_msgcon(
-	sepol_iface_t* iface);
+	const sepol_iface_t* iface);
 
-extern void sepol_iface_set_msgcon(
+extern int sepol_iface_set_msgcon(
+	sepol_handle_t* handle,
 	sepol_iface_t* iface, 
 	sepol_context_t* con);
 
@@ -62,7 +68,7 @@ extern int sepol_iface_create(
 
 extern int sepol_iface_clone(
 	sepol_handle_t* handle,
-	sepol_iface_t* iface, 
+	const sepol_iface_t* iface, 
 	sepol_iface_t** iface_ptr);
 
 extern void sepol_iface_free(

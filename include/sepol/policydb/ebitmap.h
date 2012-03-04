@@ -41,8 +41,10 @@ typedef struct ebitmap {
 #define ebitmap_startbit(e) ((e)->node ? (e)->node->startbit : 0)
 #define ebitmap_startnode(e) ((e)->node)
 
-static inline unsigned int ebitmap_start(ebitmap_t *e, ebitmap_node_t **n) 
-{
+static inline unsigned int ebitmap_start(
+	const ebitmap_t *e, 
+	ebitmap_node_t **n)  {
+
 	*n = e->node;
 	return ebitmap_startbit(e);
 }

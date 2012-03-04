@@ -31,6 +31,8 @@
 #include <limits.h>
 
 #define SEPOL_PACKAGE_SECTION_FC 0xf97cff90
+#define SEPOL_PACKAGE_SECTION_SEUSER 0x97cff91
+#define SEPOL_PACKAGE_SECTION_USER_EXTRA 0x97cff92
 
 static int policy_file_seek(struct policy_file *fp, size_t offset) 
 {
@@ -78,10 +80,24 @@ static int module_package_init(sepol_module_package_t *p)
 	if (sepol_policydb_create(&p->policy))
 		return -1;
 
-	p->num_sections = 0;
 	p->version = 1;
 	return 0;
 }
+
+static int set_char(char **field, char *data, size_t len) {
+	if (*field) {
+		free(*field);
+		*field = NULL;
+	}
+	if (len) {
+		*field = malloc(len);
+		if (!*field)
+			return -1;
+		memcpy(*field, data, len);
+	}
+	return 0;
+}
+
 
 int sepol_module_package_create(sepol_module_package_t **p)
 {
@@ -110,27 +126,62 @@ char *sepol_module_package_get_file_contexts(sepol_module_package_t *p)
 	return p->file_contexts;
 }
 
-
 size_t sepol_module_package_get_file_contexts_len(sepol_module_package_t *p)
 {
 	return p->file_contexts_len;
 }
 
+char *sepol_module_package_get_seusers(sepol_module_package_t *p)
+{
+	return p->seusers;
+}
+
+size_t sepol_module_package_get_seusers_len(sepol_module_package_t *p)
+{
+	return p->seusers_len;
+}
+
+char *sepol_module_package_get_user_extra(sepol_module_package_t *p)
+{
+	return p->user_extra;
+}
+
+size_t sepol_module_package_get_user_extra_len(sepol_module_package_t *p)
+{
+	return p->user_extra_len;
+}
+
+
 int sepol_module_package_set_file_contexts(sepol_module_package_t *p, 
 					   char *data,
 					   size_t len)
 {
-	if (p->file_contexts) {
-		free(p->file_contexts);
-		p->file_contexts = NULL;
-	}
-	if (len) {
-		p->file_contexts = malloc(len);
-		if (!p->file_contexts)
-			return -1;
-		memcpy(p->file_contexts, data, len);
-	}
+	if (set_char(&p->file_contexts, data, len)) 
+		return -1;
+
 	p->file_contexts_len = len;
+	return 0;
+}
+
+int sepol_module_package_set_seusers(sepol_module_package_t *p, 
+					   char *data,
+					   size_t len)
+{
+	if (set_char(&p->seusers, data, len)) 
+		return -1;
+
+	p->seusers_len = len;
+	return 0;
+}
+
+int sepol_module_package_set_user_extra(sepol_module_package_t *p, 
+					   char *data,
+					   size_t len)
+{
+	if (set_char(&p->user_extra, data, len)) 
+		return -1;
+
+	p->user_extra_len = len;
 	return 0;
 }
  
@@ -235,10 +286,12 @@ static int read_helper(char *buf, struct policy_file *file, uint32_t bytes)
 
 /* Get the section offsets from a package file, offsets will be malloc'd to
  * the appropriate size and the caller must free() them */
-static int module_package_read_offsets(sepol_module_package_t *mod, 
-				struct policy_file *file, size_t **offsets)
+static int module_package_read_offsets(sepol_module_package_t *mod,
+				       struct policy_file *file,
+				       size_t **offsets,
+				       uint32_t *sections)
 {
-	uint32_t *buf;
+	uint32_t *buf, nsec;
 	unsigned i;
 
 	buf = next_entry(file, sizeof(uint32_t) * 3);
@@ -252,66 +305,71 @@ static int module_package_read_offsets(sepol_module_package_t *mod,
 	}
 	
 	mod->version = le32_to_cpu(buf[1]);
-	mod->num_sections = le32_to_cpu(buf[2]);
+	nsec = *sections = le32_to_cpu(buf[2]);
 
-	if (mod->num_sections > MAXSECTIONS) {
-		ERR(file->handle, "too many sections (%u) in module package", mod->num_sections);
+	if (nsec > MAXSECTIONS) {
+		ERR(file->handle, "too many sections (%u) in module package", nsec);
 		return -1;
 	}
 
-	*offsets = (size_t *)malloc((mod->num_sections + 1) * sizeof(size_t));
+	*offsets = (size_t *)malloc((nsec + 1) * sizeof(size_t));
 	if (!*offsets) {
 		ERR(file->handle, "out of memory");
 		return -1;
 	}
 
-	buf = next_entry(file, sizeof(uint32_t) * mod->num_sections);
+	buf = next_entry(file, sizeof(uint32_t) * nsec);
 	if (!buf) {
 		ERR(file->handle, "module package offset array truncated");
 		return -1;
 	}
 
-	for (i = 0; i < mod->num_sections; i++) {
+	for (i = 0; i < nsec; i++) {
 		(*offsets)[i] = le32_to_cpu(buf[i]);
 		if (i && (*offsets)[i] < (*offsets)[i - 1]) {
-			ERR(file->handle, "offsets are not increasing (at %u, offset %u->%u)", i, (*offsets)[i-1], (*offsets)[i]);
+			ERR(file->handle, "offsets are not increasing (at %u, "
+				"offset %zu -> %zu", i, (*offsets)[i-1], (*offsets)[i]);
 			return -1;
 		}
 	}
 
-	(*offsets)[mod->num_sections] = policy_file_length(file);
+	(*offsets)[nsec] = policy_file_length(file);
 	return 0;
 }
 
 /* Flags for which sections have been seen during parsing of module package. */
 #define SEEN_MOD 1
 #define SEEN_FC  2
+#define SEEN_SEUSER 4
+#define SEEN_USER_EXTRA 8
 
 int sepol_module_package_read(sepol_module_package_t *mod, 
 			      struct sepol_policy_file *spf, int verbose)
 {
 	struct policy_file *file= &spf->pf;
-	uint32_t *buf;
+	uint32_t *buf, nsec;
 	size_t *offsets, len;
         int retval = -1;
 	unsigned i, seen = 0;
 
-	if (module_package_read_offsets(mod, file, &offsets))
+	if (module_package_read_offsets(mod, file, &offsets, &nsec))
 		return -1;
 
 	/* we know the section offsets, seek to them and read in the data */
 
-	for (i = 0; i < mod->num_sections; i++ ) {
+	for (i = 0; i < nsec; i++ ) {
 	
 		if (policy_file_seek(file, offsets[i])) {
-			ERR(file->handle, "error seeking to offset %u for module package section %u", offsets[i], i);
+			ERR(file->handle, "error seeking to offset %zu for "
+				"module package section %u", offsets[i], i);
 			goto cleanup;
 		}
 
 		len = offsets[i + 1] - offsets[i];
 
 		if (len < sizeof(uint32_t)) {
-			ERR(file->handle, "module package section %u has too small length %u", i, len);
+			ERR(file->handle, "module package section %u "
+				"has too small length %zu", i, len);
 			goto cleanup;
 		}
 
@@ -343,6 +401,46 @@ int sepol_module_package_read(sepol_module_package_t *mod,
         	        }
 			seen |= SEEN_FC;
 			break;
+		case SEPOL_PACKAGE_SECTION_SEUSER:
+			if (seen & SEEN_SEUSER) {
+				ERR(file->handle, "found multiple seuser sections in module package (at section %u)", i);
+				goto cleanup;
+			}
+		
+			mod->seusers_len = len - sizeof(uint32_t);
+			mod->seusers = (char *)malloc(mod->seusers_len);
+			if (!mod->seusers) {
+				ERR(file->handle, "out of memory");
+				goto cleanup;
+			}
+			if (read_helper(mod->seusers, file, mod->seusers_len)) {
+				ERR(file->handle, "invalid seuser section at section %u", i);
+                        	free(mod->seusers);
+	                        mod->seusers = NULL;
+				goto cleanup;
+        	        }
+			seen |= SEEN_SEUSER;
+			break;
+		case SEPOL_PACKAGE_SECTION_USER_EXTRA:
+			if (seen & SEEN_USER_EXTRA) {
+				ERR(file->handle, "found multiple user_extra sections in module package (at section %u)", i);
+				goto cleanup;
+			}
+			
+			mod->user_extra_len = len - sizeof(uint32_t);
+			mod->user_extra = (char *)malloc(mod->user_extra_len);
+			if (!mod->user_extra) {
+				ERR(file->handle, "out of memory");
+				goto cleanup;
+			}
+			if (read_helper(mod->user_extra, file, mod->user_extra_len)) {
+				ERR(file->handle, "invalid user_extra section at section %u", i);
+                        	free(mod->user_extra);
+	                        mod->user_extra= NULL;
+				goto cleanup;
+        	        }
+			seen |= SEEN_USER_EXTRA;
+			break;
 		case POLICYDB_MOD_MAGIC:
 			if (seen & SEEN_MOD) {
 				ERR(file->handle, "found multiple module sections in module package (at section %u)", i);
@@ -362,6 +460,8 @@ int sepol_module_package_read(sepol_module_package_t *mod,
 			break;
 		default:
 			/* unknown section, ignore */	
+			ERR(file->handle, "unknown magic number at section %u, offset: %zx, number: %ux ", 
+				i, offsets[i],le32_to_cpu(buf[0]));
 			break;
 		}
 	}
@@ -383,21 +483,22 @@ int sepol_module_package_info(struct sepol_policy_file *spf, int *type, char **n
 {
 	struct policy_file *file = &spf->pf;
 	sepol_module_package_t *mod = NULL;
-	uint32_t *buf, len;
+	uint32_t *buf, len, nsec;
 	size_t *offsets = NULL;
 	unsigned i, seen = 0;
 
 	if (sepol_module_package_create(&mod))
 		return -1;
 
-	if (module_package_read_offsets(mod, file, &offsets)) {
+	if (module_package_read_offsets(mod, file, &offsets, &nsec)) {
 		goto cleanup;
 	}
 
-	for (i = 0; i < mod->num_sections; i++ ) {
+	for (i = 0; i < nsec; i++ ) {
 	
 		if (policy_file_seek(file, offsets[i])) {
-			ERR(file->handle, "error seeking to offset %u for module package section %u", offsets[i], i);
+			ERR(file->handle, "error seeking to offset "
+				"%zu for module package section %u", offsets[i], i);
 			goto cleanup;
 		}
 
@@ -423,6 +524,22 @@ int sepol_module_package_info(struct sepol_policy_file *spf, int *type, char **n
 				goto cleanup;
 			}
 			seen |= SEEN_FC;
+			break;
+		case SEPOL_PACKAGE_SECTION_SEUSER:
+			/* skip seuser */
+			if (seen & SEEN_SEUSER) {
+				ERR(file->handle, "found seuser sections in module package (at section %u)", i);
+				goto cleanup;
+			}
+			seen |= SEEN_SEUSER;
+			break;
+		case SEPOL_PACKAGE_SECTION_USER_EXTRA:
+			/* skip user_extra*/
+			if (seen & SEEN_USER_EXTRA) {
+				ERR(file->handle, "found user_extra sections in module package (at section %u)", i);
+				goto cleanup;
+			}
+			seen |= SEEN_USER_EXTRA;
 			break;
 		case POLICYDB_MOD_MAGIC:
 			if (seen & SEEN_MOD) {
@@ -520,12 +637,32 @@ cleanup:
 	return -1;
 }
 
+static int write_helper(char *data, size_t len, struct policy_file *file) {
+	int idx = 0;
+	size_t len2;
+
+	while (len) {
+		if (len > BUFSIZ)
+			len2 = BUFSIZ;
+		else
+			len2 = len;
+	
+		if (put_entry(&data[idx], 1, len2, file) != len2) {
+			return -1;
+		}
+		len -= len2;
+		idx += len2;
+	}
+	return 0;
+}
+
 int sepol_module_package_write(sepol_module_package_t *p, 
 			       struct sepol_policy_file *spf)
 {
 	struct policy_file *file = &spf->pf;
 	policy_file_t polfile;
-	uint32_t buf[3], offsets[2], len, len2, idx;
+	uint32_t buf[3], offsets[5], len, nsec = 0;
+	int i;
 
 	if (p->policy) {
 		/* compute policy length */
@@ -536,35 +673,64 @@ int sepol_module_package_write(sepol_module_package_t *p,
 		if (policydb_write(&p->policy->p, &polfile))
 			return -1;
 		len = polfile.len;
-		if (polfile.len)
-			p->num_sections++;
-		else 
+		if (!polfile.len)
 			return -1;
+		nsec++;
 		
 	} else {
 		/* We don't support writing a package without a module at this point */
 		return -1;
 	}
 
+	/* seusers and user_extra only supported in base at the moment */
+	if ((p->seusers || p->user_extra) && (p->policy->p.policy_type != SEPOL_POLICY_BASE)) {
+		ERR(file->handle, "seuser and user_extra sections only supported in base");	
+		return -1;
+	}
+
 	if (p->file_contexts)
-		p->num_sections++;
+		nsec++;
+
+	if (p->seusers)
+		nsec++;
+
+	if (p->user_extra)
+		nsec++;
 
 	buf[0] = cpu_to_le32(SEPOL_MODULE_PACKAGE_MAGIC);
 	buf[1] = cpu_to_le32(p->version);
-	buf[2] = cpu_to_le32(p->num_sections);
+	buf[2] = cpu_to_le32(nsec);
 	if (put_entry(buf, sizeof(uint32_t), 3, file) != 3)
 		return -1;
 
-	/* first section offset */
-	offsets[0] = (p->num_sections + 3) * sizeof(uint32_t);
+	/* calculate offsets */
+	offsets[0] = (nsec + 3) * sizeof(uint32_t);
 	buf[0] = cpu_to_le32(offsets[0]);
+
+	i = 1;
 	if (p->file_contexts) {
-		/* second section offset is offset[0] +  module length  */	
-		offsets[1] = offsets[0] + len;
-		buf[1] = cpu_to_le32(offsets[1]);
+		offsets[i] = offsets[i-1] + len;
+		buf[i] = cpu_to_le32(offsets[i]);
+		/* add a uint32_t to compensate for the magic number */
+		len = p->file_contexts_len + sizeof(uint32_t);
+		i++;
 	}
-	if (put_entry(buf, sizeof(uint32_t), p->num_sections, file) != p->num_sections)
+	if (p->seusers) {
+		offsets[i] = offsets[i-1] + len;
+		buf[i] = cpu_to_le32(offsets[i]);
+		len = p->seusers_len + sizeof(uint32_t);
+		i++;
+	}
+	if (p->user_extra) {
+		offsets[i] = offsets[i-1] + len;
+		buf[i] = cpu_to_le32(offsets[i]);
+		len = p->user_extra_len + sizeof(uint32_t);
+		i++;
+	}
+	if (put_entry(buf, sizeof(uint32_t), nsec, file) != nsec)
 		return -1;
+
+	/* write sections */
 
 	if (policydb_write(&p->policy->p, file))
 		return -1;
@@ -573,20 +739,23 @@ int sepol_module_package_write(sepol_module_package_t *p,
 		buf[0] = cpu_to_le32(SEPOL_PACKAGE_SECTION_FC);
 		if (put_entry(buf, sizeof(uint32_t), 1, file) != 1)
 			return -1;
-		idx = 0;
-		len = p->file_contexts_len;
-		while (len) {
-			if (len > BUFSIZ)
-				len2 = BUFSIZ;
-			else
-				len2 = len;
-	
-			if (put_entry(&p->file_contexts[idx], 1, len2, file) != len2) {
-				return -1;
-			}
-			len -= len2;
-			idx += len2;
-		}
+		if (write_helper(p->file_contexts, p->file_contexts_len, file))
+			return -1;
+	}
+	if (p->seusers) {	
+		buf[0] = cpu_to_le32(SEPOL_PACKAGE_SECTION_SEUSER);
+		if (put_entry(buf, sizeof(uint32_t), 1, file) != 1)
+			return -1;
+		if (write_helper(p->seusers, p->seusers_len, file))
+			return -1;
+		
+	}
+	if (p->user_extra) {
+		buf[0] = cpu_to_le32(SEPOL_PACKAGE_SECTION_USER_EXTRA);
+		if (put_entry(buf, sizeof(uint32_t), 1, file) != 1)
+			return -1;
+		if (write_helper(p->user_extra, p->user_extra_len, file))
+			return -1;
 	}
 	return 0;
 }

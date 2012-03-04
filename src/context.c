@@ -1,7 +1,9 @@
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include <sepol/policydb/policydb.h>
+#include <sepol/policydb/services.h>
 #include "context_internal.h"
 
 #include "debug.h"
@@ -11,19 +13,28 @@
 
 /* ----- Compatibility ---- */
 int policydb_context_isvalid(
-	policydb_t *p, 
-	context_struct_t *c) {
+	const policydb_t *p, 
+	const context_struct_t *c) {
 
         return context_is_valid(p,c);
 }
+
+int sepol_check_context(
+	const char *context) {
+
+	return sepol_context_to_sid((const sepol_security_context_t)context, strlen(context)+1, NULL);
+}
+
 /* ---- End compatibility --- */
 
 /*
  * Return 1 if the fields in the security context
  * structure `c' are valid.  Return 0 otherwise.
  */
-int context_is_valid(policydb_t *p, context_struct_t *c)
-{
+int context_is_valid(
+	const policydb_t *p, 
+	const context_struct_t *c) {
+
 	role_datum_t *role;
 	user_datum_t *usrdatum;
 	ebitmap_t types, roles;
@@ -76,8 +87,8 @@ int context_is_valid(policydb_t *p, context_struct_t *c)
  */
 int context_to_string(
 	sepol_handle_t* handle,
-	policydb_t* policydb,
-	context_struct_t * context,
+	const policydb_t* policydb,
+	const context_struct_t* context,
 	char **result,
 	size_t *result_len) {
 
@@ -132,9 +143,9 @@ int context_to_string(
  */
 int context_from_record(
 	sepol_handle_t* handle,
-	policydb_t* policydb, 
+	const policydb_t* policydb, 
 	context_struct_t** cptr, 
-	sepol_context_t* record) {
+	const sepol_context_t* record) {
 
 	context_struct_t* scontext = NULL;
 	user_datum_t* usrdatum;
@@ -183,12 +194,11 @@ int context_from_record(
 
 	/* MLS */
 	if (mls && !policydb->mls) {
- 		WARN(handle, "mls context \"%s\" ignored, since "
-			"mls is disabled", mls);
-		mls = NULL;
+		ERR(handle, "MLS is disabled, but MLS context \"%s\" found", mls);
+		goto err_destroy;
 	}
 	else if (!mls && policydb->mls) {
- 		ERR(handle, "mls is enabled, but no mls context found");
+	 	ERR(handle, "MLS is enabled, but no MLS context found");
 		goto err_destroy;
 	}
 	if (mls && (mls_from_string(handle, policydb, mls, scontext) < 0)) 
@@ -232,8 +242,8 @@ int context_from_record(
  */
 int context_to_record(
 	sepol_handle_t* handle,
-	policydb_t* policydb,
-	context_struct_t* context,
+	const policydb_t* policydb,
+	const context_struct_t* context,
 	sepol_context_t** record) {
 
 	sepol_context_t* tmp_record = NULL;
@@ -278,7 +288,7 @@ int context_to_record(
  */
 int context_from_string(
 	sepol_handle_t* handle,
-	policydb_t* policydb,
+	const policydb_t* policydb,
 	context_struct_t** cptr,
 	const char* con_str,
 	size_t con_str_len) { 
@@ -313,3 +323,15 @@ int context_from_string(
 	sepol_context_free(ctx_record);
 	return STATUS_ERR;
 }
+
+int sepol_context_check(
+	sepol_handle_t* handle,
+	const sepol_policydb_t* policydb,
+	const sepol_context_t* context) {
+
+	context_struct_t* con = NULL;
+	int ret = context_from_record(handle, &policydb->p, &con, context);
+	context_destroy(con);
+	free(con);
+	return ret;
+} 

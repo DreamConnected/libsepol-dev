@@ -52,13 +52,17 @@ typedef hashtab_val_t *hashtab_t;
    Returns NULL if insufficent space is available or
    the new hash table otherwise.
  */
-extern hashtab_t hashtab_create(unsigned int (*hash_value) (hashtab_t h,
-						     hashtab_key_t key),
-			 int (*keycmp) (hashtab_t h,
-					hashtab_key_t key1,
-					hashtab_key_t key2),
-			 unsigned int size);
+extern hashtab_t hashtab_create(
+	unsigned int (*hash_value) (
+		hashtab_t h,
+		const hashtab_key_t key),
 
+	int (*keycmp) (
+		hashtab_t h,
+		const hashtab_key_t key1,
+		const hashtab_key_t key2),
+	
+	unsigned int size);
 /*
    Inserts the specified (key, datum) pair into the specified hash table.
 
@@ -103,7 +107,9 @@ extern int hashtab_replace(hashtab_t h, hashtab_key_t k, hashtab_datum_t d,
    Returns NULL if no entry has the specified key or
    the datum of the entry otherwise.
  */
-extern hashtab_datum_t hashtab_search(hashtab_t h, hashtab_key_t k);
+extern hashtab_datum_t hashtab_search(
+	hashtab_t h, 
+	const hashtab_key_t k);
 
 /*
    Destroys the specified hash table.

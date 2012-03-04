@@ -28,27 +28,27 @@ extern void sepol_set_delusers(int on);
 extern int sepol_user_modify(
 	sepol_handle_t* handle,
 	sepol_policydb_t* policydb, 
-	sepol_user_key_t* key,
-	sepol_user_t* data);
+	const sepol_user_key_t* key,
+	const sepol_user_t* data);
 
 /* Return the number of users */
 extern int sepol_user_count(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
+	const sepol_policydb_t* p,
 	unsigned int* response);
 
 /* Check if the specified user exists */
 extern int sepol_user_exists(
 	sepol_handle_t* handle,
-	sepol_policydb_t* policydb,
-	sepol_user_key_t* key,
+	const sepol_policydb_t* policydb,
+	const sepol_user_key_t* key,
 	int* response);
 
 /* Query a user - returns the user or NULL if not found */
 extern int sepol_user_query(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
-	sepol_user_key_t* key,
+	const sepol_policydb_t* p,
+	const sepol_user_key_t* key,
 	sepol_user_t** response);
 
 /* Iterate the users
@@ -58,9 +58,9 @@ extern int sepol_user_query(
  * 0 to signal continue */
 extern int sepol_user_iterate(
 	sepol_handle_t* handle,
-	sepol_policydb_t* policydb,
+	const sepol_policydb_t* policydb,
 	int (*fn)(
-		sepol_user_t* user,
+		const sepol_user_t* user,
 		void* fn_arg),
 	void* arg);
 

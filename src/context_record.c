@@ -21,7 +21,9 @@ struct sepol_context {
 };
 
 /* User */
-const char* sepol_context_get_user(sepol_context_t* con) {
+const char* sepol_context_get_user(
+	const sepol_context_t* con) {
+
 	return con->user;
 }
 hidden_def(sepol_context_get_user)
@@ -45,7 +47,9 @@ int sepol_context_set_user(
 hidden_def(sepol_context_set_user)
 
 /* Role */
-const char* sepol_context_get_role(sepol_context_t* con) {
+const char* sepol_context_get_role(
+	const sepol_context_t* con) {
+
 	return con->role;
 }
 hidden_def(sepol_context_get_role)
@@ -68,7 +72,9 @@ int sepol_context_set_role(
 hidden_def(sepol_context_set_role)
 
 /* Type */
-const char* sepol_context_get_type(sepol_context_t* con) {
+const char* sepol_context_get_type(
+	const sepol_context_t* con) {
+
 	return con->type;
 }
 hidden_def(sepol_context_get_type)
@@ -91,7 +97,9 @@ int sepol_context_set_type(
 hidden_def(sepol_context_set_type)
 
 /* MLS */
-const char* sepol_context_get_mls(sepol_context_t* con) {
+const char* sepol_context_get_mls(
+	const sepol_context_t* con) {
+
 	return con->mls;
 }
 hidden_def(sepol_context_get_mls)
@@ -139,7 +147,7 @@ hidden_def(sepol_context_create)
 /* Deep copy clone */
 int sepol_context_clone(
 	sepol_handle_t* handle,
-	sepol_context_t* con,
+	const sepol_context_t* con,
 	sepol_context_t** con_ptr) {
 
 	sepol_context_t* new_con = NULL;	
@@ -172,7 +180,9 @@ int sepol_context_clone(
 hidden_def(sepol_context_clone)
 
 /* Destroy */
-void sepol_context_free(sepol_context_t* con) {
+void sepol_context_free(
+	sepol_context_t* con) {
+
 	if (!con)
 		return;
 
@@ -260,7 +270,7 @@ hidden_def(sepol_context_from_string)
 
 int sepol_context_to_string(
 	sepol_handle_t* handle,
-	sepol_context_t* con,
+	const sepol_context_t* con,
 	char** str_ptr) {
 
 	int rc;
@@ -278,7 +288,7 @@ int sepol_context_to_string(
 	if (con->mls) {
 		rc = snprintf(str, total_sz + 1, "%s:%s:%s:%s", 
 			con->user, con->role, con->type, con->mls);
-		if (rc < 0 || (rc == total_sz + 1)) {
+		if (rc < 0 || (rc >= total_sz + 1)) {
 			ERR(handle, "print error");
 			goto err;
 		}
@@ -286,7 +296,7 @@ int sepol_context_to_string(
 	else { 		
 		rc = snprintf(str, total_sz + 1, "%s:%s:%s",
 			con->user, con->role, con->type);
-		if (rc < 0 || (rc == total_sz + 1)) {
+		if (rc < 0 || (rc >= total_sz + 1)) {
 			ERR(handle, "print error");
 			goto err;
 		}

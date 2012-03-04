@@ -11,7 +11,7 @@ typedef struct sepol_context sepol_context_t;
 
 /* User */
 extern const char* sepol_context_get_user(
-	sepol_context_t* con);
+	const sepol_context_t* con);
 
 extern int sepol_context_set_user(
 	sepol_handle_t* handle,
@@ -20,7 +20,7 @@ extern int sepol_context_set_user(
 
 /* Role */
 extern const char* sepol_context_get_role(
-	sepol_context_t* con);
+	const sepol_context_t* con);
 
 extern int sepol_context_set_role(
 	sepol_handle_t* handle,
@@ -29,7 +29,7 @@ extern int sepol_context_set_role(
 
 /* Type */
 extern const char* sepol_context_get_type(
-	sepol_context_t* con);
+	const sepol_context_t* con);
 
 extern int sepol_context_set_type(
 	sepol_handle_t* handle,
@@ -38,7 +38,7 @@ extern int sepol_context_set_type(
 
 /* MLS */
 extern const char* sepol_context_get_mls(
-	sepol_context_t* con);
+	const sepol_context_t* con);
 
 extern int sepol_context_set_mls(
 	sepol_handle_t* handle,
@@ -52,7 +52,7 @@ extern int sepol_context_create(
 
 extern int sepol_context_clone(
 	sepol_handle_t* handle,
-	sepol_context_t* con, 
+	const sepol_context_t* con, 
 	sepol_context_t** con_ptr);
 
 extern void sepol_context_free(
@@ -66,7 +66,7 @@ extern int sepol_context_from_string(
 
 extern int sepol_context_to_string(
 	sepol_handle_t* handle,
-	sepol_context_t* con,
+	const sepol_context_t* con,
 	char** str_ptr);
 
 #endif 

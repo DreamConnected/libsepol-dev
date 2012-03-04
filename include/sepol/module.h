@@ -25,6 +25,23 @@ extern int sepol_module_package_set_file_contexts(sepol_module_package_t *p,
 						   char *data,
 						   size_t len);
 
+extern char *sepol_module_package_get_seusers(sepol_module_package_t *p);
+
+extern size_t sepol_module_package_get_seusers_len(sepol_module_package_t *p);
+
+extern int sepol_module_package_set_seusers(sepol_module_package_t *p, 
+						   char *data,
+						   size_t len);
+
+extern char *sepol_module_package_get_user_extra(sepol_module_package_t *p);
+
+extern size_t sepol_module_package_get_user_extra_len(sepol_module_package_t *p);
+
+extern int sepol_module_package_set_user_extra(sepol_module_package_t *p, 
+						   char *data,
+						   size_t len);
+
+
 extern sepol_policydb_t *sepol_module_package_get_policy(sepol_module_package_t *p);
 
 extern int sepol_link_packages(sepol_handle_t *handle,

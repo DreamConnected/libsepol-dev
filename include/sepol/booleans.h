@@ -32,27 +32,27 @@ extern int sepol_genbools_array(
 extern int sepol_bool_set (
 	sepol_handle_t* handle,
 	sepol_policydb_t* policydb, 
-	sepol_bool_key_t* key,
-	sepol_bool_t* data);
+	const sepol_bool_key_t* key,
+	const sepol_bool_t* data);
 
 /* Return the number of booleans */
 extern int sepol_bool_count(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
+	const sepol_policydb_t* p,
 	unsigned int* response);
 
 /* Check if the specified boolean exists */
 extern int sepol_bool_exists(
 	sepol_handle_t* handle,
-	sepol_policydb_t* policydb,
-	sepol_bool_key_t* key,
+	const sepol_policydb_t* policydb,
+	const sepol_bool_key_t* key,
 	int* response);
 
 /* Query a boolean - returns the boolean, or NULL if not found */
 extern int sepol_bool_query(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
-	sepol_bool_key_t* key,
+	const sepol_policydb_t* p,
+	const sepol_bool_key_t* key,
 	sepol_bool_t** response);
 
 /* Iterate the booleans
@@ -63,9 +63,9 @@ extern int sepol_bool_query(
 
 extern int sepol_bool_iterate(
 	sepol_handle_t* handle,
-	sepol_policydb_t* policydb,
+	const sepol_policydb_t* policydb,
 	int (*fn)(
-		sepol_bool_t* boolean,
+		const sepol_bool_t* boolean,
 		void* fn_arg),
 	void* arg);
 

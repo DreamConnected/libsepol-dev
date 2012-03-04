@@ -1,3 +1,88 @@
+1.12 2006-03-14
+	* Updated version for release.
+
+1.11.20 2006-03-08
+	* Merged cond_evaluate_expr fix from Serge Hallyn (IBM).
+	* Fixed bug in copy_avrule_list reported by Ivan Gyurdiev.
+
+1.11.19 2006-02-21
+	* Merged sepol_policydb_mls_enabled interface and error handling
+	  changes from Ivan Gyurdiev.
+	
+1.11.18 2006-02-16
+	* Merged node_expand_addr bugfix and node_compare* change from
+	  Ivan Gyurdiev.
+
+1.11.17 2006-02-15
+	* Merged nodes, ports: always prepend patch from Ivan Gyurdiev.
+	* Merged bug fix patch from Ivan Gyurdiev.
+
+1.11.16 2006-02-14
+	* Added a defined flag to level_datum_t for use by checkpolicy.
+
+1.11.15 2006-02-14
+	* Merged nodecon support patch from Ivan Gyurdiev.
+	* Merged cleanups patch from Ivan Gyurdiev.	
+
+1.11.14 2006-02-13
+	* Merged optionals in base patch from Joshua Brindle.
+	
+1.11.13 2006-02-07
+	* Merged seuser/user_extra support patch from Joshua Brindle.
+	* Merged fix patch from Ivan Gyurdiev.
+
+1.11.12 2006-02-02
+	* Merged clone record on set_con patch from Ivan Gyurdiev.	
+
+1.11.11 2006-02-01
+	* Merged assertion copying bugfix from Joshua Brindle.
+	* Merged sepol_av_to_string patch from Joshua Brindle.
+
+1.11.10 2006-01-30
+	* Merged cond_expr mapping and package section count bug fixes
+	  from Joshua Brindle.
+	* Merged improve port/fcontext API patch from Ivan Gyurdiev.	
+	* Merged fixes for overflow bugs on 64-bit from Ivan Gyurdiev.
+
+1.11.9 2006-01-12
+	* Merged size_t -> unsigned int patch from Ivan Gyurdiev.
+
+1.11.8 2006-01-09
+	* Merged 2nd const in APIs patch from Ivan Gyurdiev.
+
+1.11.7 2006-01-06
+	* Merged const in APIs patch from Ivan Gyurdiev.
+	* Merged compare2 function patch from Ivan Gyurdiev.
+
+1.11.6 2006-01-06
+	* Fixed hierarchy checker to only check allow rules.
+
+1.11.5 2006-01-05
+	* Merged further fixes from Russell Coker, specifically:
+	  - av_to_string overflow checking
+	  - sepol_context_to_string error handling
+	  - hierarchy checking memory leak fixes and optimizations
+	  - avrule_block_read variable initialization
+	* Marked deprecated code in genbools and genusers.
+
+1.11.4 2006-01-05
+	* Merged bugfix for sepol_port_modify from Russell Coker.
+
+1.11.3 2006-01-05
+	* Fixed bug in sepol_iface_modify error path noted by Ivan Gyurdiev.
+	* Merged port ordering patch from Ivan Gyurdiev.
+
+1.11.2 2006-01-04
+	* Merged patch series from Ivan Gyurdiev.
+	  This includes patches to:
+	  - support ordering of records in compare function
+	  - enable port interfaces
+	  - add interfaces for context validity and range checks
+	  - add include guards
+
+1.11.1 2005-12-16
+	* Fixed mls_range_cpy bug.
+
 1.10 2005-12-07
 	* Updated version for release.
 

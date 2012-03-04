@@ -2277,7 +2277,7 @@ static int avrule_block_read(policydb_t *p,
                              avrule_block_t **block, unsigned int num_scope_syms,
                              struct policy_file *fp)
 {
-        avrule_block_t *last_block, *curblock;
+        avrule_block_t *last_block = NULL, *curblock;
         uint32_t *buf, num_blocks;
 
         if ((buf = next_entry(fp, sizeof(uint32_t))) == NULL) {
@@ -2286,7 +2286,7 @@ static int avrule_block_read(policydb_t *p,
         num_blocks = le32_to_cpu(buf[0]);
 
         while (num_blocks > 0) {
-                avrule_decl_t *last_decl, *curdecl;
+                avrule_decl_t *last_decl = NULL, *curdecl;
                 uint32_t num_decls;
                 if ((curblock = calloc(1, sizeof (*curblock))) == NULL) {
                         return -1;

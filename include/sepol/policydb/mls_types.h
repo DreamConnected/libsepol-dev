@@ -99,7 +99,7 @@ static inline int mls_range_cpy(
 	if (mls_level_cpy(&dst->level[0], &src->level[0]) < 0)
 		goto err;
 
-	if (mls_level_cpy(&dst->level[1], &src->level[0]) < 0)
+	if (mls_level_cpy(&dst->level[1], &src->level[1]) < 0)
 		goto err_destroy;
 
 	return 0;

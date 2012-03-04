@@ -40,7 +40,7 @@ int sepol_bool_key_create(
 hidden_def(sepol_bool_key_create)
 
 void sepol_bool_key_unpack(
-	sepol_bool_key_t* key,
+	const sepol_bool_key_t* key,
 	const char** name) {
 
 	*name = key->name;
@@ -49,7 +49,7 @@ hidden_def(sepol_bool_key_unpack)
 
 int sepol_bool_key_extract(
 	sepol_handle_t* handle,
-	sepol_bool_t* boolean, 
+	const sepol_bool_t* boolean, 
 	sepol_bool_key_t** key_ptr) {
 
 	if (sepol_bool_key_create(handle, boolean->name, key_ptr) < 0) {
@@ -61,21 +61,29 @@ int sepol_bool_key_extract(
 	return STATUS_SUCCESS;
 }	
 
-void sepol_bool_key_free(sepol_bool_key_t* key) {
+void sepol_bool_key_free(
+	sepol_bool_key_t* key) {
 	free(key);
 }
 
 int sepol_bool_compare(
-	sepol_bool_t* boolean,
-	sepol_bool_key_t* key) {
-	
-	if (!strcmp(boolean->name, key->name))
-		return 0;
-	return 1;
+	const sepol_bool_t* boolean,
+	const sepol_bool_key_t* key) {
+
+	return strcmp(boolean->name, key->name);
+}
+
+int sepol_bool_compare2(
+	const sepol_bool_t* boolean,
+	const sepol_bool_t* boolean2) {
+
+	return strcmp(boolean->name, boolean2->name);
 }
 
 /* Name */
-const char* sepol_bool_get_name(sepol_bool_t* boolean) {
+const char* sepol_bool_get_name(
+	const sepol_bool_t* boolean) {
+
 	return boolean->name;
 }
 hidden_def(sepol_bool_get_name)
@@ -97,12 +105,17 @@ int sepol_bool_set_name(
 hidden_def(sepol_bool_set_name)
 
 /* Value */
-int sepol_bool_get_value(sepol_bool_t* boolean) {
+int sepol_bool_get_value(
+	const sepol_bool_t* boolean) {
+	
 	return boolean->value;
 }
 hidden_def(sepol_bool_get_value)
 
-void sepol_bool_set_value(sepol_bool_t* boolean, int value) {
+void sepol_bool_set_value(
+	sepol_bool_t* boolean, 
+	int value) {
+
 	boolean->value = value;
 }
 hidden_def(sepol_bool_set_value)
@@ -131,7 +144,7 @@ hidden_def(sepol_bool_create)
 /* Deep copy clone */
 int sepol_bool_clone(
 	sepol_handle_t* handle,
-	sepol_bool_t* boolean, 
+	const sepol_bool_t* boolean, 
 	sepol_bool_t** bool_ptr) {
 
 	sepol_bool_t* new_bool = NULL;
@@ -154,7 +167,9 @@ int sepol_bool_clone(
 }
 
 /* Destroy */
-void sepol_bool_free(sepol_bool_t* boolean) {
+void sepol_bool_free(
+	sepol_bool_t* boolean) {
+
 	if (!boolean)
 		return;
 	

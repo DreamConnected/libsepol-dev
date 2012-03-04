@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdlib.h>
-#include <stddef.h>
 
 #include "handle.h"
 #include "private.h"
@@ -15,8 +14,8 @@
 static int bool_update (
 	sepol_handle_t* handle, 
 	policydb_t* policydb,
-	sepol_bool_key_t* key,
-	sepol_bool_t* data) {
+	const sepol_bool_key_t* key,
+	const sepol_bool_t* data) {
 
 	const char* cname;
 	char* name;
@@ -55,7 +54,7 @@ static int bool_update (
 
 static int bool_to_record (
 	sepol_handle_t* handle,
-	policydb_t* policydb,
+	const policydb_t* policydb,
 	int bool_idx,
 	sepol_bool_t** record) {
 
@@ -85,8 +84,8 @@ static int bool_to_record (
 int sepol_bool_set (
 	sepol_handle_t* handle,
 	sepol_policydb_t* p,
-	sepol_bool_key_t* key, 
-	sepol_bool_t* data) {
+	const sepol_bool_key_t* key, 
+	const sepol_bool_t* data) {
 
 	const char* name;
 	sepol_bool_key_unpack(key, &name);
@@ -109,10 +108,10 @@ int sepol_bool_set (
 
 int sepol_bool_count(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
+	const sepol_policydb_t* p,
 	unsigned int* response) {
 
-	policydb_t* policydb = &p->p;
+	const policydb_t* policydb = &p->p;
 	*response = policydb->p_bools.nprim;
 
 	handle = NULL;
@@ -121,11 +120,11 @@ int sepol_bool_count(
 
 int sepol_bool_exists(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
-	sepol_bool_key_t* key,
+	const sepol_policydb_t* p,
+	const sepol_bool_key_t* key,
 	int* response) {
 
-	policydb_t *policydb = &p->p;
+	const policydb_t *policydb = &p->p;
 
 	const char* cname;
 	char* name = NULL;
@@ -145,11 +144,11 @@ int sepol_bool_exists(
 
 int sepol_bool_query(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,	
-	sepol_bool_key_t* key,
+	const sepol_policydb_t* p,	
+	const sepol_bool_key_t* key,
 	sepol_bool_t** response) {
 
-	policydb_t* policydb = &p->p;
+	const policydb_t* policydb = &p->p;
 	cond_bool_datum_t* booldatum = NULL;
 
 	const char* cname;
@@ -184,16 +183,16 @@ int sepol_bool_query(
 
 int sepol_bool_iterate(
 	sepol_handle_t* handle,
-	sepol_policydb_t* p,
+	const sepol_policydb_t* p,
 	int (*fn)(
-		sepol_bool_t* boolean,
+		const sepol_bool_t* boolean,
 		void* fn_arg),
 	void* arg) {
 
-	policydb_t *policydb = &p->p;
-	size_t nbools = policydb->p_bools.nprim;
+	const policydb_t *policydb = &p->p;
+	unsigned int nbools = policydb->p_bools.nprim;
 	sepol_bool_t* boolean = NULL;
-	size_t i;
+	unsigned int i;
 
 	/* For each boolean */
 	for (i = 0; i < nbools; i++) {
