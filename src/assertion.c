@@ -23,23 +23,24 @@
 #include <sepol/policydb/avtab.h>
 #include <sepol/policydb/policydb.h>
 #include <sepol/policydb/expand.h>
+#include <sepol/policydb/util.h>
 
 #include "debug.h"
 
-static int check_assertion_helper(sepol_handle_t *handle,
-				  policydb_t *p, 
-				  avtab_t *te_avtab, avtab_t *te_cond_avtab,
+static int check_assertion_helper(sepol_handle_t * handle,
+				  policydb_t * p,
+				  avtab_t * te_avtab, avtab_t * te_cond_avtab,
 				  unsigned int stype, unsigned int ttype,
-				  class_perm_node_t *perm, unsigned long line)
+				  class_perm_node_t * perm, unsigned long line)
 {
-        avtab_key_t avkey;
+	avtab_key_t avkey;
 	avtab_ptr_t node;
-        class_perm_node_t *curperm;
+	class_perm_node_t *curperm;
 
-	for (curperm = perm; curperm != NULL; curperm = curperm->next) { 
+	for (curperm = perm; curperm != NULL; curperm = curperm->next) {
 		avkey.source_type = stype + 1;
 		avkey.target_type = ttype + 1;
-                avkey.target_class = curperm->class;
+		avkey.target_class = curperm->class;
 		avkey.specified = AVTAB_ALLOWED;
 		for (node = avtab_search_node(te_avtab, &avkey);
 		     node != NULL;
@@ -55,22 +56,24 @@ static int check_assertion_helper(sepol_handle_t *handle,
 		}
 	}
 
-        return 0;
+	return 0;
 
-err:
+      err:
 	ERR(handle, "assertion on line %lu violated by allow %s %s:%s {%s };",
 	    line, p->p_type_val_to_name[stype], p->p_type_val_to_name[ttype],
 	    p->p_class_val_to_name[curperm->class - 1],
-	    sepol_av_to_string(p, curperm->class, node->datum.data & curperm->data));
+	    sepol_av_to_string(p, curperm->class,
+			       node->datum.data & curperm->data));
 	return -1;
 }
 
-int check_assertions(sepol_handle_t *handle, policydb_t *p, avrule_t *avrules)
+int check_assertions(sepol_handle_t * handle, policydb_t * p,
+		     avrule_t * avrules)
 {
-        avrule_t *a;
+	avrule_t *a;
 	avtab_t te_avtab, te_cond_avtab;
 	ebitmap_node_t *snode, *tnode;
-        unsigned int i, j;
+	unsigned int i, j;
 	int errors = 0;
 
 	if (!avrules) {
@@ -99,24 +102,28 @@ int check_assertions(sepol_handle_t *handle, policydb_t *p, avrule_t *avrules)
 		ebitmap_t *stypes = &a->stypes.types;
 		ebitmap_t *ttypes = &a->ttypes.types;
 
-                if (!(a->specified & AVRULE_NEVERALLOW))
-       			continue; 
+		if (!(a->specified & AVRULE_NEVERALLOW))
+			continue;
 
 		ebitmap_for_each_bit(stypes, snode, i) {
-                        if (!ebitmap_node_get_bit(snode, i))
-                                continue;
-                        if (a->flags & RULE_SELF) {
-				if (check_assertion_helper(handle, p, &te_avtab, &te_cond_avtab, i, i, a->perms, a->line))
-                                        errors++;
-                        }
+			if (!ebitmap_node_get_bit(snode, i))
+				continue;
+			if (a->flags & RULE_SELF) {
+				if (check_assertion_helper
+				    (handle, p, &te_avtab, &te_cond_avtab, i, i,
+				     a->perms, a->line))
+					errors++;
+			}
 			ebitmap_for_each_bit(ttypes, tnode, j) {
-                                if (!ebitmap_node_get_bit(tnode, j))
-                                        continue;
-                                if (check_assertion_helper(handle, p, &te_avtab, &te_cond_avtab, i, j, a->perms, a->line))
-                                    errors++;
-                        }
-                }
-        }
+				if (!ebitmap_node_get_bit(tnode, j))
+					continue;
+				if (check_assertion_helper
+				    (handle, p, &te_avtab, &te_cond_avtab, i, j,
+				     a->perms, a->line))
+					errors++;
+			}
+		}
+	}
 
 	if (errors) {
 		ERR(handle, "%d assertion violations occured", errors);
@@ -127,9 +134,9 @@ int check_assertions(sepol_handle_t *handle, policydb_t *p, avrule_t *avrules)
 
 	avtab_destroy(&te_avtab);
 	avtab_destroy(&te_cond_avtab);
-        return 0;
+	return 0;
 
-oom:
-    ERR(handle, "Out of memory - unable to check assertions");	
-    return -1;
+      oom:
+	ERR(handle, "Out of memory - unable to check assertions");
+	return -1;
 }

@@ -28,15 +28,17 @@
 #include <sepol/policydb/conditional.h>
 #include <sepol/policydb/hierarchy.h>
 #include <sepol/policydb/expand.h>
+#include <sepol/policydb/util.h>
 
 #include "debug.h"
 
 typedef struct hierarchy_args {
 	policydb_t *p;
-	avtab_t    *expa; /* expanded avtab */
+	avtab_t *expa;		/* expanded avtab */
 	/* This tells check_avtab_hierarchy to check this list in addition to the unconditional avtab */
-	cond_av_list_t *opt_cond_list; 
+	cond_av_list_t *opt_cond_list;
 	sepol_handle_t *handle;
+	int numerr;
 } hierarchy_args_t;
 
 /* This merely returns the string part before the last '.'
@@ -49,7 +51,7 @@ static int find_parent(char *type, char **parent)
 {
 	char *tmp;
 	int len;
-	
+
 	assert(type);
 
 	tmp = strrchr(type, '.');
@@ -67,29 +69,31 @@ static int find_parent(char *type, char **parent)
 		return -1;
 	memcpy(*parent, type, len);
 	(*parent)[len] = '\0';
-		
+
 	return 0;
 }
 
 /* This function verifies that the type passed in either has a parent or is in the 
  * root of the namespace, 0 on success, 1 on orphan and -1 on error
  */
-static int check_type_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)), hashtab_datum_t d, void *args)
+static int check_type_hierarchy_callback(hashtab_key_t k, hashtab_datum_t d,
+					 void *args)
 {
 	char *parent;
 	hierarchy_args_t *a;
 	type_datum_t *t, *t2;
-	int rc;
+	char *key;
 
-	a = (hierarchy_args_t *)args;
-	t = (type_datum_t *)d;
+	a = (hierarchy_args_t *) args;
+	t = (type_datum_t *) d;
+	key = (char *)k;
 
-	if (t->isattr) {
+	if (t->flavor == TYPE_ATTRIB) {
 		/* It's an attribute, we don't care */
 		return 0;
 	}
-        
-	if (find_parent(a->p->p_type_val_to_name[t->value - 1], &parent))
+
+	if (find_parent(key, &parent))
 		return -1;
 
 	if (!parent) {
@@ -97,21 +101,20 @@ static int check_type_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
 		return 0;
 	}
 
-	rc = 0;
 	t2 = hashtab_search(a->p->p_types.table, parent);
 	if (!t2) {
 		/* If the parent does not exist this type is an orphan, not legal */
 		ERR(a->handle, "type %s does not exist, %s is an orphan",
-			parent,a->p->p_type_val_to_name[t->value - 1]);
-		rc = 1;
-	} else if (t2->isattr) {
-			/* The parent is an attribute but the child isn't, not legal */
-			ERR(a->handle, "type %s is a child of an attribute",
-			a->p->p_type_val_to_name[t->value - 1]);
-		rc = 1;
+		    parent, a->p->p_type_val_to_name[t->s.value - 1]);
+		a->numerr++;
+	} else if (t2->flavor == TYPE_ATTRIB) {
+		/* The parent is an attribute but the child isn't, not legal */
+		ERR(a->handle, "type %s is a child of an attribute",
+		    a->p->p_type_val_to_name[t->s.value - 1]);
+		a->numerr++;
 	}
 	free(parent);
-	return rc;
+	return 0;
 }
 
 /* This function only verifies that the avtab node passed in does not violate any
@@ -120,7 +123,8 @@ static int check_type_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
  * -1 on error. opt_cond_list is an optional argument that tells this to check
  * a conditional list for the relationship as well as the unconditional avtab
  */
-static int check_avtab_hierarchy_callback(avtab_key_t *k, avtab_datum_t *d, void *args)
+static int check_avtab_hierarchy_callback(avtab_key_t * k, avtab_datum_t * d,
+					  void *args)
 {
 	char *parent;
 	avtab_key_t key;
@@ -128,33 +132,31 @@ static int check_avtab_hierarchy_callback(avtab_key_t *k, avtab_datum_t *d, void
 	hierarchy_args_t *a;
 	uint32_t av;
 	type_datum_t *t = NULL, *t2 = NULL;
-	
-       if (!(k->specified & AVTAB_ALLOWED)) {
-               /* This is not an allow rule, no checking done */
-               return 0;
-       }
 
-	a = (hierarchy_args_t *)args;
+	if (!(k->specified & AVTAB_ALLOWED)) {
+		/* This is not an allow rule, no checking done */
+		return 0;
+	}
+
+	a = (hierarchy_args_t *) args;
 	if (find_parent(a->p->p_type_val_to_name[k->source_type - 1], &parent))
 		return -1;
-		
+
 	/* search for parent first */
 	if (parent) {
 		t = hashtab_search(a->p->p_types.table, parent);
 		if (!t) {
-			/* If the parent does not exist this type is an orphan, not legal */
-			ERR(a->handle, "type %s doesn't exist, %s is an orphan",
-				parent,a->p->p_type_val_to_name[k->target_type - 1]);
+			/* This error was already covered by type_check_hierarchy */
 			free(parent);
-			return 1;
+			return 0;
 		}
 		free(parent);
-		
-		key.source_type = t->value;
+
+		key.source_type = t->s.value;
 		key.target_type = k->target_type;
 		key.target_class = k->target_class;
 		key.specified = AVTAB_ALLOWED;
-	
+
 		avdatump = avtab_search(a->expa, &key);
 		if (avdatump) {
 			/* search for access allowed between type 1's parent and type 2 */
@@ -162,17 +164,18 @@ static int check_avtab_hierarchy_callback(avtab_key_t *k, avtab_datum_t *d, void
 				return 0;
 			}
 			av = avdatump->data;
-		} else 
+		} else
 			av = 0;
 		if (a->opt_cond_list) {
 			/* if a conditional list is present search it before continuing */
 			avdatump = cond_av_list_search(&key, a->opt_cond_list);
 			if (avdatump) {
-				if (((av | avdatump->data) & d->data) == d->data) {
+				if (((av | avdatump->data) & d->data) ==
+				    d->data) {
 					return 0;
 				}
-			}			
-		}			
+			}
+		}
 	}
 
 	/* next we try type 1 and type 2's parent */
@@ -182,60 +185,61 @@ static int check_avtab_hierarchy_callback(avtab_key_t *k, avtab_datum_t *d, void
 	if (parent) {
 		t2 = hashtab_search(a->p->p_types.table, parent);
 		if (!t2) {
-			ERR(a->handle, "type %s doesn't exist, %s is an orphan",
-				parent, a->p->p_type_val_to_name[k->target_type - 1]);
+			/* This error was already covered by type_check_hierarchy */
 			free(parent);
-			return 1;
+			return 0;
 		}
 		free(parent);
-	
+
 		key.source_type = k->source_type;
-		key.target_type = t2->value;
+		key.target_type = t2->s.value;
 		key.target_class = k->target_class;
 		key.specified = AVTAB_ALLOWED;
-		
+
 		avdatump = avtab_search(a->expa, &key);
 		if (avdatump) {
 			if ((avdatump->data & d->data) == d->data) {
 				return 0;
 			}
 			av = avdatump->data;
-		} else 
+		} else
 			av = 0;
 		if (a->opt_cond_list) {
 			/* if a conditional list is present search it before continuing */
 			avdatump = cond_av_list_search(&key, a->opt_cond_list);
 			if (avdatump) {
-				if (((av | avdatump->data) & d->data) == d->data) {
+				if (((av | avdatump->data) & d->data) ==
+				    d->data) {
 					return 0;
 				}
-			}			
-		}			
+			}
+		}
 	}
 
 	if (t && t2) {
-		key.source_type = t->value;
-		key.target_type = t2->value;
+		key.source_type = t->s.value;
+		key.target_type = t2->s.value;
 		key.target_class = k->target_class;
 		key.specified = AVTAB_ALLOWED;
-	
+
 		avdatump = avtab_search(a->expa, &key);
 		if (avdatump) {
 			if ((avdatump->data & d->data) == d->data) {
 				return 0;
 			}
 			av = avdatump->data;
-		} else 
+		} else
 			av = 0;
 		if (a->opt_cond_list) {
 			/* if a conditional list is present search it before continuing */
 			avdatump = cond_av_list_search(&key, a->opt_cond_list);
 			if (avdatump) {
-				if (((av | avdatump->data) & d->data) == d->data) {
+				if (((av | avdatump->data) & d->data) ==
+				    d->data) {
 					return 0;
 				}
 			}
-		}			
+		}
 	}
 
 	if (!t && !t2) {
@@ -243,57 +247,59 @@ static int check_avtab_hierarchy_callback(avtab_key_t *k, avtab_datum_t *d, void
 		 * therefore the hierarchical constraint does not apply */
 		return 0;
 	}
-	
+
 	/* At this point there is a violation of the hierarchal constraint, send error condition back */
-	ERR(a->handle,"hierarchy violation between types %s and %s",
-			a->p->p_type_val_to_name[k->source_type - 1],
-			a->p->p_type_val_to_name[k->target_type - 1]);
-	return 1;
+	ERR(a->handle,
+	    "hierarchy violation between types %s and %s : %s { %s }",
+	    a->p->p_type_val_to_name[k->source_type - 1],
+	    a->p->p_type_val_to_name[k->target_type - 1],
+	    a->p->p_class_val_to_name[k->target_class - 1],
+	    sepol_av_to_string(a->p, k->target_class, d->data & ~av));
+	a->numerr++;
+	return 0;
 }
 
-	
-
-static int check_cond_avtab_hierarchy(cond_list_t *cond_list, hierarchy_args_t *args)
+static int check_cond_avtab_hierarchy(cond_list_t * cond_list,
+				      hierarchy_args_t * args)
 {
 	int rc;
 	cond_list_t *cur_node;
 	cond_av_list_t *cur_av, *expl = NULL;
 	avtab_t expa;
+	hierarchy_args_t *a = (hierarchy_args_t *) args;
 
-	for (cur_node = cond_list; cur_node != NULL; cur_node = cur_node ->next) {
+	for (cur_node = cond_list; cur_node != NULL; cur_node = cur_node->next) {
 		if (avtab_init(&expa))
 			goto oom;
-		if (expand_cond_av_list(args->p, cur_node->true_list, &expl, &expa)) {
+		if (expand_cond_av_list
+		    (args->p, cur_node->true_list, &expl, &expa)) {
 			avtab_destroy(&expa);
 			goto oom;
 		}
 		args->opt_cond_list = expl;
 		for (cur_av = expl; cur_av != NULL; cur_av = cur_av->next) {
-			rc = check_avtab_hierarchy_callback(&cur_av->node->key, &cur_av->node->datum, args);
-			if (rc == 0)
-				continue;
-			/* error condition */
-			cond_av_list_destroy(expl);
-			avtab_destroy(&expa);
-			return rc;
+			rc = check_avtab_hierarchy_callback(&cur_av->node->key,
+							    &cur_av->node->
+							    datum, args);
+			if (rc)
+				a->numerr++;
 		}
 		cond_av_list_destroy(expl);
 		avtab_destroy(&expa);
 		if (avtab_init(&expa))
 			goto oom;
-		if (expand_cond_av_list(args->p, cur_node->false_list, &expl, &expa)) {
+		if (expand_cond_av_list
+		    (args->p, cur_node->false_list, &expl, &expa)) {
 			avtab_destroy(&expa);
 			goto oom;
 		}
 		args->opt_cond_list = expl;
 		for (cur_av = expl; cur_av != NULL; cur_av = cur_av->next) {
-			rc = check_avtab_hierarchy_callback(&cur_av->node->key, &cur_av->node->datum, args);
-			if (rc == 0)
-				continue;
-			/* error condition */
-			cond_av_list_destroy(expl);
-			avtab_destroy(&expa);
-			return rc;
+			rc = check_avtab_hierarchy_callback(&cur_av->node->key,
+							    &cur_av->node->
+							    datum, args);
+			if (rc)
+				a->numerr++;
 		}
 		cond_av_list_destroy(expl);
 		avtab_destroy(&expa);
@@ -301,7 +307,7 @@ static int check_cond_avtab_hierarchy(cond_list_t *cond_list, hierarchy_args_t *
 
 	return 0;
 
-oom:
+      oom:
 	ERR(args->handle, "out of memory on conditional av list expansion");
 	return 1;
 }
@@ -310,17 +316,19 @@ oom:
  * This function should be called with hashtab_map, it will return 0 on success, 1 on 
  * constraint violation and -1 on error
  */
-static int check_role_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)), hashtab_datum_t d, void *args)
+static int check_role_hierarchy_callback(hashtab_key_t k
+					 __attribute__ ((unused)),
+					 hashtab_datum_t d, void *args)
 {
 	char *parent;
 	hierarchy_args_t *a;
 	role_datum_t *r, *rp;
 	ebitmap_t eb;
 
-	a = (hierarchy_args_t *)args;
-	r = (role_datum_t *)d;
+	a = (hierarchy_args_t *) args;
+	r = (role_datum_t *) d;
 
-        if (find_parent(a->p->p_role_val_to_name[r->value - 1], &parent))
+	if (find_parent(a->p->p_role_val_to_name[r->s.value - 1], &parent))
 		return -1;
 
 	if (!parent) {
@@ -332,32 +340,32 @@ static int check_role_hierarchy_callback(hashtab_key_t k __attribute__ ((unused)
 	if (!rp) {
 		/* Orphan role */
 		ERR(a->handle, "role %s doesn't exist, %s is an orphan",
-				parent,a->p->p_role_val_to_name[r->value - 1]);
+		    parent, a->p->p_role_val_to_name[r->s.value - 1]);
 		free(parent);
-		return 1;
+		a->numerr++;
+		return 0;
 	}
-	free(parent);
 
 	if (ebitmap_or(&eb, &r->types.types, &rp->types.types)) {
 		/* Memory error */
+		free(parent);
 		return -1;
 	}
-	
+
 	if (!ebitmap_cmp(&eb, &rp->types.types)) {
-		ebitmap_destroy(&eb);
 		/* This is a violation of the hiearchal constraint, return error condition */
 		ERR(a->handle, "Role hierarchy violation, %s exceeds %s",
-				   a->p->p_role_val_to_name[r->value - 1],
-				   parent);
-		return 1;
+		    a->p->p_role_val_to_name[r->s.value - 1], parent);
+		a->numerr++;
 	}
 
 	ebitmap_destroy(&eb);
+	free(parent);
 
 	return 0;
 }
 
-int hierarchy_check_constraints(sepol_handle_t *handle, policydb_t *p)
+int hierarchy_check_constraints(sepol_handle_t * handle, policydb_t * p)
 {
 	hierarchy_args_t args;
 	avtab_t expa;
@@ -373,8 +381,9 @@ int hierarchy_check_constraints(sepol_handle_t *handle, policydb_t *p)
 	args.expa = &expa;
 	args.opt_cond_list = NULL;
 	args.handle = handle;
+	args.numerr = 0;
 
-	if (hashtab_map(p->p_types.table, check_type_hierarchy_callback, &args)) 
+	if (hashtab_map(p->p_types.table, check_type_hierarchy_callback, &args))
 		goto bad;
 
 	if (avtab_map(&expa, check_avtab_hierarchy_callback, &args))
@@ -383,18 +392,23 @@ int hierarchy_check_constraints(sepol_handle_t *handle, policydb_t *p)
 	if (check_cond_avtab_hierarchy(p->cond_list, &args))
 		goto bad;
 
-	if (hashtab_map(p->p_roles.table, check_role_hierarchy_callback, &args)) 
+	if (hashtab_map(p->p_roles.table, check_role_hierarchy_callback, &args))
 		goto bad;
+
+	if (args.numerr) {
+		ERR(handle, "%d total errors found during hierarchy check",
+		    args.numerr);
+		goto bad;
+	}
 
 	avtab_destroy(&expa);
 	return 0;
 
-bad:
+      bad:
 	avtab_destroy(&expa);
 	return -1;
 
-oom:
+      oom:
 	ERR(handle, "Out of memory");
 	return -1;
 }
-

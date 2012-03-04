@@ -25,15 +25,16 @@
 /* Policy compatibility information. */
 struct policydb_compat_info {
 	unsigned int type;
-        unsigned int version;
+	unsigned int version;
 	unsigned int sym_num;
 	unsigned int ocon_num;
 };
 
-extern struct policydb_compat_info *policydb_lookup_compat(unsigned int version, unsigned int type);
+extern struct policydb_compat_info *policydb_lookup_compat(unsigned int version,
+							   unsigned int type);
 
 /* Reading from a policy "file". */
-static inline void *next_entry(struct policy_file * fp, size_t bytes)
+static inline void *next_entry(struct policy_file *fp, size_t bytes)
 {
 	static unsigned char buffer[BUFSIZ];
 	size_t nread;
@@ -48,7 +49,7 @@ static inline void *next_entry(struct policy_file * fp, size_t bytes)
 			return NULL;
 		break;
 	case PF_USE_MEMORY:
-		if (bytes > fp->len) 
+		if (bytes > fp->len)
 			return NULL;
 		memcpy(buffer, fp->data, bytes);
 		fp->data += bytes;
@@ -60,7 +61,8 @@ static inline void *next_entry(struct policy_file * fp, size_t bytes)
 	return buffer;
 }
 
-static inline size_t put_entry(const void *ptr, size_t size, size_t n, struct policy_file *fp)
+static inline size_t put_entry(const void *ptr, size_t size, size_t n,
+			       struct policy_file *fp)
 {
 	size_t bytes = size * n;
 
@@ -85,4 +87,3 @@ static inline size_t put_entry(const void *ptr, size_t size, size_t n, struct po
 	}
 	return 0;
 }
-

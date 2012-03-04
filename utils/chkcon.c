@@ -16,7 +16,7 @@ int main(int argc, char **argv)
 {
 	FILE *fp;
 
-	if (argc != 3) 
+	if (argc != 3)
 		usage(argv[0]);
 
 	fp = fopen(argv[1], "r");
@@ -33,8 +33,8 @@ int main(int argc, char **argv)
 	fclose(fp);
 
 	if (sepol_check_context(argv[2]) < 0) {
-		fprintf(stderr, "%s is not valid\n",argv[2]);
-		exit(1);		
+		fprintf(stderr, "%s is not valid\n", argv[2]);
+		exit(1);
 	}
 
 	printf("%s is valid\n", argv[2]);

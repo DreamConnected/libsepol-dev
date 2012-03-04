@@ -21,7 +21,7 @@
  *  License along with this library; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
- 
+
 /* FLASK */
 
 /*
@@ -51,12 +51,12 @@ typedef struct avtab_key {
 #define AVTAB_CHANGE     64
 #define AVTAB_TYPE       (AVTAB_TRANSITION | AVTAB_MEMBER | AVTAB_CHANGE)
 #define AVTAB_ENABLED_OLD 0x80000000
-#define AVTAB_ENABLED    0x8000 /* reserved for used in cond_avtab */
+#define AVTAB_ENABLED    0x8000	/* reserved for used in cond_avtab */
 	uint16_t specified;	/* what fields are specified */
 } avtab_key_t;
 
 typedef struct avtab_datum {
-        uint32_t data;          /* access vector or type */
+	uint32_t data;		/* access vector or type */
 } avtab_datum_t;
 
 typedef struct avtab_node *avtab_ptr_t;
@@ -67,13 +67,13 @@ struct avtab_node {
 	avtab_ptr_t next;
 	void *parse_context;	/* generic context pointer used by parser;
 				 * not saved in binary policy */
-	unsigned merged;       /* flag for avtab_write only;
-				  not saved in binary policy */
+	unsigned merged;	/* flag for avtab_write only;
+				   not saved in binary policy */
 };
 
 typedef struct avtab {
 	avtab_ptr_t *htable;
-	uint32_t nel;	/* number of elements */
+	uint32_t nel;		/* number of elements */
 } avtab_t;
 
 extern int avtab_init(avtab_t *);
@@ -85,25 +85,25 @@ extern avtab_datum_t *avtab_search(avtab_t * h, avtab_key_t * k);
 extern void avtab_destroy(avtab_t * h);
 
 extern int avtab_map(avtab_t * h,
-	      int (*apply) (avtab_key_t * k,
-			    avtab_datum_t * d,
-			    void *args),
-	      void *args);
+		     int (*apply) (avtab_key_t * k,
+				   avtab_datum_t * d, void *args), void *args);
 
 extern void avtab_hash_eval(avtab_t * h, char *tag);
 
 struct policy_file;
-extern int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t *a, 
-			   int (*insert)(avtab_t *a, avtab_key_t *k, 
-					 avtab_datum_t *d, void *p),
-			   void *p);
+extern int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t * a,
+			   int (*insert) (avtab_t * a, avtab_key_t * k,
+					  avtab_datum_t * d, void *p), void *p);
 
-extern int avtab_read(avtab_t * a, struct policy_file * fp, uint32_t vers);
+extern int avtab_read(avtab_t * a, struct policy_file *fp, uint32_t vers);
 
-extern avtab_ptr_t avtab_insert_nonunique(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum);
+extern avtab_ptr_t avtab_insert_nonunique(avtab_t * h, avtab_key_t * key,
+					  avtab_datum_t * datum);
 
-extern avtab_ptr_t avtab_insert_with_parse_context(avtab_t *h, avtab_key_t *key,
-					    avtab_datum_t *datum, void *parse_context);
+extern avtab_ptr_t avtab_insert_with_parse_context(avtab_t * h,
+						   avtab_key_t * key,
+						   avtab_datum_t * datum,
+						   void *parse_context);
 
 extern avtab_ptr_t avtab_search_node(avtab_t * h, avtab_key_t * key);
 
@@ -115,7 +115,6 @@ extern avtab_ptr_t avtab_search_node_next(avtab_ptr_t node, int specified);
 
 #define AVTAB_SIZE AVTAB_HASH_BUCKETS
 
-#endif	/* _AVTAB_H_ */
+#endif				/* _AVTAB_H_ */
 
 /* FLASK */
-

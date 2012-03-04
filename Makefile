@@ -14,4 +14,8 @@ relabel:
 clean:
 	$(MAKE) -C src clean
 	$(MAKE) -C utils clean
+	$(MAKE) -C tests clean
+
+test:
+	$(MAKE) -C tests test
 

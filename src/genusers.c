@@ -15,7 +15,8 @@
 
 /* -- Deprecated -- */
 
-void sepol_set_delusers(int on __attribute((unused))) {
+void sepol_set_delusers(int on __attribute((unused)))
+{
 	WARN(NULL, "Deprecated interface");
 }
 
@@ -26,7 +27,8 @@ void sepol_set_delusers(int on __attribute((unused))) {
 	continue; \
 }
 
-static int load_users(struct policydb *policydb, const char *path) {
+static int load_users(struct policydb *policydb, const char *path)
+{
 	FILE *fp;
 	char *buffer = NULL, *p, *q, oldc;
 	size_t len = 0;
@@ -36,12 +38,12 @@ static int load_users(struct policydb *policydb, const char *path) {
 	role_datum_t *roldatum;
 	ebitmap_node_t *rnode;
 
-	fp = fopen(path,"r");
-	if (fp == NULL) 
+	fp = fopen(path, "r");
+	if (fp == NULL)
 		return -1;
 	__fsetlocking(fp, FSETLOCKING_BYCALLER);
 
-        while ((nread = getline(&buffer, &len, fp)) > 0) {
+	while ((nread = getline(&buffer, &len, fp)) > 0) {
 		lineno++;
 		if (buffer[nread - 1] == '\n')
 			buffer[nread - 1] = 0;
@@ -61,9 +63,9 @@ static int load_users(struct policydb *policydb, const char *path) {
 		if (!(*p))
 			BADLINE();
 		q = p;
-		while (*p && !isspace(*p)) 
+		while (*p && !isspace(*p))
 			p++;
-		if (!(*p)) 
+		if (!(*p))
 			BADLINE();
 		*p++ = 0;
 
@@ -74,9 +76,10 @@ static int load_users(struct policydb *policydb, const char *path) {
 			ebitmap_init(&usrdatum->roles.roles);
 		} else {
 			char *id = strdup(q);
-			
+
 			/* Adding a new user definition. */
-			usrdatum = (user_datum_t *) malloc(sizeof(user_datum_t));
+			usrdatum =
+			    (user_datum_t *) malloc(sizeof(user_datum_t));
 			if (!id || !usrdatum) {
 				ERR(NULL, "out of memory");
 				free(buffer);
@@ -84,10 +87,10 @@ static int load_users(struct policydb *policydb, const char *path) {
 				return -1;
 			}
 			memset(usrdatum, 0, sizeof(user_datum_t));
-			usrdatum->value = ++policydb->p_users.nprim;
+			usrdatum->s.value = ++policydb->p_users.nprim;
 			ebitmap_init(&usrdatum->roles.roles);
-			if (hashtab_insert(policydb->p_users.table, 
-				id, (hashtab_datum_t) usrdatum)) {
+			if (hashtab_insert(policydb->p_users.table,
+					   id, (hashtab_datum_t) usrdatum)) {
 				ERR(NULL, "out of memory");
 				free(buffer);
 				fclose(fp);
@@ -111,21 +114,21 @@ static int load_users(struct policydb *policydb, const char *path) {
 		if (*p == '{') {
 			islist = 1;
 			p++;
-		} else 
+		} else
 			islist = 0;
 
-		do { 
+		do {
 			while (*p && isspace(*p))
 				p++;
 			if (!(*p))
 				BADLINE();
 
 			q = p;
-			while (*p && *p != ';' && *p != '}' && !isspace(*p)) 
+			while (*p && *p != ';' && *p != '}' && !isspace(*p))
 				p++;
-			if (!(*p)) 
+			if (!(*p))
 				BADLINE();
-			if (*p == '}') 
+			if (*p == '}')
 				islist = 0;
 			oldc = *p;
 			*p++ = 0;
@@ -135,13 +138,14 @@ static int load_users(struct policydb *policydb, const char *path) {
 			roldatum = hashtab_search(policydb->p_roles.table, q);
 			if (!roldatum) {
 				ERR(NULL, "undefined role %s (%s:%u)",
-					q, path, lineno);
+				    q, path, lineno);
 				continue;
 			}
 			/* Set the role and every role it dominates */
 			ebitmap_for_each_bit(&roldatum->dominates, rnode, bit) {
 				if (ebitmap_node_get_bit(rnode, bit))
-					if (ebitmap_set_bit(&usrdatum->roles.roles, bit, 1)) {
+					if (ebitmap_set_bit
+					    (&usrdatum->roles.roles, bit, 1)) {
 						ERR(NULL, "out of memory");
 						free(buffer);
 						fclose(fp);
@@ -170,7 +174,7 @@ static int load_users(struct policydb *policydb, const char *path) {
 			q = p;
 			while (*p && strncasecmp(p, "range", 5))
 				p++;
-			if (!(*p)) 
+			if (!(*p))
 				BADLINE();
 			*--p = 0;
 			p++;
@@ -193,15 +197,17 @@ static int load_users(struct policydb *policydb, const char *path) {
 			r = scontext;
 
 			context_init(&context);
-			if (mls_context_to_sid(policydb, oldc, &r, &context) < 0) {
-				ERR(NULL, "invalid level %s (%s:%u)",
-					scontext, path, lineno);
+			if (mls_context_to_sid(policydb, oldc, &r, &context) <
+			    0) {
+				ERR(NULL, "invalid level %s (%s:%u)", scontext,
+				    path, lineno);
 				free(scontext);
 				continue;
 
 			}
 			free(scontext);
-			memcpy(&usrdatum->dfltlevel, &context.range.level[0], sizeof(usrdatum->dfltlevel));
+			memcpy(&usrdatum->dfltlevel, &context.range.level[0],
+			       sizeof(usrdatum->dfltlevel));
 
 			if (strncasecmp(p, "range", 5))
 				BADLINE();
@@ -215,7 +221,7 @@ static int load_users(struct policydb *policydb, const char *path) {
 			q = p;
 			while (*p && *p != ';')
 				p++;
-			if (!(*p)) 
+			if (!(*p))
 				BADLINE();
 			*p++ = 0;
 
@@ -237,14 +243,16 @@ static int load_users(struct policydb *policydb, const char *path) {
 			r = scontext;
 
 			context_init(&context);
-			if (mls_context_to_sid(policydb, oldc, &r, &context) < 0) {
-				ERR(NULL, "invalid range %s (%s:%u)",
-					scontext, path, lineno);
+			if (mls_context_to_sid(policydb, oldc, &r, &context) <
+			    0) {
+				ERR(NULL, "invalid range %s (%s:%u)", scontext,
+				    path, lineno);
 				free(scontext);
 				continue;
 			}
 			free(scontext);
-			memcpy(&usrdatum->range, &context.range, sizeof(usrdatum->range));
+			memcpy(&usrdatum->range, &context.range,
+			       sizeof(usrdatum->range));
 		}
 	}
 
@@ -254,8 +262,7 @@ static int load_users(struct policydb *policydb, const char *path) {
 }
 
 int sepol_genusers(void *data, size_t len,
-		   const char *usersdir,
-		   void **newdata, size_t *newlen)
+		   const char *usersdir, void **newdata, size_t * newlen)
 {
 	struct policydb policydb;
 	char path[PATH_MAX];
@@ -278,23 +285,21 @@ int sepol_genusers(void *data, size_t len,
 	policydb_destroy(&policydb);
 	return 0;
 
-	err_destroy:
+      err_destroy:
 	policydb_destroy(&policydb);
 
-	err:
+      err:
 	return -1;
 }
 
-int hidden sepol_genusers_policydb(policydb_t *policydb,
-			    const char *usersdir)
+int hidden sepol_genusers_policydb(policydb_t * policydb, const char *usersdir)
 {
 	char path[PATH_MAX];
 
 	/* Load locally defined users. */
 	snprintf(path, sizeof path, "%s/local.users", usersdir);
 	if (load_users(policydb, path) < 0) {
-		ERR(NULL, "unable to load local.users: %s",
-			strerror(errno));
+		ERR(NULL, "unable to load local.users: %s", strerror(errno));
 		return -1;
 	}
 

@@ -16,7 +16,7 @@
  *  License along with this library; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
- 
+
 #ifndef _SEPOL_POLICYDB_MODULE_H_
 #define _SEPOL_POLICYDB_MODULE_H_
 
@@ -32,15 +32,17 @@
 
 struct sepol_module_package {
 	sepol_policydb_t *policy;
-	uint32_t	 version;
-	char 		 *file_contexts;
-	size_t	         file_contexts_len;
-	char		 *seusers;
-	size_t		 seusers_len;
-	char		 *user_extra;
-	size_t		 user_extra_len;
+	uint32_t version;
+	char *file_contexts;
+	size_t file_contexts_len;
+	char *seusers;
+	size_t seusers_len;
+	char *user_extra;
+	size_t user_extra_len;
+	char *netfilter_contexts;
+	size_t netfilter_contexts_len;
 };
 
-extern int sepol_module_package_init(sepol_module_package_t *p);
+extern int sepol_module_package_init(sepol_module_package_t * p);
 
 #endif

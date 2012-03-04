@@ -28,11 +28,11 @@
 struct type_set;
 
 typedef struct constraint_expr {
-#define CEXPR_NOT		1 /* not expr */
-#define CEXPR_AND		2 /* expr and expr */
-#define CEXPR_OR		3 /* expr or expr */
-#define CEXPR_ATTR		4 /* attr op attr */
-#define CEXPR_NAMES		5 /* attr op names */	
+#define CEXPR_NOT		1	/* not expr */
+#define CEXPR_AND		2	/* expr and expr */
+#define CEXPR_OR		3	/* expr or expr */
+#define CEXPR_ATTR		4	/* attr op attr */
+#define CEXPR_NAMES		5	/* attr op names */
 	uint32_t expr_type;	/* expression type */
 
 #define CEXPR_USER 1		/* user */
@@ -54,13 +54,12 @@ typedef struct constraint_expr {
 #define CEXPR_DOMBY  4		/* domby  */
 #define CEXPR_INCOMP 5		/* incomp */
 	uint32_t op;		/* operator */
-	
+
 	ebitmap_t names;	/* names */
-        struct type_set *type_names;
+	struct type_set *type_names;
 
-	struct constraint_expr *next;   /* next expression */
+	struct constraint_expr *next;	/* next expression */
 } constraint_expr_t;
-
 
 typedef struct constraint_node {
 	sepol_access_vector_t permissions;	/* constrained permissions */
@@ -70,10 +69,9 @@ typedef struct constraint_node {
 
 struct policydb;
 
-extern int constraint_expr_init(constraint_expr_t *expr);
-extern void constraint_expr_destroy(constraint_expr_t *expr);
+extern int constraint_expr_init(constraint_expr_t * expr);
+extern void constraint_expr_destroy(constraint_expr_t * expr);
 
-#endif	/* _CONSTRAINT_H_ */
+#endif				/* _CONSTRAINT_H_ */
 
 /* FLASK */
-

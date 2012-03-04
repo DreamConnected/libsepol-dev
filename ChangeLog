@@ -1,3 +1,85 @@
+1.12.24 2006-08-03
+	* Merged libsepol unit tests from Joshua Brindle.
+
+1.12.23 2006-08-03
+	* Merged symtab datum patch from Karl MacMillan.
+
+1.12.22 2006-08-03
+	* Merged netfilter contexts support from Chris PeBenito.
+
+1.12.21 2006-07-28
+	* Merged helpful hierarchy check errors patch from Joshua Brindle.
+
+1.12.20 2006-07-25
+	* Merged semodule_deps patch from Karl MacMillan.
+	  This adds source module names to the avrule decls.
+
+1.12.19 2006-06-29
+	* Lindent.
+
+1.12.18 2006-06-26
+	* Merged optionals in base take 2 patch set from Joshua Brindle.
+
+1.12.17 2006-05-30
+	* Revert 1.12.16.
+
+1.12.16 2006-05-30
+	* Merged cleaner fix for bool_ids overflow from Karl MacMillan,
+	  replacing the prior patch.
+
+1.12.15 2006-05-30
+	* Merged fixes for several memory leaks in the error paths during
+	  policy read from Serge Hallyn.
+
+1.12.14 2006-05-25
+	* Fixed bool_ids overflow bug in cond_node_find and cond_copy_list,
+	  based on bug report and suggested fix by Cedric Roux.
+
+1.12.13 2006-05-24
+	* Merged sens_copy_callback, check_role_hierarchy_callback,
+	  and node_from_record fixes from Serge Hallyn.
+
+1.12.12 2006-05-22
+	* Added sepol_policydb_compat_net() interface for testing whether
+	  a policy requires the compatibility support for network checks
+	  to be enabled in the kernel.
+
+1.12.11 2006-05-17
+	* Merged patch to initialize sym_val_to_name arrays from Kevin Carr.
+	  Reworked to use calloc in the first place, and converted some other
+	  malloc/memset pairs to calloc calls.
+
+1.12.10 2006-05-08
+	* Merged patch to revert role/user decl upgrade from Karl MacMillan.
+
+1.12.9 2006-05-08
+	* Dropped tests from all Makefile target.
+
+1.12.8 2006-05-05
+	* Merged fix warnings patch from Karl MacMillan.
+
+1.12.7 2006-05-05
+	* Merged libsepol test framework patch from Karl MacMillan.
+
+1.12.6 2006-04-28
+	* Fixed cond_normalize to traverse the entire cond list at link time.
+
+1.12.5 2006-04-03
+	* Merged fix for leak of optional package sections from Ivan Gyurdiev.
+
+1.12.4 2006-03-29
+	* Generalize test for bitmap overflow in ebitmap_set_bit.
+
+1.12.3 2006-03-27
+	* Fixed attr_convert_callback and expand_convert_type_set
+	  typemap bug.
+
+1.12.2 2006-03-24
+	* Fixed avrule_block_write num_decls endian bug.
+
+1.12.1 2006-03-20
+	* Fixed sepol_module_package_write buffer overflow bug.
+
 1.12 2006-03-14
 	* Updated version for release.
 

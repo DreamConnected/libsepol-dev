@@ -25,24 +25,23 @@
 #include <assert.h>
 #include <stdlib.h>
 
-int constraint_expr_init(constraint_expr_t *expr)
+int constraint_expr_init(constraint_expr_t * expr)
 {
 	memset(expr, 0, sizeof(*expr));
-        ebitmap_init(&expr->names);
-        if ((expr->type_names = malloc(sizeof(*expr->type_names))) == NULL) {
-                return -1;
-        }
-        type_set_init(expr->type_names);
-        return 0;
+	ebitmap_init(&expr->names);
+	if ((expr->type_names = malloc(sizeof(*expr->type_names))) == NULL) {
+		return -1;
+	}
+	type_set_init(expr->type_names);
+	return 0;
 }
 
-void constraint_expr_destroy(constraint_expr_t *expr)
+void constraint_expr_destroy(constraint_expr_t * expr)
 {
-        if (expr != NULL) {
-                ebitmap_destroy(&expr->names);
-                type_set_destroy(expr->type_names);
-                free(expr->type_names);
-                free(expr);
-        }
+	if (expr != NULL) {
+		ebitmap_destroy(&expr->names);
+		type_set_destroy(expr->type_names);
+		free(expr->type_names);
+		free(expr);
+	}
 }
-

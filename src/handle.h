@@ -6,17 +6,14 @@
 struct sepol_handle {
 	/* Error handling */
 	int msg_level;
-	const char* msg_channel;
-	const char* msg_fname;
+	const char *msg_channel;
+	const char *msg_fname;
 #ifdef __GNUC__
-	__attribute__ ((format (printf, 3, 4)))
+	__attribute__ ((format(printf, 3, 4)))
 #endif
-	void (*msg_callback) (
-		void* varg,
-		sepol_handle_t* handle,
-		const char* fmt,
-		...);
-	void* msg_callback_arg;
+	void (*msg_callback) (void *varg,
+			      sepol_handle_t * handle, const char *fmt, ...);
+	void *msg_callback_arg;
 };
 
 #endif
