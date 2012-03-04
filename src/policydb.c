@@ -105,6 +105,12 @@ static struct policydb_compat_info policydb_compat[] = {
 	 .ocon_num = OCON_NODE6 + 1,
 	 },
 	{
+	 .type = POLICY_KERN,
+	 .version = POLICYDB_VERSION_PERMISSIVE,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_NODE6 + 1,
+	 },
+	{
 	 .type = POLICY_BASE,
 	 .version = MOD_POLICYDB_VERSION_BASE,
 	 .sym_num = SYM_NUM,
@@ -125,6 +131,12 @@ static struct policydb_compat_info policydb_compat[] = {
 	{
 	 .type = POLICY_BASE,
 	 .version = MOD_POLICYDB_VERSION_POLCAP,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_NODE6 + 1,
+	 },
+	{
+	 .type = POLICY_BASE,
+	 .version = MOD_POLICYDB_VERSION_PERMISSIVE,
 	 .sym_num = SYM_NUM,
 	 .ocon_num = OCON_NODE6 + 1,
 	 },
@@ -150,7 +162,14 @@ static struct policydb_compat_info policydb_compat[] = {
 	 .type = POLICY_MOD,
 	 .version = MOD_POLICYDB_VERSION_POLCAP,
 	 .sym_num = SYM_NUM,
-	 .ocon_num = 0},
+	 .ocon_num = 0
+	 },
+	{
+	 .type = POLICY_MOD,
+	 .version = MOD_POLICYDB_VERSION_PERMISSIVE,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = 0
+	 },
 };
 
 #if 0
@@ -467,6 +486,8 @@ int policydb_init(policydb_t * p)
 
 	ebitmap_init(&p->policycaps);
 
+	ebitmap_init(&p->permissive_map);
+
 	for (i = 0; i < SYM_NUM; i++) {
 		p->sym_val_to_name[i] = NULL;
 		rc = symtab_init(&p->symtab[i], symtab_sizes[i]);
@@ -538,7 +559,7 @@ int policydb_user_cache(hashtab_key_t key
 	p = (policydb_t *) arg;
 
 	ebitmap_destroy(&user->cache);
-	if (role_set_expand(&user->roles, &user->cache, p)) {
+	if (role_set_expand(&user->roles, &user->cache, p, NULL)) {
 		return -1;
 	}
 
@@ -991,6 +1012,8 @@ void policydb_destroy(policydb_t * p)
 		return;
 
 	ebitmap_destroy(&p->policycaps);
+
+	ebitmap_destroy(&p->permissive_map);
 
 	symtabs_destroy(p->symtab);
 
@@ -1907,19 +1930,22 @@ static int type_read(policydb_t * p
 {
 	char *key = 0;
 	type_datum_t *typdatum;
-	uint32_t buf[4];
+	uint32_t buf[5];
 	size_t len;
-	int rc;
+	int rc, to_read;
 
 	typdatum = calloc(1, sizeof(type_datum_t));
 	if (!typdatum)
 		return -1;
 
-	if (p->policy_type == POLICY_KERN) {
-		rc = next_entry(buf, fp, sizeof(uint32_t) * 3);
-	} else {
-		rc = next_entry(buf, fp, sizeof(uint32_t) * 4);
-	}
+	if (p->policy_type == POLICY_KERN)
+		to_read = 3;
+	else if (p->policyvers >= MOD_POLICYDB_VERSION_PERMISSIVE)
+		to_read = 5;
+	else
+		to_read = 4;
+
+	rc = next_entry(buf, fp, sizeof(uint32_t) * to_read);
 	if (rc < 0)
 		goto bad;
 
@@ -1928,6 +1954,8 @@ static int type_read(policydb_t * p
 	typdatum->primary = le32_to_cpu(buf[2]);
 	if (p->policy_type != POLICY_KERN) {
 		typdatum->flavor = le32_to_cpu(buf[3]);
+		if (p->policyvers >= MOD_POLICYDB_VERSION_PERMISSIVE)
+			typdatum->flags = le32_to_cpu(buf[4]);
 		if (ebitmap_read(&typdatum->types, fp))
 			goto bad;
 	}
@@ -2086,8 +2114,8 @@ static int ocontext_read(struct policydb_compat_info *info,
 				rc = next_entry(buf, fp, sizeof(uint32_t) * 2);
 				if (rc < 0)
 					return -1;
-				c->u.node.addr = le32_to_cpu(buf[0]);
-				c->u.node.mask = le32_to_cpu(buf[1]);
+				c->u.node.addr = buf[0]; /* network order */
+				c->u.node.mask = buf[1]; /* network order */
 				if (context_read_and_validate
 				    (&c->context[0], p, fp))
 					return -1;
@@ -2117,11 +2145,9 @@ static int ocontext_read(struct policydb_compat_info *info,
 					if (rc < 0)
 						return -1;
 					for (k = 0; k < 4; k++)
-						c->u.node6.addr[k] =
-						    le32_to_cpu(buf[k]);
+						c->u.node6.addr[k] = buf[k]; /* network order */
 					for (k = 0; k < 4; k++)
-						c->u.node6.mask[k] =
-						    le32_to_cpu(buf[k + 4]);
+						c->u.node6.mask[k] = buf[k + 4]; /* network order */
 					if (context_read_and_validate
 					    (&c->context[0], p, fp))
 						return -1;
@@ -3154,6 +3180,12 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 	    (p->policyvers >= MOD_POLICYDB_VERSION_POLCAP &&
 	     p->policy_type == POLICY_MOD)) {
 		if (ebitmap_read(&p->policycaps, fp))
+			goto bad;
+	}
+
+	if (p->policyvers >= POLICYDB_VERSION_PERMISSIVE &&
+	    p->policy_type == POLICY_KERN) {
+		if (ebitmap_read(&p->permissive_map, fp))
 			goto bad;
 	}
 

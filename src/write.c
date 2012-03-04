@@ -959,6 +959,12 @@ static int type_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 	buf[items++] = cpu_to_le32(typdatum->primary);
 	if (p->policy_type != POLICY_KERN) {
 		buf[items++] = cpu_to_le32(typdatum->flavor);
+		if (p->policyvers >= MOD_POLICYDB_VERSION_PERMISSIVE)
+			buf[items++] = cpu_to_le32(typdatum->flags);
+		else if (typdatum->flags & TYPE_FLAGS_PERMISSIVE)
+			WARN(fp->handle, "Warning! Module policy version %d cannnot "
+			     "support permissive types, but one was defined",
+			     p->policyvers);
 	}
 	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
 	if (items != items2)
@@ -1091,8 +1097,8 @@ static int ocontext_write(struct policydb_compat_info *info, policydb_t * p,
 					return POLICYDB_ERROR;
 				break;
 			case OCON_NODE:
-				buf[0] = cpu_to_le32(c->u.node.addr);
-				buf[1] = cpu_to_le32(c->u.node.mask);
+				buf[0] = c->u.node.addr; /* network order */
+				buf[1] = c->u.node.mask; /* network order */
 				items = put_entry(buf, sizeof(uint32_t), 2, fp);
 				if (items != 2)
 					return POLICYDB_ERROR;
@@ -1114,11 +1120,9 @@ static int ocontext_write(struct policydb_compat_info *info, policydb_t * p,
 				break;
 			case OCON_NODE6:
 				for (j = 0; j < 4; j++)
-					buf[j] =
-					    cpu_to_le32(c->u.node6.addr[j]);
+					buf[j] = c->u.node6.addr[j]; /* network order */
 				for (j = 0; j < 4; j++)
-					buf[j + 4] =
-					    cpu_to_le32(c->u.node6.mask[j]);
+					buf[j + 4] = c->u.node6.mask[j]; /* network order */
 				items = put_entry(buf, sizeof(uint32_t), 8, fp);
 				if (items != 8)
 					return POLICYDB_ERROR;
@@ -1615,6 +1619,27 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 	    (p->policyvers >= MOD_POLICYDB_VERSION_POLCAP &&
 	     p->policy_type == POLICY_MOD)) {
 		if (ebitmap_write(&p->policycaps, fp) == -1)
+			return POLICYDB_ERROR;
+	}
+
+	if (p->policyvers < POLICYDB_VERSION_PERMISSIVE &&
+	    p->policy_type == POLICY_KERN) {
+		ebitmap_node_t *tnode;
+		unsigned int i;
+
+		ebitmap_for_each_bit(&p->permissive_map, tnode, i) {
+			if (ebitmap_node_get_bit(tnode, i)) {
+				WARN(fp->handle, "Warning! Policy version %d cannot "
+				     "support permissive types, but some were defined",
+				     p->policyvers);
+				break;
+			}
+		}
+	}
+
+	if (p->policyvers >= POLICYDB_VERSION_PERMISSIVE &&
+	    p->policy_type == POLICY_KERN) {
+		if (ebitmap_write(&p->permissive_map, fp) == -1)
 			return POLICYDB_ERROR;
 	}
 
