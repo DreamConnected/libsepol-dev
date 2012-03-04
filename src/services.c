@@ -2,11 +2,17 @@
 /*
  * Author : Stephen Smalley, <sds@epoch.ncsc.mil> 
  */
-/* Updated: Frank Mayer <mayerf@tresys.com>
+/*
+ * Updated: Trusted Computer Solutions, Inc. <dgoeddel@trustedcs.com>
+ *
+ *	Support for enhanced MLS infrastructure.
+ *
+ * Updated: Frank Mayer <mayerf@tresys.com>
  *          and Karl MacMillan <kmacmillan@tresys.com>
  *
  * 	Added conditional policy language extensions
  *
+ * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
  * Copyright (C) 2003 - 2004 Tresys Technology, LLC
  *	This program is free software; you can redistribute it and/or modify
  *  	it under the terms of the GNU General Public License as published by
@@ -33,8 +39,8 @@
 #include <sepol/conditional.h>
 #include <sepol/flask.h>
 
-/* Copied from selinux/av_permissions.h. */
-#define PROCESS__TRANSITION                       0x00000002UL
+#include "private.h"
+#include "av_permissions.h"
 
 #define BUG() do { printf("Badness in %s at %s:%d\n", __FUNCTION__, __FILE__, __LINE__); } while (0)
 #define BUG_ON(x) do { if (x) printf("Badness in %s at %s:%d\n", __FUNCTION__, __FILE__, __LINE__); } while (0)
@@ -79,19 +85,26 @@ int sepol_set_policydb_from_file(FILE *fp)
  */
 static uint32_t latest_granting = 0;
 
-
 /*
  * Return the boolean value of a constraint expression 
  * when it is applied to the specified source and target 
  * security contexts.
+ *
+ * xcontext is a special beast...  It is used by the validatetrans rules
+ * only.  For these rules, scontext is the context before the transition,
+ * tcontext is the context after the transition, and xcontext is the context
+ * of the process performing the transition.  All other callers of
+ * constraint_expr_eval should pass in NULL for xcontext.
  */
-static int constraint_expr_eval(context_struct_t * scontext,
-				context_struct_t * tcontext,
-				constraint_expr_t * cexpr)
+int constraint_expr_eval(context_struct_t *scontext,
+                         context_struct_t *tcontext,
+                         context_struct_t *xcontext,
+                         constraint_expr_t *cexpr)
 {
 	uint32_t val1, val2;
 	context_struct_t *c;
 	role_datum_t *r1, *r2;
+	mls_level_t *l1, *l2;
 	constraint_expr_t *e;
 	int s[CEXPR_MAXDEPTH];
 	int sp = -1;
@@ -148,6 +161,52 @@ static int constraint_expr_eval(context_struct_t * scontext,
 					break;
 				}
 				break;
+			case CEXPR_L1L2:
+				l1 = &(scontext->range.level[0]);
+				l2 = &(tcontext->range.level[0]);
+				goto mls_ops;
+			case CEXPR_L1H2:
+				l1 = &(scontext->range.level[0]);
+				l2 = &(tcontext->range.level[1]);
+				goto mls_ops;
+			case CEXPR_H1L2:
+				l1 = &(scontext->range.level[1]);
+				l2 = &(tcontext->range.level[0]);
+				goto mls_ops;
+			case CEXPR_H1H2:
+				l1 = &(scontext->range.level[1]);
+				l2 = &(tcontext->range.level[1]);
+				goto mls_ops;
+			case CEXPR_L1H1:
+				l1 = &(scontext->range.level[0]);
+				l2 = &(scontext->range.level[1]);
+				goto mls_ops;
+			case CEXPR_L2H2:
+				l1 = &(tcontext->range.level[0]);
+				l2 = &(tcontext->range.level[1]);
+				goto mls_ops;
+mls_ops:
+			switch (e->op) {
+			case CEXPR_EQ:
+				s[++sp] = mls_level_eq(l1, l2);
+				continue;
+			case CEXPR_NEQ:
+				s[++sp] = !mls_level_eq(l1, l2);
+				continue;
+			case CEXPR_DOM:
+				s[++sp] = mls_level_dom(l1, l2);
+				continue;
+			case CEXPR_DOMBY:
+				s[++sp] = mls_level_dom(l2, l1);
+				continue;
+			case CEXPR_INCOMP:
+				s[++sp] = mls_level_incomp(l2, l1);
+				continue;
+			default:
+				BUG();
+				return 0;
+			}
+			break;
 			default:
 				BUG();
 				return 0;
@@ -171,6 +230,13 @@ static int constraint_expr_eval(context_struct_t * scontext,
 			c = scontext;
 			if (e->attr & CEXPR_TARGET) 
 				c = tcontext;
+			else if (e->attr & CEXPR_XTARGET) {
+				c = xcontext;
+				if (!c) {
+					BUG();
+					return 0;
+				}
+			}
 			if (e->attr & CEXPR_USER) 
 				val1 = c->user;
 			else if (e->attr & CEXPR_ROLE)
@@ -257,18 +323,14 @@ static int context_struct_compute_av(context_struct_t *scontext,
 	/* Check conditional av table for additional permissions */
 	cond_compute_av(&policydb->te_cond_avtab, &avkey, avd);
 
-	/*
-	 * Remove any permissions prohibited by the MLS policy.
-	 */
-	mls_compute_av(policydb, scontext, tcontext, tclass_datum, &avd->allowed);
-
 	/* 
-	 * Remove any permissions prohibited by a constraint.
+	 * Remove any permissions prohibited by a constraint (this includes
+	 * the MLS policy).
 	 */
 	constraint = tclass_datum->constraints;
 	while (constraint) {
 		if ((constraint->permissions & (avd->allowed)) &&
-		    !constraint_expr_eval(scontext, tcontext,
+		    !constraint_expr_eval(scontext, tcontext, NULL,
 					  constraint->expr)) {
 			avd->allowed = (avd->allowed) & ~(constraint->permissions);
 		}
@@ -281,7 +343,7 @@ static int context_struct_compute_av(context_struct_t *scontext,
 	 * pair.
 	 */
 	if (tclass == SECCLASS_PROCESS &&
-	    (avd->allowed & PROCESS__TRANSITION) &&
+	    (avd->allowed & (PROCESS__TRANSITION | PROCESS__DYNTRANSITION)) &&
 	    scontext->role != tcontext->role) {
 		for (ra = policydb->role_allow; ra; ra = ra->next) {
 			if (scontext->role == ra->role &&
@@ -289,12 +351,61 @@ static int context_struct_compute_av(context_struct_t *scontext,
 				break;
 		}		
 		if (!ra)
-			avd->allowed = (avd->allowed) & ~(PROCESS__TRANSITION);
+			avd->allowed = (avd->allowed) & ~(PROCESS__TRANSITION |
+			                                PROCESS__DYNTRANSITION);
 	}	
 
 	return 0;
 }
 
+int sepol_validate_transition(security_id_t oldsid, security_id_t newsid,
+                              security_id_t tasksid, security_class_t tclass)
+{
+	context_struct_t *ocontext;
+	context_struct_t *ncontext;
+	context_struct_t *tcontext;
+	class_datum_t *tclass_datum;
+	constraint_node_t *constraint;
+
+	if (!tclass || tclass > policydb->p_classes.nprim) {
+		printf("sepol_validate_transition:  "
+		       "unrecognized class %d\n", tclass);
+		return -EINVAL;
+	}
+	tclass_datum = policydb->class_val_to_struct[tclass - 1];
+
+	ocontext = sepol_sidtab_search(sidtab, oldsid);
+	if (!ocontext) {
+		printf("sepol_validate_transition: "
+		       " unrecognized SID %d\n", oldsid);
+		return -EINVAL;
+	}
+
+	ncontext = sepol_sidtab_search(sidtab, newsid);
+	if (!ncontext) {
+		printf("sepol_validate_transition: "
+		       " unrecognized SID %d\n", newsid);
+		return -EINVAL;
+	}
+
+	tcontext = sepol_sidtab_search(sidtab, tasksid);
+	if (!tcontext) {
+		printf("sepol_validate_transition: "
+		       " unrecognized SID %d\n", tasksid);
+		return -EINVAL;
+	}
+
+	constraint = tclass_datum->validatetrans;
+	while (constraint) {
+		if (!constraint_expr_eval(ocontext, ncontext, tcontext,
+		                          constraint->expr)) {
+			return -EPERM;
+		}
+		constraint = constraint->next;
+	}
+
+	return 0;
+}
 
 int sepol_compute_av(security_id_t ssid,
 			security_id_t tsid,
@@ -348,7 +459,7 @@ int context_struct_to_string(context_struct_t * context,
 	*scontext_len += mls_compute_context_len(policydb, context);
 
 	/* Allocate space for the context; caller must free this space. */
-	scontextp = malloc(*scontext_len+1);
+	scontextp = malloc(*scontext_len);
 	if (!scontextp) {
 		return -ENOMEM;
 	}
@@ -357,15 +468,14 @@ int context_struct_to_string(context_struct_t * context,
 	/*
 	 * Copy the user name, role name and type name into the context.
 	 */
-	sprintf(scontextp, "%s:%s:%s:",
+	sprintf(scontextp, "%s:%s:%s",
 		policydb->p_user_val_to_name[context->user - 1],
 		policydb->p_role_val_to_name[context->role - 1],
 		policydb->p_type_val_to_name[context->type - 1]);
-	scontextp += strlen(policydb->p_user_val_to_name[context->user - 1]) + 1 + strlen(policydb->p_role_val_to_name[context->role - 1]) + 1 + strlen(policydb->p_type_val_to_name[context->type - 1]) + 1;
+	scontextp += strlen(policydb->p_user_val_to_name[context->user - 1]) + 1 + strlen(policydb->p_role_val_to_name[context->role - 1]) + 1 + strlen(policydb->p_type_val_to_name[context->type - 1]);
 
 	mls_sid_to_context(policydb, context, &scontextp);
 
-	scontextp--;
 	*scontextp = 0;
 
 	return 0;
@@ -642,23 +752,8 @@ static int sepol_compute_sid(security_id_t ssid,
 				}
 			}
 		}
-
-		if (!type_change && !roletr) {
-			/* No change in process role or type. */
-			*out_sid = ssid;
-			goto out;
-
-		}
 		break;
 	default:
-		if (!type_change &&
-		    (newcontext.user == tcontext->user) &&
-		    mls_context_cmp(scontext, tcontext)) {
-                        /* No change in object type, owner, 
-			   or MLS attributes. */
-			*out_sid = tsid;
-			goto out;
-		}
 		break;
 	}
 
@@ -1241,36 +1336,38 @@ int sepol_get_user_sids(security_id_t fromsid,
 			usercon.type = j+1;
 			if (usercon.type == fromcon->type)
 				continue;
-			mls_for_user_ranges(user,usercon) {
-				rc = context_struct_compute_av(fromcon, &usercon, 
-							       SECCLASS_PROCESS,
-							       PROCESS__TRANSITION, 
-							       &avd);
-				if (rc ||  !(avd.allowed & PROCESS__TRANSITION)) 
-					continue;
-				rc = sepol_sidtab_context_to_sid(sidtab, &usercon, &sid);
-				if (rc) {
+
+			if (mls_setup_user_range(fromcon, user, &usercon))
+				continue;
+
+			rc = context_struct_compute_av(fromcon, &usercon, 
+						       SECCLASS_PROCESS,
+						       PROCESS__TRANSITION, 
+						       &avd);
+			if (rc ||  !(avd.allowed & PROCESS__TRANSITION)) 
+				continue;
+			rc = sepol_sidtab_context_to_sid(sidtab, &usercon, &sid);
+			if (rc) {
+				free(mysids);
+				goto out;
+			}
+			if (mynel < maxnel) {
+				mysids[mynel++] = sid;
+			} else {
+				maxnel += SIDS_NEL;
+				mysids2 = malloc(maxnel*sizeof(security_id_t));
+
+				if (!mysids2) {
+					rc = -ENOMEM;
 					free(mysids);
 					goto out;
 				}
-				if (mynel < maxnel) {
-					mysids[mynel++] = sid;
-				} else {
-					maxnel += SIDS_NEL;
-					mysids2 = malloc(maxnel*sizeof(security_id_t));
-					if (!mysids2) {
-						rc = -ENOMEM;
-						free(mysids);
-						goto out;
-					}
-					memset(mysids2, 0, maxnel*sizeof(security_id_t));
-					memcpy(mysids2, mysids, mynel * sizeof(security_id_t));
-					free(mysids);
-					mysids = mysids2;
-					mysids[mynel++] = sid;
-				}
+				memset(mysids2, 0, maxnel*sizeof(security_id_t));
+				memcpy(mysids2, mysids, mynel * sizeof(security_id_t));
+				free(mysids);
+				mysids = mysids2;
+				mysids[mynel++] = sid;
 			}
-			mls_end_user_ranges;
 		}
 	}
 

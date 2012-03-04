@@ -1,5 +1,12 @@
 
 /* Author : Stephen Smalley, <sds@epoch.ncsc.mil> */
+/*
+ * Updated: Trusted Computer Solutions, Inc. <dgoeddel@trustedcs.com>
+ *
+ *	Support for enhanced MLS infrastructure.
+ *
+ * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
+ */
 
 /* FLASK */
 
@@ -12,6 +19,7 @@
 
 #include <stdint.h>
 #include <sepol/ebitmap.h>
+#include <sepol/sepol.h>
 #include <sepol/flask_types.h>
 
 typedef struct mls_level {
@@ -23,45 +31,35 @@ typedef struct mls_range {
 	mls_level_t level[2]; /* low == level[0], high == level[1] */
 } mls_range_t;
 
-typedef struct mls_range_list {
-	mls_range_t range;
-	struct mls_range_list *next;
-} mls_range_list_t;
+extern int sepol_mls_enabled(void);
 
-#define MLS_RELATION_DOM	1 /* source dominates */
-#define MLS_RELATION_DOMBY	2 /* target dominates */
-#define MLS_RELATION_EQ		4 /* source and target are equivalent */
-#define MLS_RELATION_INCOMP	8 /* source and target are incomparable */
+static inline int mls_level_eq(struct mls_level *l1, struct mls_level *l2)
+{
+	if (!sepol_mls_enabled())
+		return 1;
 
-#define mls_level_eq(l1,l2) \
-(((l1).sens == (l2).sens) && ebitmap_cmp(&(l1).cat,&(l2).cat))
+	return ((l1->sens == l2->sens) &&
+	        ebitmap_cmp(&l1->cat, &l2->cat));
+}
 
-#define mls_level_relation(l1,l2) ( \
-(((l1).sens == (l2).sens) && ebitmap_cmp(&(l1).cat,&(l2).cat)) ? \
-				    MLS_RELATION_EQ : \
-(((l1).sens >= (l2).sens) && ebitmap_contains(&(l1).cat, &(l2).cat)) ? \
-				    MLS_RELATION_DOM : \
-(((l2).sens >= (l1).sens) && ebitmap_contains(&(l2).cat, &(l1).cat)) ? \
-				    MLS_RELATION_DOMBY : \
-				    MLS_RELATION_INCOMP )
+static inline int mls_level_dom(struct mls_level *l1, struct mls_level *l2)
+{
+	if (!sepol_mls_enabled())
+		return 1;
 
-#define mls_range_contains(r1,r2) \
-((mls_level_relation((r1).level[0], (r2).level[0]) & \
-	  (MLS_RELATION_EQ | MLS_RELATION_DOMBY)) && \
-	 (mls_level_relation((r1).level[1], (r2).level[1]) & \
-	  (MLS_RELATION_EQ | MLS_RELATION_DOM)))
+	return ((l1->sens >= l2->sens) &&
+	        ebitmap_contains(&l1->cat, &l2->cat));
+}
 
-/*
- * Every access vector permission is mapped to a set of MLS base
- * permissions, based on the flow properties of the corresponding
- * operation.
- */
-typedef struct mls_perms {
-	access_vector_t read;     /* permissions that map to `read' */
-	access_vector_t readby;   /* permissions that map to `readby' */
-	access_vector_t write;    /* permissions that map to `write' */
-	access_vector_t writeby;  /* permissions that map to `writeby' */
-} mls_perms_t;
+#define mls_level_incomp(l1, l2) \
+(!mls_level_dom((l1), (l2)) && !mls_level_dom((l2), (l1)))
+
+#define mls_level_between(l1, l2, l3) \
+(mls_level_dom((l1), (l2)) && mls_level_dom((l3), (l1)))
+
+#define mls_range_contains(r1, r2) \
+(mls_level_dom(&(r2).level[0], &(r1).level[0]) && \
+ mls_level_dom(&(r1).level[1], &(r2).level[1]))
 
 #endif
 

@@ -5,22 +5,13 @@ SHLIBDIR ?= $(DESTDIR)/lib
 
 LIBVERSION = 1
 
-# Set to y for MLS
-MLS=n
-
-ifeq ($(MLS),y)
-OPTIONS = -DCONFIG_SECURITY_SELINUX_MLS
-else
-OPTIONS =
-endif
-
 LIBA=libsepol.a 
 TARGET=libsepol.so
 LIBSO=$(TARGET).$(LIBVERSION)
 OBJS= $(patsubst %.c,%.o,$(wildcard *.c))
 LOBJS= $(patsubst %.c,%.lo,$(wildcard *.c))
-CFLAGS = -Wall $(OPTIONS)
-override CFLAGS += -I. -I../include
+CFLAGS = -Wall
+override CFLAGS += -I. -I../include -D_GNU_SOURCE
 
 all: $(LIBA) $(LIBSO)
 
@@ -44,6 +35,9 @@ install: all
 	test -d $(SHLIBDIR) || install -m 755 -d $(SHLIBDIR)
 	install -m 755 $(LIBSO) $(SHLIBDIR)
 	cd $(LIBDIR) && ln -sf ../../`basename $(SHLIBDIR)`/$(LIBSO) $(TARGET)
+
+relabel:
+	/sbin/restorecon $(SHLIBDIR)/$(LIBSO)
 
 clean: 
 	rm -f $(OBJS) $(LOBJS) $(LIBA) $(LIBSO) $(TARGET) 
