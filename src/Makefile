@@ -24,10 +24,10 @@ $(LIBSO): $(LOBJS)
 	ln -sf $@ $(TARGET) 
 
 %.o:  %.c 
-	$(CC) $(CFLAGS) -fpic -c -o $@ $<
+	$(CC) $(CFLAGS) -fPIC -c -o $@ $<
 
 %.lo:  %.c
-	$(CC) $(CFLAGS) -fpic -DSHARED -c -o $@ $<
+	$(CC) $(CFLAGS) -fPIC -DSHARED -c -o $@ $<
 
 install: all
 	test -d $(LIBDIR) || install -m 755 -d $(LIBDIR)

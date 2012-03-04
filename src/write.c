@@ -1641,7 +1641,7 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 	if ((p->policyvers >= POLICYDB_VERSION_MLS
 	     && p->policy_type == POLICY_KERN)
 	    || (p->policyvers >= MOD_POLICYDB_VERSION_MLS
-		&& p->policyvers < MOD_POLICYDB_VERSION_MLS
+		&& p->policyvers < MOD_POLICYDB_VERSION_RANGETRANS
 		&& p->policy_type == POLICY_BASE)) {
 		if (range_write(p, fp)) {
 			return POLICYDB_ERROR;
