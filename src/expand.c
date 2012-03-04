@@ -2134,17 +2134,27 @@ static int copy_neverallow(policydb_t * dest_pol, uint32_t * typemap,
  */
 static int copy_and_expand_avrule_block(expand_state_t * state)
 {
-	avrule_block_t *curblock;
+	avrule_block_t *curblock = state->base->global;
+	avrule_block_t *prevblock;
 	int retval = -1;
 
-	for (curblock = state->base->global; curblock != NULL;
-	     curblock = curblock->next) {
+	if (avtab_alloc(&state->out->te_avtab, MAX_AVTAB_SIZE)) {
+ 		ERR(state->handle, "Out of Memory!");
+ 		return -1;
+ 	}
+ 
+ 	if (avtab_alloc(&state->out->te_cond_avtab, MAX_AVTAB_SIZE)) {
+ 		ERR(state->handle, "Out of Memory!");
+ 		return -1;
+ 	}
+
+	while (curblock) {
 		avrule_decl_t *decl = curblock->enabled;
 		avrule_t *cur_avrule;
 
 		if (decl == NULL) {
 			/* nothing was enabled within this block */
-			continue;
+			goto cont;
 		}
 
 		/* copy role allows and role trans */
@@ -2186,6 +2196,18 @@ static int copy_and_expand_avrule_block(expand_state_t * state)
 		/* copy conditional rules */
 		if (cond_node_copy(state, decl->cond_list))
 			goto cleanup;
+
+      cont:
+		prevblock = curblock;
+		curblock = curblock->next;
+
+		if (state->handle && state->handle->expand_consume_base) {
+			/* set base top avrule block in case there
+ 			 * is an error condition and the policy needs 
+ 			 * to be destroyed */
+			state->base->global = curblock;
+			avrule_block_destroy(prevblock);
+		}
 	}
 
 	retval = 0;
@@ -2251,6 +2273,12 @@ int expand_module(sepol_handle_t * handle,
 	/* Copy mls state from base to out */
 	out->mls = base->mls;
 	out->handle_unknown = base->handle_unknown;
+
+	/* Copy policy capabilities */
+	if (ebitmap_cpy(&out->policycaps, &base->policycaps)) {
+		ERR(handle, "Out of memory!");
+		goto cleanup;
+	}
 
 	if ((state.typemap =
 	     (uint32_t *) calloc(state.base->p_types.nprim,
@@ -2542,6 +2570,11 @@ int expand_avtab(policydb_t * p, avtab_t * a, avtab_t * expa)
 {
 	struct expand_avtab_data data;
 
+	if (avtab_alloc(expa, MAX_AVTAB_SIZE)) {
+		ERR(NULL, "Out of memory!");
+		return -1;
+	}
+
 	data.expa = expa;
 	data.p = p;
 	return avtab_map(a, expand_avtab_node, &data);
@@ -2669,6 +2702,11 @@ int expand_cond_av_list(policydb_t * p, cond_av_list_t * l,
 	cond_av_list_t *cur;
 	avtab_ptr_t node;
 	int rc;
+
+	if (avtab_alloc(expa, MAX_AVTAB_SIZE)) {
+		ERR(NULL, "Out of memory!");
+		return -1;
+	}
 
 	*newl = NULL;
 	for (cur = l; cur; cur = cur->next) {

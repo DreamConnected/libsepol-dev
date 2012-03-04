@@ -1,3 +1,47 @@
+2.0.25 2008-03-04
+	* Drop unused ->buffer field from struct policy_file.
+
+2.0.24 2008-03-04
+	* Add policy_file_init() initalizer for struct policy_file and use it, from Todd C. Miller.
+
+2.0.23 2008-02-28
+	* Accept "Flask" as an alternate identifier string in kernel policies from Stephen Smalley.
+
+2.0.22 2008-02-28
+	* Add support for open_perms policy capability from Eric Paris.
+
+2.0.21 2008-02-20
+	* Fix invalid memory allocation in policydb_index_others() from Jason Tang.
+
+2.0.20 2008-02-04
+	* Port of Yuichi Nakamura's tune avtab to reduce memory usage patch from the kernel avtab to libsepol from Stephen Smalley.
+
+2.0.19 2008-02-02
+	* Add support for consuming avrule_blocks during expansion to reduce
+	  peak memory usage from Joshua Brindle.
+
+2.0.18 2008-01-02
+	* Added support for policy capabilities from Todd Miller.
+
+2.0.17 2007-12-21
+	* Prevent generation of policy.18 with MLS enabled from Todd Miller.
+
+2.0.16 2007-12-07
+	* print module magic number in hex on mismatch, from Todd Miller.
+
+2.0.15 2007-11-29
+	* clarify and reduce neverallow error reporting from Stephen Smalley.
+
+2.0.14 2007-11-05
+	* Reject self aliasing at link time from Stephen Smalley.
+
+2.0.13 2007-11-05
+	* Allow handle_unknown in base to be overridden by semanage.conf from Stephen Smalley.
+
+2.0.12 2007-10-11
+	* Fixed bug in require checking from Stephen Smalley.
+	* Added user hierarchy checking from Todd Miller.	
+
 2.0.11 2007-09-24
 	* Pass CFLAGS to CC even on link command, per Dennis Gilmore.
 

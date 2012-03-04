@@ -83,6 +83,13 @@ extern int sepol_policydb_set_typevers(sepol_policydb_t * p, unsigned int type);
  */
 extern int sepol_policydb_set_vers(sepol_policydb_t * p, unsigned int vers);
 
+/* Set how to handle unknown class/perms. */
+#define SEPOL_DENY_UNKNOWN	    0
+#define SEPOL_REJECT_UNKNOWN	    2
+#define SEPOL_ALLOW_UNKNOWN	    4
+extern int sepol_policydb_set_handle_unknown(sepol_policydb_t * p,
+					     unsigned int handle_unknown);
+
 /* 
  * Read a policydb from a policy file.
  * This automatically sets the type and version based on the 

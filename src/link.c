@@ -696,6 +696,12 @@ static int alias_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		return -1;
 	}
 
+	if (!strcmp(id, target_id)) {
+		ERR(state->handle, "%s: Self aliasing of %s.",
+		    state->cur_mod_name, id);
+		return -1;
+	}
+
 	base_type = hashtab_search(state->base->p_types.table, id);
 	if (base_type == NULL) {
 		if (state->verbose)
@@ -1742,8 +1748,6 @@ static int is_decl_requires_met(link_state_t * state,
 				    id);
 				return -1;
 			}
-			if (scope->scope == SCOPE_REQ)
-				return 0;
 
 			fparg.valuep = perm_value;
 			fparg.key = NULL;

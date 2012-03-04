@@ -99,6 +99,12 @@ static struct policydb_compat_info policydb_compat[] = {
 	 .ocon_num = OCON_NODE6 + 1,
 	 },
 	{
+	 .type = POLICY_KERN,
+	 .version = POLICYDB_VERSION_POLCAP,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_NODE6 + 1,
+	 },
+	{
 	 .type = POLICY_BASE,
 	 .version = MOD_POLICYDB_VERSION_BASE,
 	 .sym_num = SYM_NUM,
@@ -117,6 +123,12 @@ static struct policydb_compat_info policydb_compat[] = {
 	 .ocon_num = OCON_NODE6 + 1,
 	 },
 	{
+	 .type = POLICY_BASE,
+	 .version = MOD_POLICYDB_VERSION_POLCAP,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_NODE6 + 1,
+	 },
+	{
 	 .type = POLICY_MOD,
 	 .version = MOD_POLICYDB_VERSION_BASE,
 	 .sym_num = SYM_NUM,
@@ -131,6 +143,12 @@ static struct policydb_compat_info policydb_compat[] = {
 	{
 	 .type = POLICY_MOD,
 	 .version = MOD_POLICYDB_VERSION_MLS_USERS,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = 0
+	 },
+	{
+	 .type = POLICY_MOD,
+	 .version = MOD_POLICYDB_VERSION_POLCAP,
 	 .sym_num = SYM_NUM,
 	 .ocon_num = 0},
 };
@@ -447,6 +465,8 @@ int policydb_init(policydb_t * p)
 
 	memset(p, 0, sizeof(policydb_t));
 
+	ebitmap_init(&p->policycaps);
+
 	for (i = 0; i < SYM_NUM; i++) {
 		p->sym_val_to_name[i] = NULL;
 		rc = symtab_init(&p->symtab[i], symtab_sizes[i]);
@@ -472,16 +492,13 @@ int policydb_init(policydb_t * p)
 
 	rc = roles_init(p);
 	if (rc)
-		goto out_free_avtab;
+		goto out_free_symtab;
 
 	rc = cond_policydb_init(p);
 	if (rc)
-		goto out_free_avtab;
+		goto out_free_symtab;
       out:
 	return rc;
-
-      out_free_avtab:
-	avtab_destroy(&p->te_avtab);
 
       out_free_symtab:
 	for (i = 0; i < SYM_NUM; i++) {
@@ -803,14 +820,16 @@ int policydb_index_others(sepol_handle_t * handle,
 	cond_init_bool_indexes(p);
 
 	for (i = SYM_ROLES; i < SYM_NUM; i++) {
-		if (p->sym_val_to_name[i])
-			free(p->sym_val_to_name[i]);
-		p->sym_val_to_name[i] = (char **)
-		    calloc(p->symtab[i].nprim, sizeof(char *));
-		if (!p->sym_val_to_name[i])
-			return -1;
-		if (hashtab_map(p->symtab[i].table, index_f[i], p))
-			return -1;
+		free(p->sym_val_to_name[i]);
+		p->sym_val_to_name[i] = NULL;
+		if (p->symtab[i].nprim) {
+			p->sym_val_to_name[i] = (char **)
+			    calloc(p->symtab[i].nprim, sizeof(char *));
+			if (!p->sym_val_to_name[i])
+				return -1;
+			if (hashtab_map(p->symtab[i].table, index_f[i], p))
+				return -1;
+		}
 	}
 
 	/* This pre-expands the roles and users for context validity checking */
@@ -970,6 +989,8 @@ void policydb_destroy(policydb_t * p)
 
 	if (!p)
 		return;
+
+	ebitmap_destroy(&p->policycaps);
 
 	symtabs_destroy(p->symtab);
 
@@ -2959,7 +2980,7 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 	unsigned int i, j, r_policyvers;
 	uint32_t buf[5], config;
 	size_t len, nprim, nel;
-	char *policydb_str, *target_str = NULL;
+	char *policydb_str, *target_str = NULL, *alt_target_str = NULL;
 	struct policydb_compat_info *info;
 	unsigned int policy_type, bufindex;
 	ebitmap_node_t *tnode;
@@ -2977,6 +2998,7 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 	if (buf[0] == POLICYDB_MAGIC) {
 		policy_type = POLICY_KERN;
 		target_str = POLICYDB_STRING;
+		alt_target_str = POLICYDB_ALT_STRING;
 	} else if (buf[0] == POLICYDB_MOD_MAGIC) {
 		policy_type = POLICY_MOD;
 		target_str = POLICYDB_MOD_STRING;
@@ -2988,7 +3010,8 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 	}
 
 	len = buf[1];
-	if (len != strlen(target_str)) {
+	if (len != strlen(target_str) &&
+	    (!alt_target_str || len != strlen(alt_target_str))) {
 		ERR(fp->handle, "policydb string length %zu does not match "
 		    "expected length %zu", len, strlen(target_str));
 		return POLICYDB_ERROR;
@@ -3007,7 +3030,8 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 		return POLICYDB_ERROR;
 	}
 	policydb_str[len] = 0;
-	if (strcmp(policydb_str, target_str)) {
+	if (strcmp(policydb_str, target_str) &&
+	    (!alt_target_str || strcmp(policydb_str, alt_target_str))) {
 		ERR(fp->handle, "policydb string %s does not match "
 		    "my string %s", policydb_str, target_str);
 		free(policydb_str);
@@ -3121,6 +3145,16 @@ int policydb_read(policydb_t * p, struct policy_file *fp, unsigned verbose)
 			goto bad;
 		}
 		p->version[len] = '\0';
+	}
+
+	if ((p->policyvers >= POLICYDB_VERSION_POLCAP &&
+	     p->policy_type == POLICY_KERN) ||
+	    (p->policyvers >= MOD_POLICYDB_VERSION_POLCAP &&
+	     p->policy_type == POLICY_BASE) ||
+	    (p->policyvers >= MOD_POLICYDB_VERSION_POLCAP &&
+	     p->policy_type == POLICY_MOD)) {
+		if (ebitmap_read(&p->policycaps, fp))
+			goto bad;
 	}
 
 	for (i = 0; i < info->sym_num; i++) {
@@ -3255,4 +3289,9 @@ int policydb_reindex_users(policydb_t * p)
 		return -1;
 
 	return 0;
+}
+
+void policy_file_init(policy_file_t *pf)
+{
+	memset(pf, 0, sizeof(policy_file_t));
 }

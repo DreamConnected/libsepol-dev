@@ -154,6 +154,7 @@ int sepol_genbools(void *data, size_t len, char *booleans)
 		goto err_destroy;
 	}
 
+	policy_file_init(&pf);
 	pf.type = PF_USE_MEMORY;
 	pf.data = data;
 	pf.len = len;
@@ -225,6 +226,7 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values,
 		goto err_destroy;
 	}
 
+	policy_file_init(&pf);
 	pf.type = PF_USE_MEMORY;
 	pf.data = data;
 	pf.len = len;

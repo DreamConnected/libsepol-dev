@@ -371,7 +371,7 @@ static int module_package_read_offsets(sepol_module_package_t * mod,
 	}
 	if (le32_to_cpu(buf[0]) != SEPOL_MODULE_PACKAGE_MAGIC) {
 		ERR(file->handle,
-		    "wrong magic number for module package:  expected %u, got %u",
+		    "wrong magic number for module package:  expected %#08x, got %#08x",
 		    SEPOL_MODULE_PACKAGE_MAGIC, le32_to_cpu(buf[0]));
 		goto err;
 	}
@@ -851,9 +851,8 @@ int sepol_module_package_write(sepol_module_package_t * p,
 
 	if (p->policy) {
 		/* compute policy length */
+		policy_file_init(&polfile);
 		polfile.type = PF_LEN;
-		polfile.data = NULL;
-		polfile.len = 0;
 		polfile.handle = file->handle;
 		if (policydb_write(&p->policy->p, &polfile))
 			return -1;

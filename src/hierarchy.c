@@ -130,7 +130,7 @@ static int check_avtab_hierarchy_callback(avtab_key_t * k, avtab_datum_t * d,
 	avtab_key_t key;
 	avtab_datum_t *avdatump;
 	hierarchy_args_t *a;
-	uint32_t av;
+	uint32_t av = 0;
 	type_datum_t *t = NULL, *t2 = NULL;
 
 	if (!(k->specified & AVTAB_ALLOWED)) {
@@ -164,8 +164,7 @@ static int check_avtab_hierarchy_callback(avtab_key_t * k, avtab_datum_t * d,
 				return 0;
 			}
 			av = avdatump->data;
-		} else
-			av = 0;
+		}
 		if (a->opt_cond_list) {
 			/* if a conditional list is present search it before continuing */
 			avdatump = cond_av_list_search(&key, a->opt_cond_list);
@@ -202,8 +201,7 @@ static int check_avtab_hierarchy_callback(avtab_key_t * k, avtab_datum_t * d,
 				return 0;
 			}
 			av = avdatump->data;
-		} else
-			av = 0;
+		}
 		if (a->opt_cond_list) {
 			/* if a conditional list is present search it before continuing */
 			avdatump = cond_av_list_search(&key, a->opt_cond_list);
@@ -228,8 +226,7 @@ static int check_avtab_hierarchy_callback(avtab_key_t * k, avtab_datum_t * d,
 				return 0;
 			}
 			av = avdatump->data;
-		} else
-			av = 0;
+		}
 		if (a->opt_cond_list) {
 			/* if a conditional list is present search it before continuing */
 			avdatump = cond_av_list_search(&key, a->opt_cond_list);
@@ -323,7 +320,6 @@ static int check_role_hierarchy_callback(hashtab_key_t k
 	char *parent;
 	hierarchy_args_t *a;
 	role_datum_t *r, *rp;
-	ebitmap_t eb;
 
 	a = (hierarchy_args_t *) args;
 	r = (role_datum_t *) d;
@@ -346,20 +342,58 @@ static int check_role_hierarchy_callback(hashtab_key_t k
 		return 0;
 	}
 
-	if (ebitmap_or(&eb, &r->types.types, &rp->types.types)) {
-		/* Memory error */
-		free(parent);
-		return -1;
-	}
-
-	if (!ebitmap_cmp(&eb, &rp->types.types)) {
+	if (!ebitmap_contains(&rp->types.types, &r->types.types)) {
 		/* This is a violation of the hiearchal constraint, return error condition */
 		ERR(a->handle, "Role hierarchy violation, %s exceeds %s",
 		    a->p->p_role_val_to_name[r->s.value - 1], parent);
 		a->numerr++;
 	}
 
-	ebitmap_destroy(&eb);
+	free(parent);
+
+	return 0;
+}
+
+/* The user hierarchy is defined as: a child user cannot have a role that
+ * its parent doesn't have.  This function should be called with hashtab_map,
+ * it will return 0 on success, 1 on constraint violation and -1 on error.
+ */
+static int check_user_hierarchy_callback(hashtab_key_t k
+					 __attribute__ ((unused)),
+					 hashtab_datum_t d, void *args)
+{
+	char *parent;
+	hierarchy_args_t *a;
+	user_datum_t *u, *up;
+
+	a = (hierarchy_args_t *) args;
+	u = (user_datum_t *) d;
+
+	if (find_parent(a->p->p_user_val_to_name[u->s.value - 1], &parent))
+		return -1;
+
+	if (!parent) {
+		/* This user has no parent */
+		return 0;
+	}
+
+	up = hashtab_search(a->p->p_users.table, parent);
+	if (!up) {
+		/* Orphan user */
+		ERR(a->handle, "user %s doesn't exist, %s is an orphan",
+		    parent, a->p->p_user_val_to_name[u->s.value - 1]);
+		free(parent);
+		a->numerr++;
+		return 0;
+	}
+
+	if (!ebitmap_contains(&up->roles.roles, &u->roles.roles)) {
+		/* hierarchical constraint violation, return error */
+		ERR(a->handle, "User hierarchy violation, %s exceeds %s",
+		    a->p->p_user_val_to_name[u->s.value - 1], parent);
+		a->numerr++;
+	}
+
 	free(parent);
 
 	return 0;
@@ -393,6 +427,9 @@ int hierarchy_check_constraints(sepol_handle_t * handle, policydb_t * p)
 		goto bad;
 
 	if (hashtab_map(p->p_roles.table, check_role_hierarchy_callback, &args))
+		goto bad;
+
+	if (hashtab_map(p->p_users.table, check_user_hierarchy_callback, &args))
 		goto bad;
 
 	if (args.numerr) {

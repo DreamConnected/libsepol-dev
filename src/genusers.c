@@ -117,17 +117,18 @@ static int load_users(struct policydb *policydb, const char *path)
 		} else
 			islist = 0;
 
+		oldc = 0;
 		do {
 			while (*p && isspace(*p))
 				p++;
 			if (!(*p))
-				BADLINE();
+				break;
 
 			q = p;
 			while (*p && *p != ';' && *p != '}' && !isspace(*p))
 				p++;
 			if (!(*p))
-				BADLINE();
+				break;
 			if (*p == '}')
 				islist = 0;
 			oldc = *p;
@@ -153,6 +154,8 @@ static int load_users(struct policydb *policydb, const char *path)
 					}
 			}
 		} while (islist);
+		if (oldc == 0)
+			BADLINE();
 
 		if (policydb->mls) {
 			context_struct_t context;

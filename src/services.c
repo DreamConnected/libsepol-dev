@@ -85,6 +85,8 @@ int hidden sepol_set_policydb(policydb_t * p)
 int sepol_set_policydb_from_file(FILE * fp)
 {
 	struct policy_file pf;
+
+	policy_file_init(&pf);
 	pf.fp = fp;
 	pf.type = PF_USE_STDIO;
 	if (mypolicydb.policy_type)
@@ -1003,12 +1005,13 @@ int hidden sepol_load_policy(void *data, size_t len)
 	convert_context_args_t args;
 	uint32_t seqno;
 	int rc = 0;
-	struct policy_file file = {
-		.type = PF_USE_MEMORY,
-		.data = data,
-		.len = len,
-		.fp = NULL
-	}, *fp = &file;
+	struct policy_file file, *fp;
+
+	policy_file_init(&file);
+	file.type = PF_USE_MEMORY;
+	file.data = data;
+	file.len = len;
+	fp = &file;
 
 	if (policydb_init(&newpolicydb))
 		return -ENOMEM;
