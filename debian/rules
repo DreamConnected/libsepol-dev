@@ -7,6 +7,7 @@
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 export LIBDIR=$${DESTDIR}/usr/lib/${DEB_HOST_MULTIARCH}
 export SHLIBDIR=$${DESTDIR}/lib/${DEB_HOST_MULTIARCH}
+export LIBBASE=lib/${DEB_HOST_MULTIARCH}
 
 %:
 	dh $@
