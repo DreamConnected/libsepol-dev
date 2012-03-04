@@ -2,9 +2,11 @@
 
 /* Endian conversion for reading and writing binary policies */
 
+#include <sepol/policydb/policydb.h>
+
 #include <byteswap.h>
 #include <endian.h>
-#include <sepol/policydb/policydb.h>
+#include <errno.h>
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define cpu_to_le16(x) (x)

@@ -17,7 +17,7 @@
  *
  * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
  * Copyright (C) 2003 - 2005 Tresys Technology, LLC
- * Copyright (C) 2003 - 2004 Red Hat, Inc.
+ * Copyright (C) 2003 - 2007 Red Hat, Inc.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -1176,9 +1176,9 @@ int symtab_insert(policydb_t * pol, uint32_t sym,
 		 * (i.e. aliases) */
 		if (value)
 			*value = ++pol->symtab[sym].nprim;
-	} else if (rc == HASHTAB_PRESENT && scope == SCOPE_REQ) {
+	} else if (rc == SEPOL_EEXIST && scope == SCOPE_REQ) {
 		retval = 1;	/* symbol not added -- need to free() later */
-	} else if (rc == HASHTAB_PRESENT && scope == SCOPE_DECL) {
+	} else if (rc == SEPOL_EEXIST && scope == SCOPE_DECL) {
 		if (sym == SYM_ROLES || sym == SYM_USERS) {
 			/* allow multiple declarations for these two */
 			retval = 1;

@@ -1,6 +1,9 @@
-1.16.1 2007-02-06
+2.0.1 2007-02-06
 	* Merged libsepol segfault fix from Stephen Smalley for when
 	  sensitivities are required but not present in the base.
+	
+2.0.0 2007-02-01
+	* Merged patch to add errcodes.h to libsepol by Karl MacMillan.
 	
 1.16.0 2007-01-18
 	* Updated version for stable branch.
