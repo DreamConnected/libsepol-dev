@@ -1,8 +1,10 @@
 libsepol (2.1.4-2) UNRELEASED; urgency=low
 
   * Switch to dpkg-source 3.0 (quilt) format
+  * debian/control:
+    - Bump Standards-Version to 3.9.3 (no further changes)
 
- -- Laurent Bigonville <bigon@debian.org>  Sun, 04 Mar 2012 19:32:04 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Sun, 04 Mar 2012 19:33:10 +0100
 
 libsepol (2.1.4-1) unstable; urgency=low
 
