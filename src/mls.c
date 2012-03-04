@@ -310,7 +310,7 @@ int mls_context_isvalid(const policydb_t * p, const context_struct_t * c)
 	if (!c->user || c->user > p->p_users.nprim)
 		return 0;
 	usrdatum = p->user_val_to_struct[c->user - 1];
-	if (!mls_range_contains(usrdatum->range, c->range))
+	if (!mls_range_contains(usrdatum->exp_range, c->range))
 		return 0;	/* user may not be associated with range */
 
 	return 1;
@@ -403,7 +403,8 @@ int mls_context_to_sid(const policydb_t * policydb,
 					if (!rngdatum)
 						goto err;
 
-					if (catdatum->s.value >= rngdatum->s.value)
+					if (catdatum->s.value >=
+					    rngdatum->s.value)
 						goto err;
 
 					for (i = catdatum->s.value;
@@ -511,9 +512,9 @@ int mls_setup_user_range(context_struct_t * fromcon, user_datum_t * user,
 	if (mls) {
 		mls_level_t *fromcon_sen = &(fromcon->range.level[0]);
 		mls_level_t *fromcon_clr = &(fromcon->range.level[1]);
-		mls_level_t *user_low = &(user->range.level[0]);
-		mls_level_t *user_clr = &(user->range.level[1]);
-		mls_level_t *user_def = &(user->dfltlevel);
+		mls_level_t *user_low = &(user->exp_range.level[0]);
+		mls_level_t *user_clr = &(user->exp_range.level[1]);
+		mls_level_t *user_def = &(user->exp_dfltlevel);
 		mls_level_t *usercon_sen = &(usercon->range.level[0]);
 		mls_level_t *usercon_clr = &(usercon->range.level[1]);
 
@@ -607,23 +608,20 @@ int mls_compute_sid(policydb_t * policydb,
 		    sepol_security_class_t tclass,
 		    uint32_t specified, context_struct_t * newcontext)
 {
+	range_trans_t *rtr;
 	if (!policydb->mls)
 		return 0;
 
 	switch (specified) {
 	case AVTAB_TRANSITION:
-		if (tclass == SECCLASS_PROCESS) {
-			range_trans_t *rangetr;
-
-			/* Look for a range transition rule. */
-			for (rangetr = policydb->range_tr; rangetr;
-			     rangetr = rangetr->next) {
-				if (rangetr->dom == scontext->type &&
-				    rangetr->type == tcontext->type) {
-					/* Set the range from the rule */
-					return mls_range_set(newcontext,
-							     &rangetr->range);
-				}
+		/* Look for a range transition rule. */
+		for (rtr = policydb->range_tr; rtr; rtr = rtr->next) {
+			if (rtr->source_type == scontext->type &&
+			    rtr->target_type == tcontext->type &&
+			    rtr->target_class == tclass) {
+				/* Set the range from the rule */
+				return mls_range_set(newcontext,
+						     &rtr->target_range);
 			}
 		}
 		/* Fallthrough */
@@ -706,4 +704,95 @@ int sepol_mls_check(sepol_handle_t * handle,
 	context_destroy(con);
 	free(con);
 	return ret;
+}
+
+void mls_semantic_cat_init(mls_semantic_cat_t * c)
+{
+	memset(c, 0, sizeof(mls_semantic_cat_t));
+}
+
+void mls_semantic_cat_destroy(mls_semantic_cat_t * c __attribute__ ((unused)))
+{
+	/* it's currently a simple struct - really nothing to destroy */
+	return;
+}
+
+void mls_semantic_level_init(mls_semantic_level_t * l)
+{
+	memset(l, 0, sizeof(mls_semantic_level_t));
+}
+
+void mls_semantic_level_destroy(mls_semantic_level_t * l)
+{
+	mls_semantic_cat_t *cur, *next;
+
+	if (l == NULL)
+		return;
+
+	next = l->cat;
+	while (next) {
+		cur = next;
+		next = cur->next;
+		mls_semantic_cat_destroy(cur);
+		free(cur);
+	}
+}
+
+int mls_semantic_level_cpy(mls_semantic_level_t * dst,
+			   mls_semantic_level_t * src)
+{
+	mls_semantic_cat_t *cat, *newcat, *lnewcat = NULL;
+
+	mls_semantic_level_init(dst);
+	dst->sens = src->sens;
+	cat = src->cat;
+	while (cat) {
+		newcat =
+		    (mls_semantic_cat_t *) malloc(sizeof(mls_semantic_cat_t));
+		if (!newcat)
+			goto err;
+
+		mls_semantic_cat_init(newcat);
+		if (lnewcat)
+			lnewcat->next = newcat;
+		else
+			dst->cat = newcat;
+
+		newcat->low = cat->low;
+		newcat->high = cat->high;
+
+		lnewcat = newcat;
+		cat = cat->next;
+	}
+	return 0;
+
+      err:
+	mls_semantic_level_destroy(dst);
+	return -1;
+}
+
+void mls_semantic_range_init(mls_semantic_range_t * r)
+{
+	mls_semantic_level_init(&r->level[0]);
+	mls_semantic_level_init(&r->level[1]);
+}
+
+void mls_semantic_range_destroy(mls_semantic_range_t * r)
+{
+	mls_semantic_level_destroy(&r->level[0]);
+	mls_semantic_level_destroy(&r->level[1]);
+}
+
+int mls_semantic_range_cpy(mls_semantic_range_t * dst,
+			   mls_semantic_range_t * src)
+{
+	if (mls_semantic_level_cpy(&dst->level[0], &src->level[0]) < 0)
+		return -1;
+
+	if (mls_semantic_level_cpy(&dst->level[1], &src->level[1]) < 0) {
+		mls_semantic_level_destroy(&dst->level[0]);
+		return -1;
+	}
+
+	return 0;
 }

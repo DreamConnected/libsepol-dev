@@ -1,0 +1,21 @@
+Revision: libsepol--debian--1.0--patch-1
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Sun Jun 26 11:57:35 CDT 2005
+Standard-date: 2005-06-26 16:57:35 GMT
+New-patches: srivasta@debian.org--2003-primary/libsepol--upstream--1.0--version-0
+    srivasta@debian.org--etch/libsepol--debian--1.0--patch-1
+    srivasta@debian.org--etch/libsepol--upstream--1.0--base-0
+Summary: Sync with upstream
+Keywords: 
+
+Sync with upstream
+
+Patches applied:
+
+ * srivasta@debian.org--2003-primary/libsepol--upstream--1.0--version-0
+   libsepol--upstream is frozen for Sarge, look at srivasta@debian.org--etch/libsepol--upstream
+
+ * srivasta@debian.org--etch/libsepol--upstream--1.0--base-0
+   tag of srivasta@debian.org--2003-primary/libsepol--upstream--1.0--version-0
+

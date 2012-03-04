@@ -1,0 +1,19 @@
+Revision: libsepol--upstream--1.12--patch-5
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Fri Aug 25 21:45:22 CDT 2006
+Standard-date: 2006-08-26 02:45:22 GMT
+Modified-files: ChangeLog Makefile VERSION include/Makefile
+    include/sepol/policydb/avtab.h
+    include/sepol/policydb/expand.h
+    include/sepol/policydb/policydb.h src/Makefile
+    src/expand.c src/link.c src/mls.c src/policydb.c
+    src/users.c src/write.c utils/Makefile
+New-patches: srivasta@debian.org--etch/libsepol--upstream--1.12--patch-5
+Summary: Imported libsepol-1.12.25
+Keywords: 
+
+Imported libsepol-1.12.25
+into srivasta@debian.org--etch/libsepol--upstream--1.12
+
+

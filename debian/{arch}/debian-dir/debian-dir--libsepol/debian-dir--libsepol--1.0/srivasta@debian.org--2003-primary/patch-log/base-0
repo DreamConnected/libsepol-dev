@@ -1,0 +1,13 @@
+Revision: debian-dir--libsepol--1.0--base-0
+Archive: srivasta@debian.org--2003-primary
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Oct 27 00:19:58 CDT 2004
+Standard-date: 2004-10-27 05:19:58 GMT
+New-patches: srivasta@debian.org--2003-primary/debian-dir--libsepol--1.0--base-0
+    srivasta@debian.org--2003-primary/debian-dir--skeleton--1.0--base-0
+    srivasta@debian.org--2003-primary/debian-dir--skeleton--1.0--patch-1
+    srivasta@debian.org--2003-primary/debian-dir--skeleton--1.0--patch-2
+Continuation-of: srivasta@debian.org--2003-primary/debian-dir--skeleton--1.0--patch-2
+Summary: tag of srivasta@debian.org--2003-primary/debian-dir--skeleton--1.0--patch-2
+
+(automatically generated log message)

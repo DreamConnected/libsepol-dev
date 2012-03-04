@@ -278,7 +278,8 @@ static int class_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		}
 	}
 
-	state->cur->map[SYM_CLASSES][cladatum->s.value - 1] = new_class->s.value;
+	state->cur->map[SYM_CLASSES][cladatum->s.value - 1] =
+	    new_class->s.value;
 
 	/* copy permissions */
 	state->src_class = cladatum;
@@ -964,8 +965,7 @@ static int copy_avrule_list(avrule_t * list, avrule_t ** dst,
 			    module->map[SYM_CLASSES][cur_perm->class - 1];
 			assert(new_perm->class);
 
-			if (new_rule->
-			    specified & (AVRULE_AV | AVRULE_NEVERALLOW)) {
+			if (new_rule->specified & AVRULE_AV) {
 				for (i = 0;
 				     i <
 				     module->perm_map_len[cur_perm->class - 1];

@@ -29,6 +29,24 @@
 #include <sepol/handle.h>
 #include <sepol/policydb/conditional.h>
 
+/*
+ * Expand only the avrules for a module. It is valid for this function to
+ * expand base into itself (i.e.  base == out); the typemap for this special
+ * case should map type[i] to i+1.  This function optionally expands neverallow
+ * rules. If neverallow rules are expanded, there is no need to copy them and
+ * doing so could cause duplicate entries when base == out. If the neverallow
+ * rules are not expanded, they are just copied to the destination policy so
+ * that assertion checking can be performed after expand. No assertion or
+ * hierarchy checking is performed by this function.
+ */
+extern int expand_module_avrules(sepol_handle_t * handle, policydb_t * base,
+				 policydb_t * out, uint32_t * typemap,
+				 int verbose, int expand_neverallow);
+/*
+ * Expand all parts of a module. Neverallow rules are not expanded (only
+ * copied). It is not valid to expand base into itself. If check is non-zero,
+ * performs hierarchy and assertion checking.
+ */
 extern int expand_module(sepol_handle_t * handle,
 			 policydb_t * base, policydb_t * out,
 			 int verbose, int check);
@@ -40,6 +58,10 @@ extern int expand_convert_type_set(policydb_t * p, uint32_t * typemap,
 extern int type_set_expand(type_set_t * set, ebitmap_t * t, policydb_t * p,
 			   unsigned char alwaysexpand);
 extern int role_set_expand(role_set_t * x, ebitmap_t * r, policydb_t * p);
+extern int mls_semantic_level_expand(mls_semantic_level_t *sl, mls_level_t *l,
+                                     policydb_t *p, sepol_handle_t *h);
+extern int mls_semantic_range_expand(mls_semantic_range_t *sr, mls_range_t *r,
+                                     policydb_t *p, sepol_handle_t *h);
 extern int expand_rule(sepol_handle_t * handle,
 		       policydb_t * source_pol,
 		       avrule_t * source_rule, avtab_t * dest_avtab,

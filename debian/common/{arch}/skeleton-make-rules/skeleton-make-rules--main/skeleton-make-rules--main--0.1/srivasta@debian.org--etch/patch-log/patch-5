@@ -1,0 +1,13 @@
+Revision: skeleton-make-rules--main--0.1--patch-5
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Thu Jun 15 13:17:24 CDT 2006
+Standard-date: 2006-06-15 18:17:24 GMT
+Modified-files: pkgvars.mk
+New-patches: srivasta@debian.org--etch/skeleton-make-rules--main--0.1--patch-5
+Summary: Allow doe space separated arch list
+Keywords: 
+
+* pkgvars.mk (if (/^Architecture): The package could have a space
+  separated list of architectures (or any). This change allows us to
+  match any of the specified architectures, not just the first match. 

@@ -32,6 +32,7 @@
 #define _SEPOL_POLICYDB_MLS_TYPES_H_
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <sepol/policydb/ebitmap.h>
 #include <sepol/policydb/flask_types.h>
 
@@ -106,5 +107,47 @@ static inline int mls_range_cpy(mls_range_t * dst, mls_range_t * src)
       err:
 	return -1;
 }
+
+static inline void mls_range_init(struct mls_range *r)
+{
+	mls_level_init(&r->level[0]);
+	mls_level_init(&r->level[1]);
+}
+
+static inline void mls_range_destroy(struct mls_range *r)
+{
+	mls_level_destroy(&r->level[0]);
+	mls_level_destroy(&r->level[1]);
+}
+
+static inline int mls_range_eq(struct mls_range *r1, struct mls_range *r2)
+{
+	return (mls_level_eq(&r1->level[0], &r2->level[0]) &&
+	        mls_level_eq(&r1->level[1], &r2->level[1]));
+}
+
+typedef struct mls_semantic_cat {
+	uint32_t low;	/* first bit this struct represents */
+	uint32_t high;	/* last bit represented - equals low for a single cat */
+	struct mls_semantic_cat *next;
+} mls_semantic_cat_t;
+
+typedef struct mls_semantic_level {
+	uint32_t sens;
+	mls_semantic_cat_t *cat;
+} mls_semantic_level_t;
+
+typedef struct mls_semantic_range {
+	mls_semantic_level_t level[2];
+} mls_semantic_range_t;
+
+extern void mls_semantic_cat_init(mls_semantic_cat_t *c);
+extern void mls_semantic_cat_destroy(mls_semantic_cat_t *c);
+extern void mls_semantic_level_init(mls_semantic_level_t *l);
+extern void mls_semantic_level_destroy(mls_semantic_level_t *l);
+extern int mls_semantic_level_cpy(mls_semantic_level_t *dst, mls_semantic_level_t *src);
+extern void mls_semantic_range_init(mls_semantic_range_t *r);
+extern void mls_semantic_range_destroy(mls_semantic_range_t *r);
+extern int mls_semantic_range_cpy(mls_semantic_range_t *dst, mls_semantic_range_t *src);
 
 #endif

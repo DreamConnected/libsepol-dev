@@ -1,3 +1,11 @@
+1.12.26 2006-09-05
+	* Merged range transition enhancements and user format changes
+	  Darrel Goeddel
+
+1.12.25 2006-08-24
+	* Merged conditionally expand neverallows patch from Jeremy Mowery.
+	* Merged refactor expander patch from Jeremy Mowery.
+
 1.12.24 2006-08-03
 	* Merged libsepol unit tests from Joshua Brindle.
 

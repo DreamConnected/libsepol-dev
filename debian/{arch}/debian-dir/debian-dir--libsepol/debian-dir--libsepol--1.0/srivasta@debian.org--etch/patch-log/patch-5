@@ -1,0 +1,13 @@
+Revision: debian-dir--libsepol--1.0--patch-5
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Sep 14 15:51:14 CDT 2005
+Standard-date: 2005-09-14 20:51:14 GMT
+Modified-files: changelog control copyright shlibs
+New-patches: srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-5
+Summary: Change priority of the library package
+Keywords: 
+
+* control (Priority): Set it to required.
+
+* shlibs: Update the shlib version, since the library has been changed

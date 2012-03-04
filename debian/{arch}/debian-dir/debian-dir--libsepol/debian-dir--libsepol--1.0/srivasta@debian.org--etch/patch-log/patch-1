@@ -1,0 +1,18 @@
+Revision: debian-dir--libsepol--1.0--patch-1
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Mon Jun 27 13:52:26 CDT 2005
+Standard-date: 2005-06-27 18:52:26 GMT
+Modified-files: changelog control copyright shlibs
+New-patches: srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-1
+Summary: New upstream version
+Keywords: 
+
+* copyright: The license changed from GPL to LGPL 2.1, updated text.
+
+* shlibs: Bumbed the shlibs, since there have been new constructs added. 
+
+* changelog: New upstream version.
+
+* control (Standards-Version): Updated Standards-Version.
+

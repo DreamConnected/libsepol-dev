@@ -1,0 +1,121 @@
+Revision: libsepol--debian--1.10--patch-1
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Sat Dec 10 16:34:30 CST 2005
+Standard-date: 2005-12-10 22:34:30 GMT
+New-files: include/sepol/.arch-ids/boolean_record.h.id
+    include/sepol/.arch-ids/handle.h.id
+    include/sepol/.arch-ids/iface_record.h.id
+    include/sepol/.arch-ids/roles.h.id
+    include/sepol/boolean_record.h include/sepol/handle.h
+    include/sepol/iface_record.h
+    include/sepol/policydb/.arch-ids/=id
+    include/sepol/policydb/.arch-ids/module.h.id
+    include/sepol/policydb/.arch-ids/policydb.h.id
+    include/sepol/policydb/module.h
+    include/sepol/policydb/policydb.h include/sepol/roles.h
+    src/.arch-ids/boolean_internal.h.id
+    src/.arch-ids/boolean_record.c.id
+    src/.arch-ids/context.h.id
+    src/.arch-ids/context_internal.h.id
+    src/.arch-ids/dso.h.id src/.arch-ids/handle.c.id
+    src/.arch-ids/handle.h.id
+    src/.arch-ids/iface_internal.h.id
+    src/.arch-ids/iface_record.c.id
+    src/.arch-ids/module_internal.h.id
+    src/.arch-ids/policydb_internal.h.id
+    src/.arch-ids/policydb_public.c.id
+    src/.arch-ids/port_internal.h.id
+    src/.arch-ids/roles.c.id
+    src/.arch-ids/user_internal.h.id src/boolean_internal.h
+    src/boolean_record.c src/context.h
+    src/context_internal.h src/dso.h src/handle.c
+    src/handle.h src/iface_internal.h src/iface_record.c
+    src/module_internal.h src/policydb_internal.h
+    src/policydb_public.c src/port_internal.h src/roles.c
+    src/user_internal.h
+New-directories: include/sepol/policydb
+    include/sepol/policydb/.arch-ids
+Renamed-files: include/sepol/.arch-ids/avrule_block.h.id include/sepol/policydb/.arch-ids/avrule_block.h.id
+    include/sepol/.arch-ids/avtab.h.id include/sepol/policydb/.arch-ids/avtab.h.id
+    include/sepol/.arch-ids/conditional.h.id include/sepol/policydb/.arch-ids/conditional.h.id
+    include/sepol/.arch-ids/constraint.h.id include/sepol/policydb/.arch-ids/constraint.h.id
+    include/sepol/.arch-ids/context.h.id include/sepol/policydb/.arch-ids/context.h.id
+    include/sepol/.arch-ids/ebitmap.h.id include/sepol/policydb/.arch-ids/ebitmap.h.id
+    include/sepol/.arch-ids/expand.h.id include/sepol/policydb/.arch-ids/expand.h.id
+    include/sepol/.arch-ids/flask.h.id include/sepol/policydb/.arch-ids/flask.h.id
+    include/sepol/.arch-ids/flask_types.h.id include/sepol/policydb/.arch-ids/flask_types.h.id
+    include/sepol/.arch-ids/hashtab.h.id include/sepol/policydb/.arch-ids/hashtab.h.id
+    include/sepol/.arch-ids/hierarchy.h.id include/sepol/policydb/.arch-ids/hierarchy.h.id
+    include/sepol/.arch-ids/link.h.id include/sepol/policydb/.arch-ids/link.h.id
+    include/sepol/.arch-ids/mls.h.id src/.arch-ids/mls.h.id
+    include/sepol/.arch-ids/mls_types.h.id include/sepol/policydb/.arch-ids/mls_types.h.id
+    include/sepol/.arch-ids/services.h.id include/sepol/policydb/.arch-ids/services.h.id
+    include/sepol/.arch-ids/sidtab.h.id include/sepol/policydb/.arch-ids/sidtab.h.id
+    include/sepol/.arch-ids/symtab.h.id include/sepol/policydb/.arch-ids/symtab.h.id
+    include/sepol/avrule_block.h include/sepol/policydb/avrule_block.h
+    include/sepol/avtab.h include/sepol/policydb/avtab.h
+    include/sepol/conditional.h include/sepol/policydb/conditional.h
+    include/sepol/constraint.h include/sepol/policydb/constraint.h
+    include/sepol/context.h include/sepol/policydb/context.h
+    include/sepol/ebitmap.h include/sepol/policydb/ebitmap.h
+    include/sepol/expand.h include/sepol/policydb/expand.h
+    include/sepol/flask.h include/sepol/policydb/flask.h
+    include/sepol/flask_types.h include/sepol/policydb/flask_types.h
+    include/sepol/hashtab.h include/sepol/policydb/hashtab.h
+    include/sepol/hierarchy.h include/sepol/policydb/hierarchy.h
+    include/sepol/link.h include/sepol/policydb/link.h
+    include/sepol/mls.h src/mls.h
+    include/sepol/mls_types.h include/sepol/policydb/mls_types.h
+    include/sepol/services.h include/sepol/policydb/services.h
+    include/sepol/sidtab.h include/sepol/policydb/sidtab.h
+    include/sepol/symtab.h include/sepol/policydb/symtab.h
+Modified-files: ChangeLog VERSION include/Makefile
+    include/sepol/booleans.h include/sepol/context_record.h
+    include/sepol/debug.h include/sepol/interfaces.h
+    include/sepol/module.h include/sepol/policydb.h
+    include/sepol/policydb/avrule_block.h
+    include/sepol/policydb/avtab.h
+    include/sepol/policydb/conditional.h
+    include/sepol/policydb/constraint.h
+    include/sepol/policydb/context.h
+    include/sepol/policydb/ebitmap.h
+    include/sepol/policydb/expand.h
+    include/sepol/policydb/flask.h
+    include/sepol/policydb/flask_types.h
+    include/sepol/policydb/hashtab.h
+    include/sepol/policydb/hierarchy.h
+    include/sepol/policydb/link.h
+    include/sepol/policydb/mls_types.h
+    include/sepol/policydb/services.h
+    include/sepol/policydb/sidtab.h
+    include/sepol/policydb/symtab.h
+    include/sepol/port_record.h include/sepol/ports.h
+    include/sepol/sepol.h include/sepol/user_record.h
+    include/sepol/users.h src/Makefile src/assertion.c
+    src/avrule_block.c src/avtab.c src/booleans.c
+    src/conditional.c src/constraint.c src/context.c
+    src/context_record.c src/debug.c src/debug.h
+    src/ebitmap.c src/expand.c src/genbools.c src/genusers.c
+    src/hashtab.c src/hierarchy.c src/interfaces.c
+    src/libsepol.map src/link.c src/mls.c src/mls.h
+    src/module.c src/policydb.c src/policydb_convert.c
+    src/port_record.c src/ports.c src/private.h
+    src/services.c src/sidtab.c src/symtab.c
+    src/user_record.c src/users.c src/util.c src/write.c
+New-patches: srivasta@debian.org--etch/libsepol--debian--1.10--patch-1
+    srivasta@debian.org--etch/libsepol--upstream--1.10--base-0
+    srivasta@debian.org--etch/libsepol--upstream--1.10--patch-1
+Summary: Synch with upstream
+Keywords: 
+
+Synch with upstream
+
+Patches applied:
+
+ * srivasta@debian.org--etch/libsepol--upstream--1.10--base-0
+   tag of srivasta@debian.org--etch/libsepol--upstream--1.8--patch-1
+
+ * srivasta@debian.org--etch/libsepol--upstream--1.10--patch-1
+   Imported libsepol-1.10
+

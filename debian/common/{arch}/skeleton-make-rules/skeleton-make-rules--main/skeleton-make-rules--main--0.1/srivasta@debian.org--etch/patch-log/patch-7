@@ -1,0 +1,14 @@
+Revision: skeleton-make-rules--main--0.1--patch-7
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Aug 23 11:47:49 CDT 2006
+Standard-date: 2006-08-23 16:47:49 GMT
+New-files: .arch-ids/ChangeLog.id ChangeLog
+New-directories: .arch-ids
+Modified-files: pkgvars.mk
+New-patches: srivasta@debian.org--etch/skeleton-make-rules--main--0.1--patch-7
+Summary: Add variable that contains the distribution information
+Keywords: 
+
+* pkgvars.mk (DEB_DISTRIBUTION): Add variable that contains the
+  distribution information

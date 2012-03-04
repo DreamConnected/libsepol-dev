@@ -1,0 +1,10 @@
+Revision: skeleton-make-rules--main--0.1--patch-2
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Sun Oct 30 09:07:03 CST 2005
+Standard-date: 2005-10-30 15:07:03 GMT
+Modified-files: debconf.mk
+New-patches: srivasta@debian.org--etch/skeleton-make-rules--main--0.1--patch-2
+Summary: Make the checkpo target usable
+Keywords: 
+

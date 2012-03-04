@@ -36,8 +36,7 @@ typedef struct context_struct {
 
 static inline void mls_context_init(context_struct_t * c)
 {
-	mls_level_init(&c->range.level[0]);
-	mls_level_init(&c->range.level[1]);
+	mls_range_init(&c->range);
 }
 
 static inline int mls_context_cpy(context_struct_t * dst,
@@ -62,8 +61,7 @@ static inline void mls_context_destroy(context_struct_t * c)
 	if (c == NULL)
 		return;
 
-	mls_level_destroy(&c->range.level[0]);
-	mls_level_destroy(&c->range.level[1]);
+	mls_range_destroy(&c->range);
 	mls_context_init(c);
 }
 

@@ -1,0 +1,6 @@
+2006-08-23  Manoj Srivastava  <srivasta@debian.org>
+
+	* pkgvars.mk (DEB_DISTRIBUTION):
+		  srivasta@debian.org--etch/skeleton-make-rules--main--0.1--patch-6
+		  Add variable that contains the distribution information 
+

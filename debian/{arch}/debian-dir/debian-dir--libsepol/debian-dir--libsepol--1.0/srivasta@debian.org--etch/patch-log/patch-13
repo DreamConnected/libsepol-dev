@@ -1,0 +1,12 @@
+Revision: debian-dir--libsepol--1.0--patch-13
+Archive: srivasta@debian.org--etch
+Creator: Manoj Srivastava <srivasta@debian.org>
+Date: Wed Aug  9 11:53:40 CDT 2006
+Standard-date: 2006-08-09 16:53:40 GMT
+Modified-files: changelog control postinst shlibs
+New-patches: srivasta@debian.org--etch/debian-dir--libsepol--1.0--patch-13
+Summary: New upstream point release, and a bug fix
+Keywords: 
+
+* postinst (package_name): call "init u" in the postinst, so init gets restarted.
+
