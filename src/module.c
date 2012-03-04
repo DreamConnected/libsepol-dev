@@ -326,7 +326,7 @@ int sepol_link_packages(sepol_handle_t * handle,
 static int read_helper(char *buf, struct policy_file *file, uint32_t bytes)
 {
 	uint32_t offset, nel, read_len;
-	void *tmp;
+	int rc;
 
 	offset = 0;
 	nel = bytes;
@@ -336,10 +336,9 @@ static int read_helper(char *buf, struct policy_file *file, uint32_t bytes)
 			read_len = nel;
 		else
 			read_len = _read_helper_bufsize;
-		tmp = next_entry(file, read_len);
-		if (!tmp)
+		rc = next_entry(&buf[offset], file, read_len);
+		if (rc < 0)
 			return -1;
-		memcpy(&buf[offset], tmp, read_len);
 		offset += read_len;
 		nel -= read_len;
 	}
@@ -354,19 +353,27 @@ static int module_package_read_offsets(sepol_module_package_t * mod,
 				       struct policy_file *file,
 				       size_t ** offsets, uint32_t * sections)
 {
-	uint32_t *buf, nsec;
+	uint32_t *buf = NULL, nsec;
 	unsigned i;
+	size_t *off = NULL;
+	int rc;
 
-	buf = next_entry(file, sizeof(uint32_t) * 3);
+	buf = malloc(sizeof(uint32_t)*3);
 	if (!buf) {
+		ERR(file->handle, "out of memory");
+		goto err;
+	}
+	  
+	rc = next_entry(buf, file, sizeof(uint32_t) * 3);
+	if (rc < 0) {
 		ERR(file->handle, "module package header truncated");
-		return -1;
+		goto err;
 	}
 	if (le32_to_cpu(buf[0]) != SEPOL_MODULE_PACKAGE_MAGIC) {
 		ERR(file->handle,
 		    "wrong magic number for module package:  expected %u, got %u",
 		    SEPOL_MODULE_PACKAGE_MAGIC, le32_to_cpu(buf[0]));
-		return -1;
+		goto err;
 	}
 
 	mod->version = le32_to_cpu(buf[1]);
@@ -375,33 +382,46 @@ static int module_package_read_offsets(sepol_module_package_t * mod,
 	if (nsec > MAXSECTIONS) {
 		ERR(file->handle, "too many sections (%u) in module package",
 		    nsec);
-		return -1;
+		goto err;
 	}
 
-	*offsets = (size_t *) malloc((nsec + 1) * sizeof(size_t));
-	if (!*offsets) {
+	off = (size_t *) malloc((nsec + 1) * sizeof(size_t));
+	if (!off) {
 		ERR(file->handle, "out of memory");
-		return -1;
+		goto err;
 	}
 
-	buf = next_entry(file, sizeof(uint32_t) * nsec);
+	free(buf);
+	buf = malloc(sizeof(uint32_t) * nsec);
 	if (!buf) {
+		ERR(file->handle, "out of memory");
+		goto err;
+	}
+	rc = next_entry(buf, file, sizeof(uint32_t) * nsec);
+	if (rc < 0) {
 		ERR(file->handle, "module package offset array truncated");
-		return -1;
+		goto err;
 	}
 
 	for (i = 0; i < nsec; i++) {
-		(*offsets)[i] = le32_to_cpu(buf[i]);
-		if (i && (*offsets)[i] < (*offsets)[i - 1]) {
+		off[i] = le32_to_cpu(buf[i]);
+		if (i && off[i] < off[i - 1]) {
 			ERR(file->handle, "offsets are not increasing (at %u, "
-			    "offset %zu -> %zu", i, (*offsets)[i - 1],
-			    (*offsets)[i]);
+			    "offset %zu -> %zu", i, off[i - 1],
+			    off[i]);
 			return -1;
 		}
 	}
 
-	(*offsets)[nsec] = policy_file_length(file);
+	free(buf); 	
+	off[nsec] = policy_file_length(file);
+	*offsets = off;
 	return 0;
+
+err:
+	free(buf);
+	free(off);
+	return -1;
 }
 
 /* Flags for which sections have been seen during parsing of module package. */
@@ -415,9 +435,9 @@ int sepol_module_package_read(sepol_module_package_t * mod,
 			      struct sepol_policy_file *spf, int verbose)
 {
 	struct policy_file *file = &spf->pf;
-	uint32_t *buf, nsec;
+	uint32_t buf[1], nsec;
 	size_t *offsets, len;
-	int retval = -1;
+	int rc;
 	unsigned i, seen = 0;
 
 	if (module_package_read_offsets(mod, file, &offsets, &nsec))
@@ -442,8 +462,8 @@ int sepol_module_package_read(sepol_module_package_t * mod,
 		}
 
 		/* read the magic number, so that we know which function to call */
-		buf = next_entry(file, sizeof(uint32_t));
-		if (!buf) {
+		rc = next_entry(buf, file, sizeof(uint32_t));
+		if (rc < 0) {
 			ERR(file->handle,
 			    "module package section %u truncated, lacks magic number",
 			    i);
@@ -565,8 +585,8 @@ int sepol_module_package_read(sepol_module_package_t * mod,
 			if (policy_file_seek(file, offsets[i]))
 				goto cleanup;
 
-			retval = policydb_read(&mod->policy->p, file, verbose);
-			if (retval < 0) {
+			rc = policydb_read(&mod->policy->p, file, verbose);
+			if (rc < 0) {
 				ERR(file->handle,
 				    "invalid module in module package (at section %u)",
 				    i);
@@ -593,7 +613,7 @@ int sepol_module_package_read(sepol_module_package_t * mod,
 
       cleanup:
 	free(offsets);
-	return retval;
+	return -1;
 }
 
 int sepol_module_package_info(struct sepol_policy_file *spf, int *type,
@@ -601,9 +621,11 @@ int sepol_module_package_info(struct sepol_policy_file *spf, int *type,
 {
 	struct policy_file *file = &spf->pf;
 	sepol_module_package_t *mod = NULL;
-	uint32_t *buf, len, nsec;
+	uint32_t buf[5], len, nsec;
 	size_t *offsets = NULL;
 	unsigned i, seen = 0;
+	char *id;
+	int rc;
 
 	if (sepol_module_package_create(&mod))
 		return -1;
@@ -630,8 +652,8 @@ int sepol_module_package_info(struct sepol_policy_file *spf, int *type,
 		}
 
 		/* read the magic number, so that we know which function to call */
-		buf = next_entry(file, sizeof(uint32_t) * 2);
-		if (!buf) {
+		rc = next_entry(buf, file, sizeof(uint32_t) * 2);
+		if (rc < 0) {
 			ERR(file->handle,
 			    "module package section %u truncated, lacks magic number",
 			    i);
@@ -695,16 +717,24 @@ int sepol_module_package_info(struct sepol_policy_file *spf, int *type,
 			}
 
 			/* skip id */
-			buf = next_entry(file, len);
-			if (!buf) {
+			id = malloc(len + 1);
+			if (!id) {
+				ERR(file->handle,
+				    "out of memory (at section %u)",
+				    i);
+				goto cleanup;				
+			}
+			rc = next_entry(id, file, len);
+			free(id);
+			if (rc < 0) {
 				ERR(file->handle,
 				    "cannot get module string (at section %u)",
 				    i);
 				goto cleanup;
 			}
-
-			buf = next_entry(file, sizeof(uint32_t) * 5);
-			if (!buf) {
+			
+			rc = next_entry(buf, file, sizeof(uint32_t) * 5);
+			if (rc < 0) {
 				ERR(file->handle,
 				    "cannot get module header (at section %u)",
 				    i);
@@ -726,49 +756,47 @@ int sepol_module_package_info(struct sepol_policy_file *spf, int *type,
 			}
 
 			/* read the name and version */
-			buf = next_entry(file, sizeof(uint32_t));
-			if (!buf) {
+			rc = next_entry(buf, file, sizeof(uint32_t));
+			if (rc < 0) {
 				ERR(file->handle,
 				    "cannot get module name len (at section %u)",
 				    i);
 				goto cleanup;
 			}
 			len = le32_to_cpu(buf[0]);
-			buf = next_entry(file, len);
-			if (!buf) {
-				ERR(file->handle,
-				    "cannot get module name string (at section %u)",
-				    i);
-				goto cleanup;
-			}
 			*name = malloc(len + 1);
 			if (!*name) {
 				ERR(file->handle, "out of memory");
 				goto cleanup;
 			}
-			memcpy(*name, buf, len);
+			rc = next_entry(*name, file, len);
+			if (rc < 0) {
+				ERR(file->handle,
+				    "cannot get module name string (at section %u)",
+				    i);
+				goto cleanup;
+			}
 			(*name)[len] = '\0';
-			buf = next_entry(file, sizeof(uint32_t));
-			if (!buf) {
+			rc = next_entry(buf, file, sizeof(uint32_t));
+			if (rc < 0) {
 				ERR(file->handle,
 				    "cannot get module version len (at section %u)",
 				    i);
 				goto cleanup;
 			}
 			len = le32_to_cpu(buf[0]);
-			buf = next_entry(file, len);
-			if (!buf) {
-				ERR(file->handle,
-				    "cannot get module version string (at section %u)",
-				    i);
-				goto cleanup;
-			}
 			*version = malloc(len + 1);
 			if (!*version) {
 				ERR(file->handle, "out of memory");
 				goto cleanup;
 			}
-			memcpy(*version, buf, len);
+			rc = next_entry(*version, file, len);
+			if (rc < 0) {
+				ERR(file->handle,
+				    "cannot get module version string (at section %u)",
+				    i);
+				goto cleanup;
+			}
 			(*version)[len] = '\0';
 			seen |= SEEN_MOD;
 			break;

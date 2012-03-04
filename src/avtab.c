@@ -337,8 +337,8 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t * a,
 		    int (*insertf) (avtab_t * a, avtab_key_t * k,
 				    avtab_datum_t * d, void *p), void *p)
 {
-	uint16_t *buf16, enabled;
-	uint32_t *buf32, items, items2, val;
+	uint16_t buf16[4], enabled;
+	uint32_t buf32[7], items, items2, val;
 	avtab_key_t key;
 	avtab_datum_t datum;
 	unsigned set;
@@ -349,20 +349,20 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t * a,
 	memset(&datum, 0, sizeof(avtab_datum_t));
 
 	if (vers < POLICYDB_VERSION_AVTAB) {
-		buf32 = next_entry(fp, sizeof(uint32_t));
-		if (!buf32) {
+		rc = next_entry(buf32, fp, sizeof(uint32_t));
+		if (rc < 0) {
 			ERR(fp->handle, "truncated entry");
 			return -1;
 		}
 		items2 = le32_to_cpu(buf32[0]);
 
-		if (items2 < 5 || items2 > 8) {
+		if (items2 < 5 || items2 > ARRAY_SIZE(buf32)) {
 			ERR(fp->handle, "invalid item count");
 			return -1;
 		}
 
-		buf32 = next_entry(fp, sizeof(uint32_t) * items2);
-		if (!buf32) {
+		rc = next_entry(buf32, fp, sizeof(uint32_t) * items2);
+		if (rc < 0) {
 			ERR(fp->handle, "truncated entry");
 			return -1;
 		}
@@ -400,7 +400,7 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t * a,
 			return -1;
 		}
 
-		for (i = 0; i < sizeof(spec_order) / sizeof(uint16_t); i++) {
+		for (i = 0; i < ARRAY_SIZE(spec_order); i++) {
 			if (val & spec_order[i]) {
 				key.specified = spec_order[i] | enabled;
 				datum.data = le32_to_cpu(buf32[items++]);
@@ -418,8 +418,8 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t * a,
 		return 0;
 	}
 
-	buf16 = next_entry(fp, sizeof(uint16_t) * 4);
-	if (!buf16) {
+	rc = next_entry(buf16, fp, sizeof(uint16_t) * 4);
+	if (rc < 0) {
 		ERR(fp->handle, "truncated entry");
 		return -1;
 	}
@@ -430,7 +430,7 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t * a,
 	key.specified = le16_to_cpu(buf16[items++]);
 
 	set = 0;
-	for (i = 0; i < sizeof(spec_order) / sizeof(uint16_t); i++) {
+	for (i = 0; i < ARRAY_SIZE(spec_order); i++) {
 		if (key.specified & spec_order[i])
 			set++;
 	}
@@ -439,8 +439,8 @@ int avtab_read_item(struct policy_file *fp, uint32_t vers, avtab_t * a,
 		return -1;
 	}
 
-	buf32 = next_entry(fp, sizeof(uint32_t));
-	if (!buf32) {
+	rc = next_entry(buf32, fp, sizeof(uint32_t));
+	if (rc < 0) {
 		ERR(fp->handle, "truncated entry");
 		return -1;
 	}
@@ -458,11 +458,11 @@ int avtab_read(avtab_t * a, struct policy_file *fp, uint32_t vers)
 {
 	unsigned int i;
 	int rc;
-	uint32_t *buf;
+	uint32_t buf[1];
 	uint32_t nel;
 
-	buf = next_entry(fp, sizeof(uint32_t));
-	if (!buf) {
+	rc = next_entry(buf, fp, sizeof(uint32_t));
+	if (rc < 0) {
 		ERR(fp->handle, "truncated table");
 		goto bad;
 	}

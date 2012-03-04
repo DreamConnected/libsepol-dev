@@ -1,3 +1,30 @@
+2.0.11 2007-09-24
+	* Pass CFLAGS to CC even on link command, per Dennis Gilmore.
+
+2.0.10 2007-09-18
+	* Merged support for the handle_unknown policydb flag from Eric Paris.
+
+2.0.9 2007-08-29
+	* Moved next_entry and put_entry out-of-line to reduce code size from Ulrich Drepper.
+
+2.0.8 2007-08-28
+	* Fixed module_package_read_offsets bug introduced by the prior patch.
+
+2.0.7 2007-08-23
+	* Eliminate unaligned accesses from policy reading code from Stephen Smalley.
+
+2.0.6 2007-08-16
+	* Allow dontaudits to be turned off during policy expansion from
+	  Joshua Brindle.
+
+2.0.5 2007-08-01
+	* Fix sepol_context_clone to handle a NULL context correctly.
+          This happens for e.g. semanage_fcontext_set_con(sh, fcontext, NULL)
+	  to set the file context entry to "<<none>>".
+
+2.0.4 2007-06-20
+	* Merged error handling patch from Eamon Walsh.
+
 2.0.3 2007-04-13
 	* Merged add boolmap argument to expand_module_avrules() from Chris PeBenito.
 

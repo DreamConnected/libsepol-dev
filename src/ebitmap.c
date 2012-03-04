@@ -265,16 +265,16 @@ void ebitmap_destroy(ebitmap_t * e)
 
 int ebitmap_read(ebitmap_t * e, void *fp)
 {
-	int rc = -EINVAL;
+	int rc;
 	ebitmap_node_t *n, *l;
-	uint32_t *buf, mapsize, count, i;
+	uint32_t buf[3], mapsize, count, i;
 	uint64_t map;
 
 	ebitmap_init(e);
 
-	buf = next_entry(fp, sizeof(uint32_t) * 3);
-	if (!buf)
-		goto out;
+	rc = next_entry(buf, fp, sizeof(uint32_t) * 3);
+	if (rc < 0)
+		goto bad;
 
 	mapsize = le32_to_cpu(buf[0]);
 	e->highbit = le32_to_cpu(buf[1]);
@@ -284,7 +284,7 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 		printf
 		    ("security: ebitmap: map size %d does not match my size %zu (high bit was %d)\n",
 		     mapsize, MAPSIZE, e->highbit);
-		goto out;
+		goto bad;
 	}
 	if (!e->highbit) {
 		e->node = NULL;
@@ -298,8 +298,8 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 	}
 	l = NULL;
 	for (i = 0; i < count; i++) {
-		buf = next_entry(fp, sizeof(uint32_t));
-		if (!buf) {
+		rc = next_entry(buf, fp, sizeof(uint32_t));
+		if (rc < 0) {
 			printf("security: ebitmap: truncated map\n");
 			goto bad;
 		}
@@ -325,12 +325,11 @@ int ebitmap_read(ebitmap_t * e, void *fp)
 			     n->startbit, (e->highbit - MAPSIZE));
 			goto bad_free;
 		}
-		buf = next_entry(fp, sizeof(uint64_t));
-		if (!buf) {
+		rc = next_entry(&map, fp, sizeof(uint64_t));
+		if (rc < 0) {
 			printf("security: ebitmap: truncated map\n");
 			goto bad_free;
 		}
-		memcpy(&map, buf, sizeof(uint64_t));
 		n->map = le64_to_cpu(map);
 
 		if (!n->map) {
@@ -360,6 +359,8 @@ int ebitmap_read(ebitmap_t * e, void *fp)
       bad_free:
 	free(n);
       bad:
+	if (!rc)
+		rc = -EINVAL;
 	ebitmap_destroy(e);
 	goto out;
 }

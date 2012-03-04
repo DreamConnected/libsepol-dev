@@ -1534,6 +1534,8 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 	if (p->mls)
 		config |= POLICYDB_CONFIG_MLS;
 
+	config |= (POLICYDB_CONFIG_UNKNOWN_MASK & p->handle_unknown);
+
 	/* Write the magic number and string identifiers. */
 	items = 0;
 	if (p->policy_type == POLICY_KERN) {

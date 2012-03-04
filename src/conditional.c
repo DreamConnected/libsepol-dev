@@ -569,15 +569,16 @@ int cond_read_bool(policydb_t * p
 {
 	char *key = 0;
 	cond_bool_datum_t *booldatum;
-	uint32_t *buf, len;
+	uint32_t buf[3], len;
+	int rc;
 
 	booldatum = malloc(sizeof(cond_bool_datum_t));
 	if (!booldatum)
 		return -1;
 	memset(booldatum, 0, sizeof(cond_bool_datum_t));
 
-	buf = next_entry(fp, sizeof(uint32_t) * 3);
-	if (!buf)
+	rc = next_entry(buf, fp, sizeof(uint32_t) * 3);
+	if (rc < 0)
 		goto err;
 
 	booldatum->s.value = le32_to_cpu(buf[0]);
@@ -588,13 +589,12 @@ int cond_read_bool(policydb_t * p
 
 	len = le32_to_cpu(buf[2]);
 
-	buf = next_entry(fp, len);
-	if (!buf)
-		goto err;
 	key = malloc(len + 1);
 	if (!key)
 		goto err;
-	memcpy(key, buf, len);
+	rc = next_entry(key, fp, len);
+	if (rc < 0)
+		goto err;
 	key[len] = 0;
 	if (hashtab_insert(h, key, booldatum))
 		goto err;
@@ -703,14 +703,14 @@ static int cond_read_av_list(policydb_t * p, void *fp,
 {
 	unsigned int i;
 	int rc;
-	uint32_t *buf, len;
+	uint32_t buf[1], len;
 	struct cond_insertf_data data;
 
 	*ret_list = NULL;
 
 	len = 0;
-	buf = next_entry(fp, sizeof(uint32_t));
-	if (!buf)
+	rc = next_entry(buf, fp, sizeof(uint32_t));
+	if (rc < 0)
 		return -1;
 
 	len = le32_to_cpu(buf[0]);
@@ -752,27 +752,27 @@ static int expr_isvalid(policydb_t * p, cond_expr_t * expr)
 
 static int cond_read_node(policydb_t * p, cond_node_t * node, void *fp)
 {
-	uint32_t *buf;
-	int len, i;
+	uint32_t buf[2];
+	int len, i, rc;
 	cond_expr_t *expr = NULL, *last = NULL;
 
-	buf = next_entry(fp, sizeof(uint32_t));
-	if (!buf)
+	rc = next_entry(buf, fp, sizeof(uint32_t));
+	if (rc < 0)
 		goto err;
 
 	node->cur_state = le32_to_cpu(buf[0]);
 
 	len = 0;
-	buf = next_entry(fp, sizeof(uint32_t));
-	if (!buf)
+	rc = next_entry(buf, fp, sizeof(uint32_t));
+	if (rc < 0)
 		goto err;
 
 	/* expr */
 	len = le32_to_cpu(buf[0]);
 
 	for (i = 0; i < len; i++) {
-		buf = next_entry(fp, sizeof(uint32_t) * 2);
-		if (!buf)
+		rc = next_entry(buf, fp, sizeof(uint32_t) * 2);
+		if (rc < 0)
 			goto err;
 
 		expr = malloc(sizeof(cond_expr_t));
@@ -820,11 +820,11 @@ static int cond_read_node(policydb_t * p, cond_node_t * node, void *fp)
 int cond_read_list(policydb_t * p, cond_list_t ** list, void *fp)
 {
 	cond_node_t *node, *last = NULL;
-	uint32_t *buf;
-	int i, len;
+	uint32_t buf[1];
+	int i, len, rc;
 
-	buf = next_entry(fp, sizeof(uint32_t));
-	if (!buf)
+	rc = next_entry(buf, fp, sizeof(uint32_t));
+	if (rc < 0)
 		return -1;
 
 	len = le32_to_cpu(buf[0]);
