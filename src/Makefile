@@ -43,5 +43,5 @@ clean:
 	-rm -f $(OBJS) $(LOBJS) $(LIBA) $(LIBSO) $(TARGET) 
 
 indent:
-	../../Lindent $(wildcard *.[ch])
+	../../scripts/Lindent $(wildcard *.[ch])
 

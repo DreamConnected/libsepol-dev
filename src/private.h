@@ -24,6 +24,9 @@
 #define le64_to_cpu(x) bswap_64(x)
 #endif
 
+#undef min
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+
 /* Policy compatibility information. */
 struct policydb_compat_info {
 	unsigned int type;

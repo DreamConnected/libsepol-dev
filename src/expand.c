@@ -35,10 +35,12 @@
 #include <assert.h>
 
 #include "debug.h"
+#include "private.h"
 
 typedef struct expand_state {
 	int verbose;
 	uint32_t *typemap;
+	uint32_t *boolmap;
 	policydb_t *base;
 	policydb_t *out;
 	sepol_handle_t *handle;
@@ -791,8 +793,8 @@ static int bool_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		return -1;
 	}
 
-	new_bool->s.value = bool->s.value;
 	state->out->p_bools.nprim++;
+	new_bool->s.value = state->out->p_bools.nprim;
 
 	ret = hashtab_insert(state->out->p_bools.table,
 			     (hashtab_key_t) new_id,
@@ -803,6 +805,8 @@ static int bool_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 		free(new_id);
 		return -1;
 	}
+
+	state->boolmap[bool->s.value - 1] = new_bool->s.value;
 
 	new_bool->state = bool->state;
 
@@ -1555,12 +1559,35 @@ static int cond_avrule_list_copy(policydb_t * dest_pol, avrule_t * source_rules,
 	return 0;
 }
 
+static int cond_node_map_bools(expand_state_t * state, cond_node_t * cn)
+{
+	cond_expr_t *cur;
+	unsigned int i;
+
+	cur = cn->expr;
+	while (cur) {
+		if (cur->bool)
+			cur->bool = state->boolmap[cur->bool - 1];
+		cur = cur->next;
+	}
+
+	for (i = 0; i < min(cn->nbools, COND_MAX_BOOLS); i++)
+		cn->bool_ids[i] = state->boolmap[cn->bool_ids[i] - 1];
+
+	if (cond_normalize_expr(state->out, cn)) {
+		ERR(state->handle, "Error while normalizing conditional");
+		return -1;
+	}
+
+	return 0;
+}
+
 /* copy the nodes in *reverse* order -- the result is that the last
  * given conditional appears first in the policy, so as to match the
  * behavior of the upstream compiler */
 static int cond_node_copy(expand_state_t * state, cond_node_t * cn)
 {
-	cond_node_t *new_cond;
+	cond_node_t *new_cond, *tmp;
 
 	if (cn == NULL) {
 		return 0;
@@ -1573,11 +1600,28 @@ static int cond_node_copy(expand_state_t * state, cond_node_t * cn)
 		return -1;
 	}
 
-	new_cond = cond_node_search(state->out, state->out->cond_list, cn);
+	/* create a new temporary conditional node with the booleans
+	 * mapped */
+	tmp = cond_node_create(state->base, cn);
+	if (!tmp) {
+		ERR(state->handle, "Out of memory");
+		return -1;
+	}
+
+	if (cond_node_map_bools(state, tmp)) {
+		ERR(state->handle, "Error mapping booleans");
+		return -1;
+	}
+
+	new_cond = cond_node_search(state->out, state->out->cond_list, tmp);
 	if (!new_cond) {
+		cond_node_destroy(tmp);
+		free(tmp);
 		ERR(state->handle, "Out of memory!");
 		return -1;
 	}
+	cond_node_destroy(tmp);
+	free(tmp);
 
 	if (cond_avrule_list_copy
 	    (state->out, cn->avtrue_list, &state->out->te_cond_avtab,
@@ -2154,7 +2198,8 @@ static int copy_and_expand_avrule_block(expand_state_t * state)
  * or expand into the same policy for analysis purposes.
  */
 int expand_module_avrules(sepol_handle_t * handle, policydb_t * base,
-			  policydb_t * out, uint32_t * typemap, int verbose,
+			  policydb_t * out, uint32_t * typemap,
+			  uint32_t * boolmap, int verbose,
 			  int expand_neverallow)
 {
 	expand_state_t state;
@@ -2164,6 +2209,7 @@ int expand_module_avrules(sepol_handle_t * handle, policydb_t * base,
 	state.base = base;
 	state.out = out;
 	state.typemap = typemap;
+	state.boolmap = boolmap;
 	state.handle = handle;
 	state.verbose = verbose;
 	state.expand_neverallow = expand_neverallow;
@@ -2206,6 +2252,12 @@ int expand_module(sepol_handle_t * handle,
 	if ((state.typemap =
 	     (uint32_t *) calloc(state.base->p_types.nprim,
 				 sizeof(uint32_t))) == NULL) {
+		ERR(handle, "Out of memory!");
+		goto cleanup;
+	}
+
+	state.boolmap = (uint32_t *)calloc(state.base->p_bools.nprim, sizeof(uint32_t));
+	if (!state.boolmap) {
 		ERR(handle, "Out of memory!");
 		goto cleanup;
 	}
@@ -2364,6 +2416,7 @@ int expand_module(sepol_handle_t * handle,
 
       cleanup:
 	free(state.typemap);
+	free(state.boolmap);
 	return retval;
 }
 

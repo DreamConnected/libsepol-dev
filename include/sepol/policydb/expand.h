@@ -30,17 +30,19 @@
 #include <sepol/policydb/conditional.h>
 
 /*
- * Expand only the avrules for a module. It is valid for this function to
- * expand base into itself (i.e.  base == out); the typemap for this special
- * case should map type[i] to i+1.  This function optionally expands neverallow
- * rules. If neverallow rules are expanded, there is no need to copy them and
- * doing so could cause duplicate entries when base == out. If the neverallow
- * rules are not expanded, they are just copied to the destination policy so
- * that assertion checking can be performed after expand. No assertion or
- * hierarchy checking is performed by this function.
+ * Expand only the avrules for a module. It is valid for this function
+ * to expand base into itself (i.e.  base == out); the typemap for
+ * this special case should map type[i] to i+1.  Likewise the boolmap
+ * should map bool[i] to i + 1.  This function optionally expands
+ * neverallow rules. If neverallow rules are expanded, there is no
+ * need to copy them and doing so could cause duplicate entries when
+ * base == out.  If the neverallow rules are not expanded, they are
+ * just copied to the destination policy so that assertion checking
+ * can be performed after expand.  No assertion or hierarchy checking
+ * is performed by this function.
  */
 extern int expand_module_avrules(sepol_handle_t * handle, policydb_t * base,
-				 policydb_t * out, uint32_t * typemap,
+				 policydb_t * out, uint32_t * typemap, uint32_t * boolmap,
 				 int verbose, int expand_neverallow);
 /*
  * Expand all parts of a module. Neverallow rules are not expanded (only
