@@ -1,3 +1,19 @@
+2.1.0 2011-07-27
+	* Release, minor version bump
+
+2.0.46 2011-07-25
+	* Add role attribute support by Harry Ciao
+
+2.0.45 2011-05-02
+	* Warn if filename_trans rules are dropped by Steve Lawrence.
+
+2.0.44 2011-04-13
+	* Fixes for new role_transition class field by Eric Paris.
+	* Add libsepol support for filename_trans rules by Eric Paris.
+
+2.0.43 2011-04-11
+	* Add new class field in role_transition by Harry Ciao.
+
 2.0.42 2010-12-16
 	* Fix compliation under GCC 4.6 by Justin Mattock
 
