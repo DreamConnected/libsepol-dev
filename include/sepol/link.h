@@ -22,11 +22,12 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
-#ifndef _SEPOL_HIERARCHY_H_
-#define _SEPOL_HIERARCHY_H_
-
 #include <sepol/policydb.h>
 
-extern int hierarchy_check_constraints(policydb_t *p, char *error_msg, uint32_t error_len);
+#ifndef _SEPOL_LINK_H
+#define _SEPOL_LINK_H
+
+extern int link_modules(policydb_t *b, policydb_t **mods, int len,
+                 int verbose, char *error_buf, size_t error_buf_size);
 
 #endif

@@ -9,9 +9,13 @@
  * Updated: Frank Mayer <mayerf@tresys.com> and Karl MacMillan <kmacmillan@tresys.com>
  *
  * 	Added conditional policy language extensions
+ * 
+ * Updated: Joshua Brindle <jbrindle@tresys.com> and Jason Tang <jtang@tresys.org>
+ *
+ *	Module writing support
  *
  * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
- * Copyright (C) 2003 - 2004 Tresys Technology, LLC
+ * Copyright (C) 2003-2005 Tresys Technology, LLC
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -27,58 +31,46 @@
  *  License along with this library; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
+#include <assert.h>
+#include <stdlib.h>
 
 #include <sepol/ebitmap.h>
 #include <sepol/avtab.h>
 #include <sepol/mls.h>
 #include <sepol/policydb.h>
 #include <sepol/conditional.h>
+#include <sepol/expand.h>
 
+#include "debug.h"
 #include "private.h"
 
 static unsigned int policyvers = POLICYDB_VERSION_MAX;
+static unsigned int policy_type = POLICY_KERN;
 
-int sepol_set_policyvers(unsigned int version)
+static int avrule_write_list(avrule_t *avrules, struct policy_file *fp);
+
+int sepol_set_policyvers(unsigned int type, unsigned int version)
 {
-	if (version < POLICYDB_VERSION_MIN ||
-	    version > POLICYDB_VERSION_MAX)
-		return -EINVAL;
-
-	/* MLS backwards compatibility to mainline inclusion */
-	if (mls_enabled && (version < POLICYDB_VERSION_MLS))
-		return -EINVAL;
-
-	policyvers = version;
-	return 0;
-}
-
-static inline size_t put_entry(const void *ptr, size_t size, size_t n, struct policy_file *fp)
-{
-	size_t bytes = size * n;
-
-	switch (fp->type) {
-	case PF_USE_STDIO:
-		return fwrite(ptr, size, n, fp->fp);
-	case PF_USE_MEMORY:
-		if (bytes > fp->len) {
-			errno = ENOSPC;
-			return 0;
-		}
-
-		memcpy(fp->data, ptr, bytes);
-		fp->data += bytes;
-		fp->len -= bytes;
-		return n;
-	case PF_LEN:
-		fp->len += bytes;
-		return n;
-	default:
-		return 0;
+	if (type == POLICY_KERN || type == POLICY_BASE) {
+		if (version < POLICYDB_VERSION_MIN || version > POLICYDB_VERSION_MAX)
+			return -EINVAL;
 	}
+        else if (type == POLICY_MOD) {
+                if (version < MOD_POLICYDB_VERSION_MIN ||
+                    version > MOD_POLICYDB_VERSION_MAX) {
+                        return -EINVAL;
+                }
+        }
+        else {
+                /* illegal policy type */
+                return -1;
+        }
+	policyvers = version;
+	policy_type = type;
 	return 0;
 }
 
-int ebitmap_write(ebitmap_t * e, struct policy_file * fp)
+static int ebitmap_write(ebitmap_t * e, struct policy_file * fp)
 {
 	ebitmap_node_t *n;
 	uint32_t buf[32], bit, count;
@@ -112,76 +104,228 @@ int ebitmap_write(ebitmap_t * e, struct policy_file * fp)
 	return 0;
 }
 
-int avtab_write_item(avtab_ptr_t cur, struct policy_file *fp)
-{
-	uint32_t buf[32];
-	size_t items, items2;
+/* Ordering of datums in the original avtab format in the policy file. */
+static uint16_t spec_order[] = {
+	AVTAB_ALLOWED,
+	AVTAB_AUDITDENY,
+	AVTAB_AUDITALLOW,
+	AVTAB_TRANSITION,
+	AVTAB_CHANGE,
+	AVTAB_MEMBER
+};
 
-	items = 1;	/* item 0 is used for the item count */
-	buf[items++] = cpu_to_le32(cur->key.source_type);
-	buf[items++] = cpu_to_le32(cur->key.target_type);
-	buf[items++] = cpu_to_le32(cur->key.target_class);
-	buf[items++] = cpu_to_le32(cur->datum.specified);
-	if (!(cur->datum.specified & (AVTAB_AV | AVTAB_TYPE))) {
-		printf("security: avtab: null entry\n");
-		return -1;
+static int avtab_write_item(avtab_ptr_t cur, struct policy_file *fp, 
+	                    unsigned merge, unsigned commit,
+			    uint32_t *nel)
+{
+	avtab_ptr_t node;
+	uint16_t buf16[4];
+	uint32_t buf32[10], lookup, val;
+	size_t items, items2;
+	unsigned set;
+	unsigned int oldvers = (policy_type == POLICY_KERN && policyvers < POLICYDB_VERSION_AVTAB);
+	unsigned int i;
+
+	if (oldvers) {
+		/* Generate the old avtab format.
+		   Requires merging similar entries if uncond avtab. */
+		if (merge) {
+			if (cur->merged)
+				return 0; /* already merged by prior merge */
+		}
+
+		items = 1;	/* item 0 is used for the item count */
+		val = cur->key.source_type;
+		buf32[items++] = cpu_to_le32(val);
+		val = cur->key.target_type;
+		buf32[items++] = cpu_to_le32(val);
+		val = cur->key.target_class;
+		buf32[items++] = cpu_to_le32(val);
+
+		val = cur->key.specified & ~AVTAB_ENABLED;
+		if (cur->key.specified & AVTAB_ENABLED)
+			val |= AVTAB_ENABLED_OLD;
+		set = 1;
+
+		if (merge) {
+			/* Merge specifier values for all similar (av or type)
+			   entries that have the same key. */
+			if (val & AVTAB_AV) 
+				lookup = AVTAB_AV;
+			else if (val & AVTAB_TYPE)
+				lookup = AVTAB_TYPE;
+			else
+				return -1;
+			for (node = avtab_search_node_next(cur, lookup); 
+			     node; node = avtab_search_node_next(node, lookup)) {
+				val |= (node->key.specified & ~AVTAB_ENABLED);
+				set++;
+				if (node->key.specified & AVTAB_ENABLED)
+					val |= AVTAB_ENABLED_OLD;
+			}
+		}
+
+		if (!(val & (AVTAB_AV | AVTAB_TYPE))) {
+			DEBUG(__FUNCTION__, "null entry\n");
+			return -1;
+		}
+		if ((val & AVTAB_AV) && (val & AVTAB_TYPE)) {
+			DEBUG(__FUNCTION__, "entry has both access " 
+			      "vectors and types\n");
+			return -1;
+		}
+
+		buf32[items++] = cpu_to_le32(val);
+
+		if (merge) {
+			/* Include datums for all similar (av or type)
+			   entries that have the same key. */
+			for (i = 0; 
+			     i < (sizeof(spec_order)/sizeof(spec_order[0]));
+			     i++) {
+				if (val & spec_order[i]) {
+					if (cur->key.specified & spec_order[i])
+						node = cur;
+					else {
+						node = avtab_search_node_next(cur, spec_order[i]);
+						if (nel)
+							(*nel)--; /* one less node */
+					}
+
+					if (!node) {
+						DEBUG(__FUNCTION__, "missing node\n");
+						return -1;
+					}
+					buf32[items++] = cpu_to_le32(node->datum.data);
+					set--;
+					node->merged = 1;
+				}
+			}
+		} else {
+			buf32[items++] = cpu_to_le32(cur->datum.data);
+			cur->merged = 1;
+			set--;
+		}
+
+		if (set) {
+			DEBUG(__FUNCTION__, "data count wrong\n");
+			return -1;
+		}
+
+		buf32[0] = cpu_to_le32(items - 1);
+
+		if (commit) {
+			/* Commit this item to the policy file. */
+			items2 = put_entry(buf32, sizeof(uint32_t), items, fp);
+			if (items != items2)
+				return -1;
+		}
+
+		return 0;
 	}
-	if ((cur->datum.specified & AVTAB_AV) &&
-	    (cur->datum.specified & AVTAB_TYPE)) {
-		printf("security: avtab: entry has both access vectors and types\n");
+
+	/* Generate the new avtab format. */
+	buf16[0] = cpu_to_le16(cur->key.source_type);
+	buf16[1] = cpu_to_le16(cur->key.target_type);
+	buf16[2] = cpu_to_le16(cur->key.target_class);
+	buf16[3] = cpu_to_le16(cur->key.specified);
+	items = put_entry(buf16, sizeof(uint16_t), 4, fp);
+	if (items != 4)
 		return -1;
-	}
-	if (cur->datum.specified & AVTAB_AV) {
-		if (cur->datum.specified & AVTAB_ALLOWED)
-			buf[items++] = cpu_to_le32(avtab_allowed(&cur->datum));
-		if (cur->datum.specified & AVTAB_AUDITDENY)
-			buf[items++] = cpu_to_le32(avtab_auditdeny(&cur->datum));
-		if (cur->datum.specified & AVTAB_AUDITALLOW)
-			buf[items++] = cpu_to_le32(avtab_auditallow(&cur->datum));
-	} else {
-		if (cur->datum.specified & AVTAB_TRANSITION)
-			buf[items++] = cpu_to_le32(avtab_transition(&cur->datum));
-		if (cur->datum.specified & AVTAB_CHANGE)
-			buf[items++] = cpu_to_le32(avtab_change(&cur->datum));
-		if (cur->datum.specified & AVTAB_MEMBER)
-			buf[items++] = cpu_to_le32(avtab_member(&cur->datum));
-	}
-	buf[0] = cpu_to_le32(items - 1);
-	
-	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
-	if (items != items2)
+	buf32[0] = cpu_to_le32(cur->datum.data);
+	items = put_entry(buf32, sizeof(uint32_t), 1, fp);
+	if (items != 1)
 		return -1;
-	return 0;
+ 	return 0;
 }
 
-int avtab_write(avtab_t * a, struct policy_file * fp)
+static inline void avtab_reset_merged(avtab_t *a)
 {
 	int i;
 	avtab_ptr_t cur;
+	for (i = 0; i < AVTAB_SIZE; i++) {
+		for (cur = a->htable[i]; cur; cur = cur->next)
+			cur->merged = 0;
+	}
+}
+
+static int avtab_write(struct policydb *p, 
+		       avtab_t * a, struct policy_file * fp)
+{
+	int i, rc;
+	avtab_t expa;
+	avtab_ptr_t cur;
 	uint32_t nel;
 	size_t items;
+	unsigned int oldvers = (policy_type == POLICY_KERN && policyvers < POLICYDB_VERSION_AVTAB);
 
-	nel = cpu_to_le32(a->nel);
-	items = put_entry(&nel, sizeof(uint32_t), 1, fp);
-	if (items != 1)
-		return -1;
+
+	if (oldvers) {
+		/* Old avtab format.
+		   First, we need to expand attributes.  Then, we need to
+		   merge similar entries, so we need to track merged nodes 
+		   and compute the final nel. */
+		if (avtab_init(&expa))
+			return -1;
+		if (expand_avtab(p, a, &expa)) {
+			rc = -1;
+			goto out;
+		}
+		a = &expa;
+		avtab_reset_merged(a);
+		nel = a->nel;
+	} else {
+		/* New avtab format.  nel is good to go. */
+		nel = cpu_to_le32(a->nel);
+		items = put_entry(&nel, sizeof(uint32_t), 1, fp);
+		if (items != 1)
+			return -1;
+	}
 
 	for (i = 0; i < AVTAB_SIZE; i++) {
 		for (cur = a->htable[i]; cur; cur = cur->next) {
-			if (avtab_write_item(cur, fp))
-			    return -1;
+			/* If old format, compute final nel.
+			   If new format, write out the items. */
+			if (avtab_write_item(cur, fp, 1, !oldvers, &nel)) {
+				rc = -1;
+				goto out;
+			}
 		}	
 	}
 
-	return 0;
+	if (oldvers) {
+		/* Old avtab format.
+		   Write the computed nel value, then write the items. */
+		nel = cpu_to_le32(nel);
+		items = put_entry(&nel, sizeof(uint32_t), 1, fp);
+		if (items != 1) {
+			rc = -1;
+			goto out;
+		}
+		avtab_reset_merged(a);
+		for (i = 0; i < AVTAB_SIZE; i++) {
+			for (cur = a->htable[i]; cur; cur = cur->next) {
+				if (avtab_write_item(cur, fp, 1, 1, NULL)) {
+					rc = -1;
+					goto out;
+				}
+			}	
+		}
+	}
+
+	rc = 0;
+out:
+	if (oldvers)
+		avtab_destroy(&expa);
+	return rc;
 }
 
 /*
  * Write a MLS level structure to a policydb binary 
  * representation file.
  */
-int mls_write_level(mls_level_t * l,
-		    struct policy_file * fp)
+static int mls_write_level(mls_level_t * l,
+                           struct policy_file * fp)
 {
 	uint32_t sens;
 	size_t items;
@@ -230,7 +374,7 @@ static int mls_write_range_helper(mls_range_t * r,
 	return 0;
 }
 
-int sens_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int sens_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 {
 	level_datum_t *levdatum;
 	uint32_t buf[32];
@@ -257,7 +401,7 @@ int sens_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	return 0;
 }
 
-int cat_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int cat_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 {
 	cat_datum_t *catdatum;
 	uint32_t buf[32];
@@ -283,11 +427,93 @@ int cat_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	return 0;
 }
 
-int cond_write_bool(hashtab_key_t key, hashtab_datum_t datum, void *p)
+static int role_trans_write(role_trans_t *r, struct policy_file *fp) 
+{
+	role_trans_t *tr;
+	uint32_t buf[3];
+	size_t nel, items;
+
+	nel = 0;
+	for (tr = r; tr; tr = tr->next) 
+		nel++;
+	buf[0] = cpu_to_le32(nel);
+	items = put_entry(buf, sizeof(uint32_t), 1, fp);
+	if (items != 1)
+		return -1;
+	for (tr = r; tr; tr = tr->next) {
+		buf[0] = cpu_to_le32(tr->role);
+		buf[1] = cpu_to_le32(tr->type);
+		buf[2] = cpu_to_le32(tr->new_role);
+		items = put_entry(buf, sizeof(uint32_t), 3, fp);
+		if (items != 3)
+			return -1;		
+	}
+
+	return 0;
+}
+
+static int role_allow_write(role_allow_t *r, struct policy_file *fp)
+{
+	role_allow_t *ra;
+	uint32_t buf[2];
+	size_t nel, items;
+
+	nel = 0;
+	for (ra = r; ra; ra = ra->next) 
+		nel++;
+	buf[0] = cpu_to_le32(nel);
+	items = put_entry(buf, sizeof(uint32_t), 1, fp);
+	if (items != 1)
+		return -1;
+	for (ra = r; ra; ra = ra->next) {
+		buf[0] = cpu_to_le32(ra->role);
+		buf[1] = cpu_to_le32(ra->new_role);
+		items = put_entry(buf, sizeof(uint32_t), 2, fp);
+		if (items != 2)
+			return -1;		
+	}
+	return 0;
+}
+
+static int role_set_write(role_set_t *x, struct policy_file *fp)
+{
+	size_t items;
+	uint32_t buf[1];
+
+	if (ebitmap_write(&x->roles, fp))
+		return -1;
+
+	buf[0] = cpu_to_le32(x->flags);
+	items = put_entry(buf, sizeof(uint32_t), 1, fp);
+	if (items != 1)
+		return -1;
+
+	return 0;
+}
+
+static int type_set_write(type_set_t *x, struct policy_file *fp)
+{
+	size_t items;
+	uint32_t buf[1];
+
+	if (ebitmap_write(&x->types, fp))
+		return -1;
+	if (ebitmap_write(&x->negset, fp))
+		return -1;
+        
+	buf[0] = cpu_to_le32(x->flags);
+	items = put_entry(buf, sizeof(uint32_t), 1, fp);
+	if (items != 1)
+		return -1;
+
+	return 0;
+}
+
+static int cond_write_bool(hashtab_key_t key, hashtab_datum_t datum, void *p)
 {
 	cond_bool_datum_t *booldatum;
 	uint32_t buf[3], len;
-	int items, items2;
+	unsigned int items, items2;
 	struct policy_file *fp = p;
 
 	booldatum = (cond_bool_datum_t*)datum;
@@ -315,11 +541,23 @@ int cond_write_bool(hashtab_key_t key, hashtab_datum_t datum, void *p)
  * the conditional. This means that the avtab with the conditional
  * rules will not be saved but will be rebuilt on policy load.
  */
-int cond_write_av_list(cond_av_list_t *list, struct policy_file *fp)
+static int cond_write_av_list(policydb_t *p,
+			      cond_av_list_t *list, struct policy_file *fp)
 {
 	uint32_t buf[4];
-	cond_av_list_t *cur_list;
+	cond_av_list_t *cur_list, *new_list = NULL;
+	avtab_t expa;
 	uint32_t len, items;
+	unsigned int oldvers = (policy_type == POLICY_KERN && policyvers < POLICYDB_VERSION_AVTAB);
+	int rc = -1;
+
+	if (oldvers) {
+		if (avtab_init(&expa))
+			return -1;
+		if (expand_cond_av_list(p, list, &new_list, &expa))
+			goto out;
+		list = new_list;
+	}
 
 	len = 0;
 	for (cur_list = list; cur_list != NULL; cur_list = cur_list->next) {
@@ -330,19 +568,31 @@ int cond_write_av_list(cond_av_list_t *list, struct policy_file *fp)
 	buf[0] = cpu_to_le32(len);
 	items = put_entry(buf, sizeof(uint32_t), 1, fp);
 	if (items != 1)
-		return -1;
-	if (items == 0)
-		return 0;
+		goto out;
+
+	if (len == 0) {
+		rc = 0;
+		goto out;
+	}
 
 	for (cur_list = list; cur_list != NULL; cur_list = cur_list->next) {
 		if (cur_list->node->parse_context)
-			if (avtab_write_item(cur_list->node, fp))
-				return -1;
+			if (avtab_write_item(cur_list->node, fp, 0, 1, NULL))
+				goto out;
 	}
-	return 0;
+
+	rc = 0;
+out:
+	if (oldvers) {
+		cond_av_list_destroy(new_list);
+		avtab_destroy(&expa);
+	}
+
+	return rc;
 }
 
-int cond_write_node(cond_node_t *node, struct policy_file *fp)
+static int cond_write_node(policydb_t *p, 
+			   cond_node_t *node, struct policy_file *fp)
 {
 	cond_expr_t *cur_expr;
 	uint32_t buf[2];
@@ -372,17 +622,23 @@ int cond_write_node(cond_node_t *node, struct policy_file *fp)
 			return -1;
 	}
 
-	if (cond_write_av_list(node->true_list, fp) != 0)
-		return -1;
-	if (cond_write_av_list(node->false_list, fp) != 0)
-		return -1;
+        if (policy_type == POLICY_KERN) {
+		if (cond_write_av_list(p, node->true_list, fp) != 0)
+			return -1;
+		if (cond_write_av_list(p, node->false_list, fp) != 0)
+			return -1;
+	} else {
+		if (avrule_write_list(node->avtrue_list, fp))
+			return -1;
+		if (avrule_write_list(node->avfalse_list, fp))
+			return -1;
+	}
 	
 	return 0;
 }
 
-int cond_write_list(cond_list_t *list, void *p)
+static int cond_write_list(policydb_t *p, cond_list_t *list, struct policy_file *fp)
 {
-	struct policy_file *fp = p;
 	cond_node_t *cur;
 	uint32_t len, items;
 	uint32_t buf[1];
@@ -396,7 +652,7 @@ int cond_write_list(cond_list_t *list, void *p)
 		return -1;
 
 	for (cur = list; cur != NULL; cur = cur->next) {
-		if (cond_write_node(cur, p) != 0)
+		if (cond_write_node(p, cur, fp) != 0)
 			return -1;
 	}
 	return 0;
@@ -517,8 +773,13 @@ static int write_cons_helper(constraint_node_t *node, int allowxtarget,
 			case CEXPR_NAMES:
 				if (!allowxtarget && (e->attr & CEXPR_XTARGET))
 					return -1;
-				if (ebitmap_write(&e->names, fp))
+				if (ebitmap_write(&e->names, fp)) {
+                                        return -1;
+                                }
+                                if (policy_type != POLICY_KERN &&
+                                    type_set_write(e->type_names, fp)) {
 					return -1;
+                                }
 				break;
 			default:
 				break;
@@ -619,9 +880,13 @@ static int role_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 
 	if (ebitmap_write(&role->dominates, fp))
 		return -1;
-
-	if (ebitmap_write(&role->types, fp))
-		return -1;
+	if (policy_type == POLICY_KERN) {
+		if (ebitmap_write(&role->types.types, fp))
+			return -1;
+	} else {
+		if (type_set_write(&role->types, fp))
+			return -1;
+	}
 
 	return 0;
 }
@@ -640,9 +905,17 @@ static int type_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	buf[items++] = cpu_to_le32(len);
 	buf[items++] = cpu_to_le32(typdatum->value);
 	buf[items++] = cpu_to_le32(typdatum->primary);
+	if (policy_type != POLICY_KERN) {
+		buf[items++] = cpu_to_le32(typdatum->isattr);
+	}
 	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
 	if (items != items2)
 		return -1;
+		
+	if (policy_type != POLICY_KERN) {
+		if (ebitmap_write(&typdatum->types, fp))
+			return -1;
+	}
 
 	items = put_entry(key, 1, len, fp);
 	if (items != len)
@@ -673,9 +946,13 @@ static int user_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
 	if (items != len)
 		return -1;
 
-	if (ebitmap_write(&usrdatum->roles, fp))
-		return -1;
-
+	if (policy_type == POLICY_KERN) {
+		if (ebitmap_write(&usrdatum->roles.roles, fp))
+			return -1;
+	} else {
+		if (role_set_write(&usrdatum->roles, fp))
+			return -1;
+	}
 	if (policyvers >= POLICYDB_VERSION_MLS) {
 		if (mls_write_range_helper(&usrdatum->range, fp))
 			return -1;
@@ -699,112 +976,12 @@ static int (*write_f[SYM_NUM]) (hashtab_key_t key, hashtab_datum_t datum, void *
 	cat_write,
 };
 
-
-/*
- * Write the configuration data in a policy database
- * structure to a policy database binary representation
- * file.
- */
-int policydb_write(policydb_t * p, struct policy_file * fp)
-{
-	struct role_allow *ra;
-	struct role_trans *tr;
-	struct range_trans *rt;
-	ocontext_t *c;
-	genfs_t *genfs;
-	int i, j, num_syms;
-	uint32_t buf[32], config;
-	size_t items, items2, len, nel;
-	struct policydb_compat_info *info;
-	char *policydb_str = POLICYDB_STRING;
-
-	config = 0;
-	if (mls_enabled)
-		config |= POLICYDB_CONFIG_MLS;
-
-	/* Write the magic number and string identifiers. */
-	items = 0;
-	buf[items++] = cpu_to_le32(POLICYDB_MAGIC);
-	len = strlen(POLICYDB_STRING);
-	buf[items++] = cpu_to_le32(len);
-	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
-	if (items != items2)
-		return -1;
-	items = put_entry(policydb_str, 1, len, fp);
-	if (items != len)
-		return -1;
-
-	/* Write the version, config, and table sizes. */
-	items = 0;
-	info = policydb_lookup_compat(policyvers);
-	if (!info) {
-		fprintf(stderr, "policydb_lookup_compat() failed for %d\n", policyvers);
-		return -1;
-	}
-
-	buf[items++] = cpu_to_le32(policyvers);
-	buf[items++] = cpu_to_le32(config);
-	buf[items++] = cpu_to_le32(info->sym_num);
-	buf[items++] = cpu_to_le32(info->ocon_num);
-	
-	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
-	if (items != items2)
-		return -1;
-
-	num_syms = info->sym_num;
-	for (i = 0; i < num_syms; i++) {
-		buf[0] = cpu_to_le32(p->symtab[i].nprim);
-		buf[1] = cpu_to_le32(p->symtab[i].table->nel);
-		items = put_entry(buf, sizeof(uint32_t), 2, fp);
-		if (items != 2)
-			return -1;
-		if (hashtab_map(p->symtab[i].table, write_f[i], fp))
-			return -1;
-	}
-
-	if (avtab_write(&p->te_avtab, fp))
-		return -1;
-
-	if (policyvers < POLICYDB_VERSION_BOOL) {
-		if (p->p_bools.nprim)
-			fprintf(stderr, "warning: discarding booleans and conditional rules\n");
-
-	} else {
-		if (cond_write_list(p->cond_list, fp))
-			return -1;
-	}
-
-	nel = 0;
-	for (tr = p->role_tr; tr; tr = tr->next) 
-		nel++;
-	buf[0] = cpu_to_le32(nel);
-	items = put_entry(buf, sizeof(uint32_t), 1, fp);
-	if (items != 1)
-		return -1;
-	for (tr = p->role_tr; tr; tr = tr->next) {
-		buf[0] = cpu_to_le32(tr->role);
-		buf[1] = cpu_to_le32(tr->type);
-		buf[2] = cpu_to_le32(tr->new_role);
-		items = put_entry(buf, sizeof(uint32_t), 3, fp);
-		if (items != 3)
-			return -1;		
-	}
-
-	nel = 0;
-	for (ra = p->role_allow; ra; ra = ra->next) 
-		nel++;
-	buf[0] = cpu_to_le32(nel);
-	items = put_entry(buf, sizeof(uint32_t), 1, fp);
-	if (items != 1)
-		return -1;
-	for (ra = p->role_allow; ra; ra = ra->next) {
-		buf[0] = cpu_to_le32(ra->role);
-		buf[1] = cpu_to_le32(ra->new_role);
-		items = put_entry(buf, sizeof(uint32_t), 2, fp);
-		if (items != 2)
-			return -1;		
-	}
-
+static int ocontext_write (struct policydb_compat_info *info, policydb_t * p,
+                           struct policy_file * fp) {
+        unsigned int i, j;
+        size_t nel, items, len;
+	uint32_t buf[32];
+        ocontext_t *c;
 	for (i = 0; i < info->ocon_num; i++) {
 		nel = 0;
 		for (c = p->ocontexts[i]; c; c = c->next)
@@ -886,9 +1063,16 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
 				break;	
 			}
 		}
-	}
+	}    
+        return 0;
+}
 
-	nel = 0;
+static int genfs_write (policydb_t *p, struct policy_file *fp) {
+        genfs_t *genfs;
+        ocontext_t *c;
+        size_t nel = 0, items, len;
+        uint32_t buf[32];
+
 	for (genfs = p->genfs; genfs; genfs = genfs->next) 
 		nel++;
 	buf[0] = cpu_to_le32(nel);
@@ -928,26 +1112,415 @@ int policydb_write(policydb_t * p, struct policy_file * fp)
 				return -1;
 		}
 	}
+        return 0;
+}
 
-	if (policyvers >= POLICYDB_VERSION_MLS) {
-		nel = 0;
-		for (rt = p->range_tr; rt; rt = rt->next)
-			nel++;
-		buf[0] = cpu_to_le32(nel);
-		items = put_entry(buf, sizeof(uint32_t), 1, fp);
-		if (items != 1)
+static int range_write(policydb_t *p, struct policy_file *fp)
+{
+        size_t nel, items;
+        struct range_trans *rt;
+        uint32_t buf[32];
+        nel = 0;
+        for (rt = p->range_tr; rt; rt = rt->next)
+                nel++;
+        buf[0] = cpu_to_le32(nel);
+        items = put_entry(buf, sizeof(uint32_t), 1, fp);
+        if (items != 1)
+                return -1;
+        for (rt = p->range_tr; rt; rt = rt->next) {
+                buf[0] = cpu_to_le32(rt->dom);
+                buf[1] = cpu_to_le32(rt->type);
+                items = put_entry(buf, sizeof(uint32_t), 2, fp);
+                if (items != 2)
+                        return -1;
+                if (mls_write_range_helper(&rt->range, fp))
+                        return -1;
+        }
+        return 0;
+}
+
+/************** module writing functions below **************/
+
+static int avrule_write(avrule_t *avrule, struct policy_file *fp)
+{
+	size_t items, items2;
+	uint32_t buf[32], len;
+	class_perm_node_t *cur;
+
+	items = 0;
+	buf[items++] = cpu_to_le32(avrule->specified);
+	buf[items++] = cpu_to_le32(avrule->flags);
+	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
+	if (items2 != items)
+		return -1;
+
+	if (type_set_write(&avrule->stypes, fp))
+		return -1;
+
+	if (type_set_write(&avrule->ttypes, fp))
+		return -1;
+
+	cur = avrule->perms;
+	len = 0;
+	while (cur) {
+		len++;
+		cur = cur->next;
+	}
+	items = 0;
+	buf[items++] = cpu_to_le32(len);
+	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
+	if (items2 != items)
+		return -1;
+	cur = avrule->perms;
+	while (cur) {
+		items = 0;
+		buf[items++] = cpu_to_le32(cur->class);
+		buf[items++] = cpu_to_le32(cur->data);
+		items2 = put_entry(buf, sizeof(uint32_t), items, fp);
+		if (items2 != items)
 			return -1;
-		for (rt = p->range_tr; rt; rt = rt->next) {
-			buf[0] = cpu_to_le32(rt->dom);
-			buf[1] = cpu_to_le32(rt->type);
-			items = put_entry(buf, sizeof(uint32_t), 2, fp);
-			if (items != 2)
-				return -1;
-			if (mls_write_range_helper(&rt->range, fp))
+		
+		cur = cur->next;
+	}
+
+	return 0;
+}
+
+static int avrule_write_list(avrule_t *avrules, struct policy_file *fp)
+{
+	uint32_t buf[32], len;
+	avrule_t *avrule;
+
+	avrule = avrules;
+	len = 0;
+	while (avrule) {
+		len++;
+		avrule = avrule->next;
+	}
+
+	buf[0] = cpu_to_le32(len);
+	if (put_entry(buf, sizeof(uint32_t), 1, fp) != 1)
+		return -1;
+
+	avrule = avrules;
+	while (avrule) {
+		avrule_write(avrule, fp);
+		avrule = avrule->next;
+	}
+
+	return 0;
+}
+
+static int role_trans_rule_write(role_trans_rule_t *t, struct policy_file *fp)
+{
+	int nel = 0;
+	size_t items;
+	uint32_t buf[1];
+	role_trans_rule_t *tr;
+
+        for (tr = t; tr; tr = tr->next)
+                nel++;
+        buf[0] = cpu_to_le32(nel);
+        items = put_entry(buf, sizeof(uint32_t), 1, fp);
+        if (items != 1)
+                return -1;
+        for (tr =t; tr; tr = tr->next) {
+		if (role_set_write(&tr->roles, fp))
+			return -1;
+		if (type_set_write(&tr->types, fp))
+			return -1;
+                buf[0] = cpu_to_le32(tr->new_role);
+                items = put_entry(buf, sizeof(uint32_t), 1, fp);
+                if (items != 1)
+                        return -1;
+        }
+	return 0;
+}
+
+static int role_allow_rule_write(role_allow_rule_t *r, struct policy_file * fp)
+{
+	int nel = 0;
+	size_t items;
+	uint32_t buf[1];
+	role_allow_rule_t *ra;
+
+        for (ra = r ; ra; ra = ra->next)
+                nel++;
+        buf[0] = cpu_to_le32(nel);
+        items = put_entry(buf, sizeof(uint32_t), 1, fp);
+        if (items != 1)
+                return -1;
+        for (ra = r; ra; ra = ra->next) {
+		if (role_set_write(&ra->roles, fp))
+			return -1;
+		if (role_set_write(&ra->new_roles, fp))
+			return -1;
+        }
+	return 0;
+}
+
+static int scope_index_write(scope_index_t *scope_index, unsigned int num_scope_syms,
+                             struct policy_file *fp)
+{
+        unsigned int i;
+        uint32_t buf[1];
+        for (i = 0; i < num_scope_syms; i++) {
+                if (ebitmap_write(scope_index->scope + i, fp) == -1) {
+                        return -1;
+                }
+        }
+        buf[0] = cpu_to_le32(scope_index->class_perms_len);
+        if (put_entry(buf, sizeof(uint32_t), 1, fp) != 1) {
+                return -1;
+        }
+        for (i = 0; i < scope_index->class_perms_len; i++) {
+                if (ebitmap_write(scope_index->class_perms_map + i, fp) == -1) {
+                        return -1;
+                }
+        }
+        return 0;
+}
+
+static int avrule_decl_write(avrule_decl_t *decl, int num_scope_syms,
+                             struct policy_file *fp) {
+        uint32_t buf[2];
+        int i;
+        buf[0] = cpu_to_le32(decl->decl_id);
+        buf[1] = cpu_to_le32(decl->enabled);
+        if (put_entry(buf, sizeof(uint32_t), 2, fp) != 2) {
+                return -1;
+        }
+        if (cond_write_list(NULL, decl->cond_list, fp) == -1 ||
+            avrule_write_list(decl->avrules, fp) == -1 ||
+            role_trans_rule_write(decl->role_tr_rules, fp) == -1 ||
+            role_allow_rule_write(decl->role_allow_rules, fp) == -1) {
+                return -1;
+        }
+        if (scope_index_write(&decl->required, num_scope_syms, fp) == -1 ||
+            scope_index_write(&decl->declared, num_scope_syms, fp) == -1) {
+                return -1;
+        }
+        for (i = 0; i < num_scope_syms; i++) {
+		buf[0] = cpu_to_le32(decl->symtab[i].nprim);
+		buf[1] = cpu_to_le32(decl->symtab[i].table->nel);
+                if (put_entry(buf, sizeof(uint32_t), 2, fp) != 2) {
+                        return -1;
+                }
+		if (hashtab_map(decl->symtab[i].table, write_f[i], fp)) {
+			return -1;
+                }
+        }
+        return 0;
+}
+
+static int avrule_block_write(avrule_block_t *block, int num_scope_syms,
+                              struct policy_file *fp) {
+        /* first write a count of the total number of blocks */
+        uint32_t buf[1], num_blocks = 0;
+        avrule_block_t *cur;
+        for (cur = block; cur != NULL; cur = cur->next) {
+                num_blocks++;
+        }
+        buf[0] = cpu_to_le32(num_blocks);
+        if (put_entry(buf, sizeof(uint32_t), 1, fp) != 1) {
+                return -1;
+        }
+
+        /* now write each block */
+        for (cur = block; cur != NULL; cur = cur->next) {
+                uint32_t num_decls = 0;
+                avrule_decl_t *decl;
+                /* write a count of number of branches */
+                for (decl = cur->branch_list; decl != NULL; decl = decl->next) {
+                        num_decls++;
+                }
+                buf[0] = num_decls;
+                if (put_entry(buf, sizeof(uint32_t), 1, fp) != 1) {
+                        return -1;
+                }
+                for (decl = cur->branch_list; decl != NULL; decl = decl->next) {
+                        if (avrule_decl_write(decl, num_scope_syms, fp) == -1) {
+                                return -1;
+                        }
+                }
+        }
+        return 0;
+}
+
+static int scope_write(hashtab_key_t key, hashtab_datum_t datum, void *p)
+{
+        scope_datum_t *scope = (scope_datum_t *) datum;
+        struct policy_file *fp = (struct policy_file *) p;
+        uint32_t static_buf[32], *dyn_buf = NULL, *buf;
+        size_t key_len = strlen(key);
+        unsigned int items = 2 + scope->decl_ids_len, i;
+
+        if (items >= sizeof(buf)) {
+                /* too many things required, so dynamically create a
+                 * buffer.  this would have been easier with C99's
+                 * dynamic arrays... */
+                if ((dyn_buf = malloc(items * sizeof(*dyn_buf))) == NULL) {
+                        return -1;
+                }
+                buf = dyn_buf;
+        }
+        else {
+                buf = static_buf;
+        }
+        buf[0] = cpu_to_le32(key_len);
+        if (put_entry(buf, sizeof(*buf), 1, fp) != 1 ||
+            put_entry(key, 1, key_len, fp) != key_len) {
+                return -1;
+        }
+        buf[0] = cpu_to_le32(scope->scope);
+        buf[1] = cpu_to_le32(scope->decl_ids_len);
+        for (i = 0; i < scope->decl_ids_len; i++) {
+                buf[2 + i] = cpu_to_le32(scope->decl_ids[i]);
+        }
+        if (put_entry(buf, sizeof(*buf), items, fp) != items) {
+                free(dyn_buf);
+                return -1;
+        }
+        free(dyn_buf);
+        return 0;
+}
+
+/*
+ * Write the configuration data in a policy database
+ * structure to a policy database binary representation
+ * file.
+ */
+int policydb_write(policydb_t * p, struct policy_file * fp)
+{
+	unsigned int i, num_syms;
+	uint32_t buf[32], config;
+	size_t items, items2, len;
+	struct policydb_compat_info *info;
+	char *policydb_str;
+
+	config = 0;
+	if (sepol_mls_enabled())
+		config |= POLICYDB_CONFIG_MLS;
+
+	/* Write the magic number and string identifiers. */
+	items = 0;
+        if (p->policy_type == POLICY_KERN) {
+		buf[items++] = cpu_to_le32(POLICYDB_MAGIC);
+		len = strlen(POLICYDB_STRING);
+		policydb_str = POLICYDB_STRING;
+	} else {
+		buf[items++] = cpu_to_le32(POLICYDB_MOD_MAGIC);
+		len = strlen(POLICYDB_MOD_STRING);
+		policydb_str = POLICYDB_MOD_STRING;
+	}
+	buf[items++] = cpu_to_le32(len);
+	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
+	if (items != items2)
+		return -1;
+	items = put_entry(policydb_str, 1, len, fp);
+	if (items != len)
+		return -1;
+
+	/* Write the version, config, and table sizes. */
+	items = 0;
+	info = policydb_lookup_compat(policyvers, p->policy_type);
+	if (!info) {
+		DEBUG(__FUNCTION__, "compatibility lookup failed for policy "
+			"version %d\n", policyvers);
+		return -1;
+	}
+
+        if (p->policy_type != POLICY_KERN) {
+		buf[items++] = cpu_to_le32(p->policy_type);
+	}
+	buf[items++] = cpu_to_le32(policyvers);
+	buf[items++] = cpu_to_le32(config);
+	buf[items++] = cpu_to_le32(info->sym_num);
+	buf[items++] = cpu_to_le32(info->ocon_num);
+	
+	items2 = put_entry(buf, sizeof(uint32_t), items, fp);
+	if (items != items2)
+		return -1;
+        
+        if (p->policy_type == POLICY_MOD) {
+                /* Write module name and version */
+                len = strlen(p->name);
+                buf[0] = cpu_to_le32(len);
+                items = put_entry(buf, sizeof(uint32_t), 1, fp);
+                if (items != 1)
+                        return -1;
+                items = put_entry(p->name, 1, len, fp);
+                if (items != len)
+                        return -1;
+                len = strlen(p->version);
+                buf[0] = cpu_to_le32(len);
+                items = put_entry(buf, sizeof(uint32_t), 1, fp);
+                if (items != 1)
+                        return -1;
+                items = put_entry(p->version, 1, len, fp);
+                if (items != len)
+                        return -1;
+        } 
+	num_syms = info->sym_num;
+	for (i = 0; i < num_syms; i++) {
+		buf[0] = cpu_to_le32(p->symtab[i].nprim);
+		buf[1] = cpu_to_le32(p->symtab[i].table->nel);
+		items = put_entry(buf, sizeof(uint32_t), 2, fp);
+		if (items != 2)
+			return -1;
+		if (hashtab_map(p->symtab[i].table, write_f[i], fp))
+			return -1;
+	}
+
+	if (p->policy_type == POLICY_KERN) {
+		if (avtab_write(p, &p->te_avtab, fp))
+			return -1;
+                if (policyvers < POLICYDB_VERSION_BOOL) {
+                        if (p->p_bools.nprim)
+				DEBUG(__FUNCTION__, "Warning! Discarding "
+					"booleans and conditional rules\n");
+                }
+                else {
+                        if (cond_write_list(p, p->cond_list, fp))
+                                return -1;
+                }
+                if (role_trans_write(p->role_tr, fp))
+                        return -1;
+                if (role_allow_write(p->role_allow, fp))
+                        return -1;
+        }
+        else {
+                if (avrule_block_write(p->global, num_syms, fp) == -1) {
+                        return -1;
+                }
+                
+                for (i = 0; i < num_syms; i++) {
+                        buf[0] = cpu_to_le32(p->scope[i].table->nel);
+                        if (put_entry(buf, sizeof(uint32_t), 1, fp) != 1) {
+                                return -1;
+                        }
+                        if (hashtab_map(p->scope[i].table, scope_write, fp))
+                                return -1;
+                }
+        }
+
+        if (ocontext_write(info, p, fp) == -1 ||
+            genfs_write(p, fp) == -1) {
+                return -1;
+        }
+
+        if (policyvers >= POLICYDB_VERSION_MLS) {
+                if (range_write(p, fp)) {
+                        return -1;
+                }
+        }
+
+	if (policy_type == POLICY_KERN && policyvers >= POLICYDB_VERSION_AVTAB) {
+		for (i = 0; i < p->p_types.nprim; i++) {
+			if (ebitmap_write(&p->type_attr_map[i], fp) == -1)
 				return -1;
 		}
 	}
 
 	return 0;
 }
-

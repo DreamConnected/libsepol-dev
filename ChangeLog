@@ -1,3 +1,105 @@
+1.8 2005-09-06
+	* Updated version for release.
+
+1.7.24 2005-08-31
+	* Fixed symtab_insert return value for duplicate declarations.
+
+1.7.23 2005-08-31
+	* Merged fix for memory error in policy_module_destroy from
+	Jason Tang (Tresys).
+
+1.7.22 2005-08-26
+	* Merged fix for memory leak in sepol_context_to_sid from
+	Jason Tang (Tresys).
+
+1.7.21 2005-08-25
+	* Merged fixes for resource leaks on error paths and
+	  change to scope_destroy from Joshua Brindle (Tresys).
+
+1.7.20 2005-08-23
+	* Merged more fixes for resource leaks on error paths 
+	  from Serge Hallyn (IBM).  Bugs found by Coverity. 
+
+1.7.19 2005-08-19
+	* Changed to treat all type conflicts as fatal errors.
+
+1.7.18 2005-08-18
+	* Merged several error handling fixes from 
+	  Serge Hallyn (IBM).  Bugs found by Coverity.	
+
+1.7.17 2005-08-15
+	* Fixed further memory leaks found by valgrind.
+
+1.7.16 2005-08-15
+	* Fixed several memory leaks found by valgrind.
+
+1.7.15 2005-08-12
+	* Fixed empty list test in cond_write_av_list.  Bug found by
+	  Coverity, reported by Serge Hallyn (IBM).
+	* Merged patch to policydb_write to check errors 
+	  when writing the type->attribute reverse map from
+	  Serge Hallyn (IBM).  Bug found by Coverity.
+	* Fixed policydb_destroy to properly handle NULL type_attr_map
+	  or attr_type_map.
+
+1.7.14 2005-08-12
+	* Fixed use of uninitialized data by expand_avtab_node by
+	  clearing type_val_to_struct in policydb_index_others.
+
+1.7.13 2005-08-11
+	* Improved memory use by SELinux by both reducing the avtab 
+	  node size and reducing the number of avtab nodes (by not
+	  expanding attributes in TE rules when possible).  Added
+	  expand_avtab and expand_cond_av_list functions for use by
+	  assertion checker, hierarchy checker, compatibility code,
+	  and dispol.  Added new inline ebitmap operators and converted
+	  existing users of ebitmaps to the new operators for greater 
+	  efficiency.
+	  Note:  The binary policy format version has been incremented to 
+	  version 20 as a result of these changes.
+
+1.7.12 2005-08-10
+	* Fixed bug in constraint_node_clone handling of name sets.
+
+1.7.11 2005-08-08
+	* Fix range_trans_clone to map the type values properly.
+
+1.7.10 2005-08-02
+	* Merged patch to move module read/write code from libsemanage
+	  to libsepol from Jason Tang (Tresys).
+
+1.7.9 2005-08-02
+	* Enabled further compiler warning flags and fixed them.
+
+1.7.8 2005-08-02
+	* Merged user, context, port records patch from Ivan Gyurdiev.
+	* Merged key extract function patch from Ivan Gyurdiev.
+
+1.7.7 2005-07-27
+	* Merged mls_context_to_sid bugfix from Ivan Gyurdiev.
+
+1.7.6 2005-07-26
+	* Merged context reorganization, memory leak fixes, 
+	  port and interface loading, replacements for genusers and
+	  genbools, debug traceback, and bugfix patches from Ivan Gyurdiev.
+	* Merged uninitialized variable bugfix from Dan Walsh.
+
+1.7.5 2005-07-18
+	* Merged debug support, policydb conversion functions from Ivan Gyurdiev (Red Hat).
+	* Removed genpolbools and genpolusers utilities.
+
+1.7.4 2005-07-18
+	* Merged hierarchy check fix from Joshua Brindle (Tresys).
+
+1.7.3 2005-07-13
+	* Merged header file cleanup and memory leak fix from Ivan Gyurdiev (Red Hat).
+
+1.7.2 2005-07-11
+	* Merged genbools debugging message cleanup from Red Hat.
+
+1.7.1 2005-07-06
+	* Merged loadable module support from Tresys Technology.
+
 1.6 2005-06-20
 	* Updated version for release.
 

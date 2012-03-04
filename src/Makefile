@@ -10,7 +10,7 @@ TARGET=libsepol.so
 LIBSO=$(TARGET).$(LIBVERSION)
 OBJS= $(patsubst %.c,%.o,$(wildcard *.c))
 LOBJS= $(patsubst %.c,%.lo,$(wildcard *.c))
-CFLAGS = -Wall
+CFLAGS ?= -Wall -W -Wundef -Wmissing-noreturn -Wmissing-format-attribute
 override CFLAGS += -I. -I../include -D_GNU_SOURCE
 
 all: $(LIBA) $(LIBSO)
@@ -40,5 +40,5 @@ relabel:
 	/sbin/restorecon $(SHLIBDIR)/$(LIBSO)
 
 clean: 
-	rm -f $(OBJS) $(LOBJS) $(LIBA) $(LIBSO) $(TARGET) 
+	-rm -f $(OBJS) $(LOBJS) $(LIBA) $(LIBSO) $(TARGET) 
 

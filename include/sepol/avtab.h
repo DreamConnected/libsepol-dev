@@ -39,12 +39,9 @@
 #include <stdint.h>
 
 typedef struct avtab_key {
-	uint32_t source_type;	/* source type */
-	uint32_t target_type;	/* target type */
-	uint32_t target_class;     /* target object class */
-} avtab_key_t;
-
-typedef struct avtab_datum {
+	uint16_t source_type;
+	uint16_t target_type;
+	uint16_t target_class;
 #define AVTAB_ALLOWED     1
 #define AVTAB_AUDITALLOW  2
 #define AVTAB_AUDITDENY   4
@@ -53,15 +50,13 @@ typedef struct avtab_datum {
 #define AVTAB_MEMBER     32
 #define AVTAB_CHANGE     64
 #define AVTAB_TYPE       (AVTAB_TRANSITION | AVTAB_MEMBER | AVTAB_CHANGE)
-#define AVTAB_ENABLED    0x80000000 /* reserved for used in cond_avtab */
-	uint32_t specified;	/* what fields are specified */
-        uint32_t data[3];          /* access vectors or types */
-#define avtab_allowed(x) (x)->data[0]
-#define avtab_auditdeny(x) (x)->data[1]
-#define avtab_auditallow(x) (x)->data[2]
-#define avtab_transition(x) (x)->data[0]
-#define avtab_change(x) (x)->data[1]
-#define avtab_member(x) (x)->data[2]
+#define AVTAB_ENABLED_OLD 0x80000000
+#define AVTAB_ENABLED    0x8000 /* reserved for used in cond_avtab */
+	uint16_t specified;	/* what fields are specified */
+} avtab_key_t;
+
+typedef struct avtab_datum {
+        uint32_t data;          /* access vector or type */
 } avtab_datum_t;
 
 typedef struct avtab_node *avtab_ptr_t;
@@ -72,6 +67,8 @@ struct avtab_node {
 	avtab_ptr_t next;
 	void *parse_context;	/* generic context pointer used by parser;
 				 * not saved in binary policy */
+	unsigned merged;       /* flag for avtab_write only;
+				  not saved in binary policy */
 };
 
 typedef struct avtab {
@@ -79,34 +76,37 @@ typedef struct avtab {
 	uint32_t nel;	/* number of elements */
 } avtab_t;
 
-int avtab_init(avtab_t *);
+extern int avtab_init(avtab_t *);
 
-int avtab_insert(avtab_t * h, avtab_key_t * k, avtab_datum_t * d);
+extern int avtab_insert(avtab_t * h, avtab_key_t * k, avtab_datum_t * d);
 
-avtab_datum_t *avtab_search(avtab_t * h, avtab_key_t * k, int specified);
+extern avtab_datum_t *avtab_search(avtab_t * h, avtab_key_t * k);
 
-void avtab_destroy(avtab_t * h);
+extern void avtab_destroy(avtab_t * h);
 
-int avtab_map(avtab_t * h,
+extern int avtab_map(avtab_t * h,
 	      int (*apply) (avtab_key_t * k,
 			    avtab_datum_t * d,
 			    void *args),
 	      void *args);
 
-void avtab_hash_eval(avtab_t * h, char *tag);
+extern void avtab_hash_eval(avtab_t * h, char *tag);
 
-int avtab_read_item(void *fp, avtab_datum_t *avdatum, avtab_key_t *avkey);
+extern int avtab_read_item(void *fp, uint32_t vers, avtab_t *a, 
+			   int (*insert)(avtab_t *a, avtab_key_t *k, 
+					 avtab_datum_t *d, void *p),
+			   void *p);
 
-int avtab_read(avtab_t * a, void * fp, uint32_t config);
+extern int avtab_read(avtab_t * a, void * fp, uint32_t vers);
 
-avtab_ptr_t avtab_insert_nonunique(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum);
+extern avtab_ptr_t avtab_insert_nonunique(avtab_t * h, avtab_key_t * key, avtab_datum_t * datum);
 
-avtab_ptr_t avtab_insert_with_parse_context(avtab_t *h, avtab_key_t *key,
+extern avtab_ptr_t avtab_insert_with_parse_context(avtab_t *h, avtab_key_t *key,
 					    avtab_datum_t *datum, void *parse_context);
 
-avtab_ptr_t avtab_search_node(avtab_t * h, avtab_key_t * key, int specified);
+extern avtab_ptr_t avtab_search_node(avtab_t * h, avtab_key_t * key);
 
-avtab_ptr_t avtab_search_node_next(avtab_ptr_t node, int specified);
+extern avtab_ptr_t avtab_search_node_next(avtab_ptr_t node, int specified);
 
 #define AVTAB_HASH_BITS 15
 #define AVTAB_HASH_BUCKETS (1 << AVTAB_HASH_BITS)

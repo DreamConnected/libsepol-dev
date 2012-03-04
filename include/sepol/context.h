@@ -16,12 +16,12 @@
  * clients of the security server.
  */
 
-#ifndef _CONTEXT_H_
-#define _CONTEXT_H_
+#ifndef _SEPOL_CONTEXT_H_
+#define _SEPOL_CONTEXT_H_
 
 #include <sepol/ebitmap.h>
-#include <sepol/sepol.h>
 #include <sepol/mls_types.h>
+#include <sepol/context_record.h>
 
 /*
  * A security context consists of an authenticated user
@@ -33,7 +33,6 @@ typedef struct context_struct {
 	uint32_t type;
 	mls_range_t range;
 } context_struct_t;
-
 
 static inline void mls_context_init(context_struct_t * c)
 {
@@ -112,7 +111,31 @@ static inline int context_cmp(context_struct_t * c1,
 		mls_context_cmp(c1, c2));
 }
 
-#endif	/* _CONTEXT_H_ */
+struct policydb;
 
-/* FLASK */
+/* Create a context structure from high level representation */
+extern int sepol_ctx_struct_create(
+	struct policydb *policydb,
+	context_struct_t** cptr,
+	sepol_context_t data);
 
+/* Create a context structure from string representation */
+extern int sepol_ctx_struct_from_string(
+	struct policydb* policydb,
+	context_struct_t** cptr,
+	const char* con_str,
+	size_t con_str_len);
+
+/* Check if the provided context is valid for this policy */
+extern int sepol_ctx_struct_is_valid(
+	struct policydb *policydb, 
+	context_struct_t *context);
+
+/* Extract the context as string */
+extern int sepol_ctx_struct_to_string(
+	struct policydb *policydb,
+	context_struct_t * context,
+	char ** result,
+	size_t *result_len);
+
+#endif	/* _SEPOL_CONTEXT_H_ */

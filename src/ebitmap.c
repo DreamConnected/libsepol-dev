@@ -58,6 +58,18 @@ int ebitmap_or(ebitmap_t * dst, ebitmap_t * e1, ebitmap_t * e2)
 	return 0;
 }
 
+int ebitmap_union(ebitmap_t *dst, ebitmap_t *e1)
+{
+       ebitmap_t tmp;
+
+       if (ebitmap_or(&tmp, dst, e1))
+               return -1;
+       ebitmap_destroy(dst);
+       dst->node = tmp.node;
+       dst->highbit = tmp.highbit;
+       
+       return 0;
+}
 
 int ebitmap_cmp(ebitmap_t * e1, ebitmap_t * e2)
 {

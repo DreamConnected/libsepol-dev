@@ -20,7 +20,7 @@ typedef struct {
 	uint32_t nprim;		/* number of primary names in table */
 } symtab_t;
 
-int symtab_init(symtab_t *, unsigned int size);
+extern int symtab_init(symtab_t *, unsigned int size);
 
 #endif	/* _SYMTAB_H_ */
 

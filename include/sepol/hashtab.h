@@ -18,8 +18,8 @@
 #include <errno.h>
 #include <stdio.h>
 
-typedef char *hashtab_key_t;	/* generic key type */
-typedef void *hashtab_datum_t;	/* generic datum type */
+typedef char *hashtab_key_t;		/* generic key type */
+typedef void *hashtab_datum_t;		/* generic datum type */
 
 typedef struct hashtab_node *hashtab_ptr_t;
 
@@ -52,7 +52,7 @@ typedef hashtab_val_t *hashtab_t;
    Returns NULL if insufficent space is available or
    the new hash table otherwise.
  */
-hashtab_t hashtab_create(unsigned int (*hash_value) (hashtab_t h,
+extern hashtab_t hashtab_create(unsigned int (*hash_value) (hashtab_t h,
 						     hashtab_key_t key),
 			 int (*keycmp) (hashtab_t h,
 					hashtab_key_t key1,
@@ -66,7 +66,7 @@ hashtab_t hashtab_create(unsigned int (*hash_value) (hashtab_t h,
    HASHTAB_PRESENT  if there is already an entry with the same key or
    HASHTAB_SUCCESS otherwise.
  */
-int hashtab_insert(hashtab_t h, hashtab_key_t k, hashtab_datum_t d);
+extern int hashtab_insert(hashtab_t h, hashtab_key_t k, hashtab_datum_t d);
 
 /*
    Removes the entry with the specified key from the hash table.
@@ -76,7 +76,7 @@ int hashtab_insert(hashtab_t h, hashtab_key_t k, hashtab_datum_t d);
    Returns HASHTAB_MISSING if no entry has the specified key or
    HASHTAB_SUCCESS otherwise.
  */
-int hashtab_remove(hashtab_t h, hashtab_key_t k,
+extern int hashtab_remove(hashtab_t h, hashtab_key_t k,
 		   void (*destroy) (hashtab_key_t k,
 				    hashtab_datum_t d,
 				    void *args),
@@ -91,7 +91,7 @@ int hashtab_remove(hashtab_t h, hashtab_key_t k,
    Returns HASHTAB_OVERFLOW if insufficient space is available or
    HASHTAB_SUCCESS otherwise.
  */
-int hashtab_replace(hashtab_t h, hashtab_key_t k, hashtab_datum_t d,
+extern int hashtab_replace(hashtab_t h, hashtab_key_t k, hashtab_datum_t d,
 		    void (*destroy) (hashtab_key_t k,
 				     hashtab_datum_t d,
 				     void *args),
@@ -103,12 +103,12 @@ int hashtab_replace(hashtab_t h, hashtab_key_t k, hashtab_datum_t d,
    Returns NULL if no entry has the specified key or
    the datum of the entry otherwise.
  */
-hashtab_datum_t hashtab_search(hashtab_t h, hashtab_key_t k);
+extern hashtab_datum_t hashtab_search(hashtab_t h, hashtab_key_t k);
 
 /*
    Destroys the specified hash table.
  */
-void hashtab_destroy(hashtab_t h);
+extern void hashtab_destroy(hashtab_t h);
 
 /*
    Applies the specified apply function to (key,datum,args)
@@ -121,7 +121,7 @@ void hashtab_destroy(hashtab_t h);
    iterating through the hash table and will propagate the error
    return to its caller.
  */
-int hashtab_map(hashtab_t h,
+extern int hashtab_map(hashtab_t h,
 		int (*apply) (hashtab_key_t k,
 			      hashtab_datum_t d,
 			      void *args),
@@ -132,7 +132,7 @@ int hashtab_map(hashtab_t h,
    then the (key,datum) pair will be removed from the hashtab and the
    destroy function will be applied to (key,datum,args).
  */
-void hashtab_map_remove_on_error(hashtab_t h,
+extern void hashtab_map_remove_on_error(hashtab_t h,
 				 int (*apply) (hashtab_key_t k,
 					       hashtab_datum_t d,
 					       void *args),
@@ -141,7 +141,7 @@ void hashtab_map_remove_on_error(hashtab_t h,
 						  void *args),
 				 void *args);
 
-void hashtab_hash_eval(hashtab_t h, char *tag);
+extern void hashtab_hash_eval(hashtab_t h, char *tag);
 
 
 #endif

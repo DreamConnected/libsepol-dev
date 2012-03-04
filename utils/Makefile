@@ -2,7 +2,7 @@
 PREFIX ?= $(DESTDIR)/usr
 BINDIR ?= $(PREFIX)/bin
 
-CFLAGS = -Wall
+CFLAGS ?= -Wall
 override CFLAGS += -I../include
 LDLIBS += -L../src -lsepol 
 
@@ -15,7 +15,7 @@ install: all
 	install -m 755 $(TARGETS) $(BINDIR)
 
 clean:
-	rm -f $(TARGETS) *.o 
+	-rm -f $(TARGETS) *.o 
 
 relabel:
 

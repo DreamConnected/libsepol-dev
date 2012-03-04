@@ -43,7 +43,8 @@
  */
 int mls_compute_context_len(policydb_t *policydb, context_struct_t * context)
 {
-	int i, l, len, range;
+	unsigned int i, l, len, range;
+	ebitmap_node_t *cnode;
 
 	if (!mls_enabled)
 		return 0;
@@ -53,24 +54,24 @@ int mls_compute_context_len(policydb_t *policydb, context_struct_t * context)
 		range = 0;
 		len += strlen(policydb->p_sens_val_to_name[context->range.level[l].sens - 1]);
 
-		for (i = 1; i <= ebitmap_length(&context->range.level[l].cat); i++) {
-			if (ebitmap_get_bit(&context->range.level[l].cat, i - 1)) {
+		ebitmap_for_each_bit(&context->range.level[l].cat, cnode, i) {
+		  if (ebitmap_node_get_bit(cnode, i)) {
 				if (range) {
 					range++;
 					continue;
 				}
 
-				len += strlen(policydb->p_cat_val_to_name[i - 1]) + 1;
+				len += strlen(policydb->p_cat_val_to_name[i]) + 1;
 				range++;
 			} else {
 				if (range > 1)
-					len += strlen(policydb->p_cat_val_to_name[i - 2]) + 1;
+					len += strlen(policydb->p_cat_val_to_name[i - 1]) + 1;
 				range = 0;
 			}
 		}
 		/* Handle case where last category is the end of range */
 		if (range > 1)
-			len += strlen(policydb->p_cat_val_to_name[i - 2]) + 1;
+			len += strlen(policydb->p_cat_val_to_name[i - 1]) + 1;
 
 		if (l == 0) {
 			if (mls_level_eq(&context->range.level[0],
@@ -95,7 +96,8 @@ void mls_sid_to_context(policydb_t *policydb,
                         char **scontext)
 {
 	char *scontextp;
-	int i, l, range, wrote_sep;
+	unsigned int i, l, range, wrote_sep;
+	ebitmap_node_t *cnode;
 
 	if (!mls_enabled)
 		return;
@@ -112,8 +114,8 @@ void mls_sid_to_context(policydb_t *policydb,
 		       policydb->p_sens_val_to_name[context->range.level[l].sens - 1]);
 		scontextp += strlen(policydb->p_sens_val_to_name[context->range.level[l].sens - 1]);
 		/* categories */
-		for (i = 1; i <= ebitmap_length(&context->range.level[l].cat); i++) {
-			if (ebitmap_get_bit(&context->range.level[l].cat, i - 1)) {
+		ebitmap_for_each_bit(&context->range.level[l].cat, cnode, i) {
+		  if (ebitmap_node_get_bit(cnode, i)) {
 				if (range) {
 					range++;
 					continue;
@@ -124,8 +126,8 @@ void mls_sid_to_context(policydb_t *policydb,
 					wrote_sep = 1;
 				} else
 					*scontextp++ = ',';
-				strcpy(scontextp, policydb->p_cat_val_to_name[i - 1]);
-				scontextp += strlen(policydb->p_cat_val_to_name[i - 1]);
+				strcpy(scontextp, policydb->p_cat_val_to_name[i]);
+				scontextp += strlen(policydb->p_cat_val_to_name[i]);
 				range++;
 			} else {
 				if (range > 1) {
@@ -134,8 +136,8 @@ void mls_sid_to_context(policydb_t *policydb,
 					else
 						*scontextp++ = ',';
 
-					strcpy(scontextp, policydb->p_cat_val_to_name[i - 2]);
-					scontextp += strlen(policydb->p_cat_val_to_name[i - 2]);
+					strcpy(scontextp, policydb->p_cat_val_to_name[i - 1]);
+					scontextp += strlen(policydb->p_cat_val_to_name[i - 1]);
 				}
 				range = 0;
 			}
@@ -147,8 +149,8 @@ void mls_sid_to_context(policydb_t *policydb,
 			else
 				*scontextp++ = ',';
 
-			strcpy(scontextp, policydb->p_cat_val_to_name[i - 2]);
-			scontextp += strlen(policydb->p_cat_val_to_name[i - 2]);
+			strcpy(scontextp, policydb->p_cat_val_to_name[i - 1]);
+			scontextp += strlen(policydb->p_cat_val_to_name[i - 1]);
 		}
 
 		if (l == 0) {
@@ -174,7 +176,8 @@ int mls_context_isvalid(policydb_t *p, context_struct_t * c)
 {
 	level_datum_t *levdatum;
 	user_datum_t *usrdatum;
-	int i, l;
+	unsigned int i, l;
+	ebitmap_node_t *cnode;
 
 	if (!mls_enabled)
 		return 1;
@@ -196,11 +199,11 @@ int mls_context_isvalid(policydb_t *p, context_struct_t * c)
 		if (!levdatum)
 			return 0;
 
-		for (i = 1; i <= ebitmap_length(&c->range.level[l].cat); i++) {
-			if (ebitmap_get_bit(&c->range.level[l].cat, i - 1)) {
+		ebitmap_for_each_bit(&c->range.level[l].cat, cnode, i) {
+		  if (ebitmap_node_get_bit(cnode, i)) {
 				if (i > p->p_cats.nprim)
 					return 0;
-				if (!ebitmap_get_bit(&levdatum->level->cat, i - 1))
+				if (!ebitmap_get_bit(&levdatum->level->cat, i))
 					/*
 					 * Category may not be associated with
 					 * sensitivity in low level.
@@ -245,7 +248,8 @@ int mls_context_to_sid(policydb_t *policydb,
 	char *scontextp, *p, *rngptr;
 	level_datum_t *levdatum;
 	cat_datum_t *catdatum, *rngdatum;
-	int l, rc = -EINVAL;
+	unsigned int l;
+	int rc = -EINVAL;
 
 	if (!mls_enabled)
 		return 0;
@@ -305,7 +309,7 @@ int mls_context_to_sid(policydb_t *policydb,
 
 				/* If range, set all categories in range */
 				if (rngptr) {
-					int i;
+					unsigned int i;
 
 					rngdatum = (cat_datum_t *)hashtab_search(policydb->p_cats.table, (hashtab_key_t)rngptr);
 					if (!rngdatum) {
@@ -464,7 +468,8 @@ int mls_convert_context(policydb_t * oldp,
 	level_datum_t *levdatum;
 	cat_datum_t *catdatum;
 	ebitmap_t bitmap;
-	int l, i;
+	unsigned int l, i;
+	ebitmap_node_t *cnode;
 
 	if (!mls_enabled)
 		return 0;
@@ -479,12 +484,12 @@ int mls_convert_context(policydb_t * oldp,
 		c->range.level[l].sens = levdatum->level->sens;
 
 		ebitmap_init(&bitmap);
-		for (i = 1; i <= ebitmap_length(&c->range.level[l].cat); i++) {
-			if (ebitmap_get_bit(&c->range.level[l].cat, i - 1)) {
+		ebitmap_for_each_bit(&c->range.level[l].cat, cnode, i) {
+			if (ebitmap_node_get_bit(cnode, i)) {
 				int rc;
 
 				catdatum = (cat_datum_t *) hashtab_search(newp->p_cats.table,
-					 oldp->p_cat_val_to_name[i - 1]);
+					 oldp->p_cat_val_to_name[i]);
 				if (!catdatum)
 					return -EINVAL;
 				rc = ebitmap_set_bit(&bitmap, catdatum->value - 1, 1);
