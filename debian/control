@@ -53,7 +53,7 @@ Provides: libsepol-dev
 Conflicts: libsepol-dev
 Depends: ${shlibs:Depends}, ${misc:Depends}, libsepol1 (= ${binary:Version})
 Multi-Arch: same
-Description: SELinux binary policy maniulation library and development files
+Description: SELinux binary policy manipulation library and development files
  libsepol allows programs to easily modify SELinux binary policies.  This
  means changing the default values for booleans, or reading the policy for
  analysis.
