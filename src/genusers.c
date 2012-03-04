@@ -23,6 +23,14 @@ void __sepol_debug_printf(const char *fmt, ...) {
 		va_end(ap);
 	}
 }
+
+static int delusers = 0;
+
+void sepol_set_delusers(int on)
+{
+	delusers = on;
+}
+
 #undef BADLINE
 #define BADLINE() { \
 	__sepol_debug_printf("%s:  invalid entry %s on line %u\n", \
@@ -274,16 +282,10 @@ static int load_users(struct policydb *policydb, const char *path) {
    new users configuration. */
 static int select_user(hashtab_key_t key, hashtab_datum_t datum, void *datap)
 {
-	char *name = key;
 	user_datum_t *usrdatum = datum;
 	
-	if (!usrdatum->defined) {
-		/* XXX Hack:  Don't accidentally remove SELinux-only users. */
-		if (!strcmp(name, "system_u") || !strcmp(name, "user_u")) {
-			return 0;
-		}
+	if (!usrdatum->defined)
 		return 1;
-	}
 	return 0;
 }
 
@@ -374,13 +376,15 @@ int sepol_genusers(void *data, size_t len,
 		goto err;
 	}
 
-        /* Kill unused users and remap to avoid holes. */
-	ebitmap_init(&free_users);
-	kud.policydb = &policydb;
-	kud.free_users = &free_users;
-	hashtab_map_remove_on_error(policydb.p_users.table, select_user, kill_user, &kud);
-	hashtab_map(policydb.p_users.table, remap_users, &kud);
-	ebitmap_destroy(&free_users);
+	if (delusers) {
+		/* Kill unused users and remap to avoid holes. */
+		ebitmap_init(&free_users);
+		kud.policydb = &policydb;
+		kud.free_users = &free_users;
+		hashtab_map_remove_on_error(policydb.p_users.table, select_user, kill_user, &kud);
+		hashtab_map(policydb.p_users.table, remap_users, &kud);
+		ebitmap_destroy(&free_users);
+	}
 
 	/* Set the policy version for the new binary policy image we are
 	   about to generate so that it stays the same as the original,
@@ -439,4 +443,35 @@ int sepol_genusers(void *data, size_t len,
 err:
 	policydb_destroy(&policydb);
 	return -1;
+}
+
+int sepol_genusers_policydb(policydb_t *policydb,
+			    const char *usersdir)
+{
+	char path[PATH_MAX];
+
+	/* Load base set of system users from the policy package. */
+	snprintf(path, sizeof path, "%s/system.users", usersdir);
+	if (load_users(policydb, path) < 0) {
+		__sepol_debug_printf("%s: Can't load system.users:  %s\n",
+				     __FUNCTION__, strerror(errno));
+		return -1;
+	}
+
+	/* Load locally defined users. */
+	snprintf(path, sizeof path, "%s/local.users", usersdir);
+	if (load_users(policydb, path) < 0) {
+		__sepol_debug_printf("%s:  Can't load local.users:  %s\n",
+				     __FUNCTION__, strerror(errno));
+		return -1;
+	}
+
+	if (policydb_reindex_users(policydb) < 0) {
+		__sepol_debug_printf("%s:  Can't reindex users:  %s\n",
+				     __FUNCTION__, strerror(errno));
+		return -1;
+
+	}
+
+	return 0;
 }

@@ -14,7 +14,7 @@
 #include <sepol/context.h>
 
 typedef struct sidtab_node {
-	security_id_t sid;		/* security identifier */
+	sepol_security_id_t sid;		/* security identifier */
 	context_struct_t context;	/* security context structure */
 	struct sidtab_node *next;
 } sidtab_node_t;
@@ -36,25 +36,25 @@ typedef struct {
 
 int sepol_sidtab_init(sidtab_t *s);
 
-int sepol_sidtab_insert(sidtab_t * s, security_id_t sid, context_struct_t * context);
+int sepol_sidtab_insert(sidtab_t * s, sepol_security_id_t sid, context_struct_t * context);
 
-context_struct_t *sepol_sidtab_search(sidtab_t * s, security_id_t sid);
+context_struct_t *sepol_sidtab_search(sidtab_t * s, sepol_security_id_t sid);
 
 int sepol_sidtab_map(sidtab_t * s,
-	       int (*apply) (security_id_t sid,
+	       int (*apply) (sepol_security_id_t sid,
 			     context_struct_t * context,
 			     void *args),
 	       void *args);
 
 void sepol_sidtab_map_remove_on_error(sidtab_t * s,
-				int (*apply) (security_id_t sid,
+				int (*apply) (sepol_security_id_t sid,
 					      context_struct_t * context,
 					      void *args),
 				void *args);
 
 int sepol_sidtab_context_to_sid(sidtab_t * s,		/* IN */
 			  context_struct_t * context,	/* IN */
-			  security_id_t * sid);		/* OUT */
+			  sepol_security_id_t * sid);		/* OUT */
 
 void sepol_sidtab_hash_eval(sidtab_t *h, char *tag);
 

@@ -10,11 +10,29 @@
  *
  * 	Added conditional policy language extensions
  *
+ * Updated: Red Hat, Inc.  James Morris <jmorris@redhat.com>
+ *
+ *      Fine-grained netlink support
+ *      IPv6 support
+ *      Code cleanup
+ *
  * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
  * Copyright (C) 2003 - 2004 Tresys Technology, LLC
- *	This program is free software; you can redistribute it and/or modify
- *  	it under the terms of the GNU General Public License as published by
- *	the Free Software Foundation, version 2.
+ * Copyright (C) 2003 - 2004 Red Hat, Inc.
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2.1 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 /* FLASK */
@@ -35,6 +53,8 @@
 #include <sepol/context.h>
 #include <sepol/constraint.h>
 #include <sepol/sidtab.h>
+
+#define ERRMSG_LEN 1024
 
 /*
  * A datum type is defined for each kind of symbol 
@@ -162,7 +182,7 @@ typedef struct ocontext {
 		uint32_t behavior;  /* labeling behavior for fs_use */
 	} v;
 	context_struct_t context[2];	/* security context(s) */
-	security_id_t sid[2];	/* SID(s) */
+	sepol_security_id_t sid[2];	/* SID(s) */
 	struct ocontext *next;
 } ocontext_t;
 
@@ -260,6 +280,8 @@ extern int policydb_index_classes(policydb_t * p);
 extern int policydb_index_bools(policydb_t * p);
 
 extern int policydb_index_others(policydb_t * p, unsigned int verbose);
+
+extern int policydb_reindex_users(policydb_t * p);
 
 extern int constraint_expr_destroy(constraint_expr_t * expr);
 

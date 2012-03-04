@@ -1,10 +1,21 @@
 /* Authors: Karl MacMillan <kmacmillan@tresys.com>
  *          Frank Mayer <mayerf@tresys.com>
  *
- * Copyright (C) 2003 - 2004 Tresys Technology, LLC
- *	This program is free software; you can redistribute it and/or modify
- *  	it under the terms of the GNU General Public License as published by
- *	the Free Software Foundation, version 2.
+ * Copyright (C) 2003 - 2005 Tresys Technology, LLC
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2.1 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 #ifndef _CONDITIONAL_H_
@@ -78,6 +89,7 @@ int cond_evaluate_expr(policydb_t *p, cond_expr_t *expr);
 int cond_normalize_expr(policydb_t *p, cond_node_t *cn);
 cond_node_t *cond_node_search(policydb_t *p,cond_node_t *cn);
 int evaluate_conds(policydb_t *p);
+avtab_datum_t *cond_av_list_search(avtab_key_t *key, cond_av_list_t *cond_list);
 
 void cond_optimize_lists(cond_list_t *cl);
 
@@ -92,6 +104,6 @@ int cond_index_bool(hashtab_key_t key, hashtab_datum_t datum, void *datap);
 int cond_read_bool(policydb_t *p, hashtab_t h, struct policy_file *fp);
 int cond_read_list(policydb_t *p, void *fp);
 
-void cond_compute_av(avtab_t *ctab, avtab_key_t *key, struct av_decision *avd);
+void cond_compute_av(avtab_t *ctab, avtab_key_t *key, struct sepol_av_decision *avd);
 
 #endif /* _CONDITIONAL_H_ */

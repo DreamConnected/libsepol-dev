@@ -25,6 +25,13 @@
 extern int sepol_set_policydb(policydb_t *p);
 extern int sepol_set_sidtab(sidtab_t *s);
 
+/* Modify a policydb for boolean settings. */
+int sepol_genbools_policydb(policydb_t *policydb, const char *booleans);
+
+/* Modify a policydb for user settings. */
+int sepol_genusers_policydb(policydb_t *policydb,
+			    const char *usersdir);
+
 /* Load the security policy. This initializes the policydb
    and sidtab based on the provided binary policy. */
 int sepol_load_policy(void * data, size_t len);
@@ -34,21 +41,33 @@ int sepol_load_policy(void * data, size_t len);
  * the permissions in a particular class.
  */
 int sepol_compute_av(
-	security_id_t ssid,			/* IN */
-	security_id_t tsid,			/* IN */
-	security_class_t tclass,		/* IN */
-	access_vector_t requested,		/* IN */
-	struct av_decision *avd);               /* OUT */
+	sepol_security_id_t ssid,			/* IN */
+	sepol_security_id_t tsid,			/* IN */
+	sepol_security_class_t tclass,		/* IN */
+	sepol_access_vector_t requested,		/* IN */
+	struct sepol_av_decision *avd);               /* OUT */
+
+/* Same as above, but also return the reason(s) for any
+   denials of the requested permissions. */
+#define SEPOL_COMPUTEAV_TE   1
+#define SEPOL_COMPUTEAV_CONS 2
+#define SEPOL_COMPUTEAV_RBAC 4
+int sepol_compute_av_reason(sepol_security_id_t ssid,
+			    sepol_security_id_t tsid,
+			    sepol_security_class_t tclass,
+			    sepol_access_vector_t requested,
+			    struct sepol_av_decision *avd,
+			    unsigned int *reason);
 
 /*
  * Compute a SID to use for labeling a new object in the 
  * class `tclass' based on a SID pair.  
  */
 int sepol_transition_sid(
-	security_id_t ssid,			/* IN */
-	security_id_t tsid,			/* IN */
-	security_class_t tclass,		/* IN */
-	security_id_t *out_sid);	        /* OUT */
+	sepol_security_id_t ssid,			/* IN */
+	sepol_security_id_t tsid,			/* IN */
+	sepol_security_class_t tclass,		/* IN */
+	sepol_security_id_t *out_sid);	        /* OUT */
 
 /*
  * Compute a SID to use when selecting a member of a 
@@ -56,20 +75,20 @@ int sepol_transition_sid(
  * a SID pair.
  */
 int sepol_member_sid(
-	security_id_t ssid,			/* IN */
-	security_id_t tsid,			/* IN */
-	security_class_t tclass,		/* IN */
-	security_id_t *out_sid);	        /* OUT */
+	sepol_security_id_t ssid,			/* IN */
+	sepol_security_id_t tsid,			/* IN */
+	sepol_security_class_t tclass,		/* IN */
+	sepol_security_id_t *out_sid);	        /* OUT */
 
 /*
  * Compute a SID to use for relabeling an object in the 
  * class `tclass' based on a SID pair.  
  */
 int sepol_change_sid(
-	security_id_t ssid,			/* IN */
-	security_id_t tsid,			/* IN */
-	security_class_t tclass,		/* IN */
-	security_id_t *out_sid);	        /* OUT */
+	sepol_security_id_t ssid,			/* IN */
+	sepol_security_id_t tsid,			/* IN */
+	sepol_security_class_t tclass,		/* IN */
+	sepol_security_id_t *out_sid);	        /* OUT */
 
 /*
  * Write the security context string representation of 
@@ -79,8 +98,8 @@ int sepol_change_sid(
  * the length of the string.
  */
 int sepol_sid_to_context(
-	security_id_t  sid,			/* IN */
-	security_context_t *scontext,		/* OUT */
+	sepol_security_id_t  sid,			/* IN */
+	sepol_security_context_t *scontext,		/* OUT */
 	size_t  *scontext_len);			/* OUT */
 
 /*
@@ -88,9 +107,9 @@ int sepol_sid_to_context(
  * has the string representation specified by `scontext'.
  */
 int sepol_context_to_sid(
-	security_context_t scontext,		/* IN */
+	sepol_security_context_t scontext,		/* IN */
 	size_t  scontext_len,			/* IN */
-	security_id_t *out_sid);		/* OUT */
+	sepol_security_id_t *out_sid);		/* OUT */
 
 /*
  * Generate the set of SIDs for legal security contexts
@@ -99,9 +118,9 @@ int sepol_context_to_sid(
  * array containing the set of SIDs.  Set `*nel' to the
  * number of elements in the array.
  */
-int sepol_get_user_sids(security_id_t callsid,
+int sepol_get_user_sids(sepol_security_id_t callsid,
 	                   char *username,
-			   security_id_t **sids,
+			   sepol_security_id_t **sids,
 			   uint32_t *nel);
 
 /*
@@ -113,8 +132,8 @@ int sepol_get_user_sids(security_id_t callsid,
  */
 int sepol_fs_sid(
 	char *dev,				/* IN */
-	security_id_t *fs_sid,			/* OUT  */
-	security_id_t *file_sid);		/* OUT */
+	sepol_security_id_t *fs_sid,			/* OUT  */
+	sepol_security_id_t *file_sid);		/* OUT */
 
 /*
  * Return the SID of the port specified by
@@ -125,7 +144,7 @@ int sepol_port_sid(
 	uint16_t type,
 	uint8_t protocol,
 	uint16_t port,
-	security_id_t *out_sid);
+	sepol_security_id_t *out_sid);
 
 /*
  * Return the SIDs to use for a network interface
@@ -136,8 +155,8 @@ int sepol_port_sid(
  */
 int sepol_netif_sid(
 	char *name,
-	security_id_t *if_sid,
-	security_id_t *msg_sid);
+	sepol_security_id_t *if_sid,
+	sepol_security_id_t *msg_sid);
 
 /*
  * Return the SID of the node specified by the address
@@ -149,7 +168,7 @@ int sepol_node_sid(
 	uint16_t domain,
 	void *addr,
 	size_t addrlen,
-	security_id_t *out_sid);
+	sepol_security_id_t *out_sid);
 
 /*
  * Return a value indicating how to handle labeling for the
@@ -164,7 +183,7 @@ int sepol_node_sid(
 int sepol_fs_use(
 	const char *fstype,                     /* IN */
 	unsigned int *behavior,                 /* OUT */
-	security_id_t *sid);			/* OUT  */
+	sepol_security_id_t *sid);			/* OUT  */
 
 /*
  * Return the SID to use for a file in a filesystem
@@ -174,8 +193,8 @@ int sepol_fs_use(
 int sepol_genfs_sid(
 	const char *fstype,                     /* IN */
 	char *name,				/* IN */
-	security_class_t sclass,                /* IN */
-	security_id_t *sid);			/* OUT  */
+	sepol_security_class_t sclass,                /* IN */
+	sepol_security_id_t *sid);			/* OUT  */
 
 #endif
 

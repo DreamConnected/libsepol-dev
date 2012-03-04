@@ -24,41 +24,72 @@ static char *strtrim(char *dest, char *source, int size) {
 	return dest;
 }
 
-static int load_booleans(struct policydb *policydb, char *path) {
-	FILE *boolf;
-	char buffer[BUFSIZ];
-	char name[BUFSIZ];
+static int process_boolean(char *buffer, char *name, int namesize, int *val) {
 	char name1[BUFSIZ];
+	char *ptr;
+	char *tok=strtok_r(buffer,"=",&ptr);
+	if (tok) {
+		strncpy(name1,tok, BUFSIZ-1);
+		strtrim(name,name1,namesize-1);
+		if ( name[0]=='#' ) return 0;
+		tok=strtok_r(NULL,"\0",&ptr);
+		if (tok) {
+			while (isspace(*tok)) tok++;
+			*val = -1;
+			if (isdigit(tok[0]))
+				*val=atoi(tok);
+			else if (!strncasecmp(tok, "true", sizeof("true")-1))
+				*val = 1;
+			else if (!strncasecmp(tok, "false", sizeof("false")-1))
+				*val = 0;
+			if (*val != 0 && *val != 1) {
+				fprintf(stderr,"illegal value for boolean %s=%s\n", name, tok);
+				return -1;
+			}
+			
+		}
+	}
+	return 1;
+}
+
+static int load_booleans(struct policydb *policydb, const char *path) {
+	FILE *boolf;
+	char *buffer=NULL;
+	size_t size=0;
+	char localbools[BUFSIZ];
+	char name[BUFSIZ];
 	int val;
 	int errors=0;
 	struct cond_bool_datum *datum;
 
 	boolf = fopen(path,"r");
 	if (boolf == NULL) 
-		return -1;
+		goto localbool;
 
-        while (fgets(buffer, sizeof(buffer), boolf)) {
-		char *tok=strtok(buffer,"=");
-		if (tok) {
-			strncpy(name1,tok, BUFSIZ-1);
-			strtrim(name,name1,BUFSIZ-1);
-			if ( name[0]=='#' ) continue;
-			tok=strtok(NULL,"\0");
-			if (tok) {
-				while (isspace(*tok)) tok++;
-				val = -1;
-				if (isdigit(tok[0]))
-					val=atoi(tok);
-				else if (!strncasecmp(tok, "true", sizeof("true")-1))
-					val = 1;
-				else if (!strncasecmp(tok, "false", sizeof("false")-1))
-					val = 0;
-				if (val != 0 && val != 1) {
-					fprintf(stderr,"illegal value for boolean %s=%s\n", name, tok);
-					errors++;
-					continue;
-				}
-
+	while (getline(&buffer, &size, boolf) > 0) {
+		int ret=process_boolean(buffer, name, sizeof(name), &val);
+		if (ret==-1) 
+			errors++;
+		if (ret==1) {
+			datum = hashtab_search(policydb->p_bools.table, name);
+			if (!datum) {
+				fprintf(stderr,"unknown boolean %s\n", name);
+				errors++;
+				continue;
+			}
+			datum->state = val;
+		}
+	}
+	fclose(boolf);
+localbool:
+	snprintf(localbools,sizeof(localbools), "%s.local", path);
+	boolf = fopen(localbools,"r");
+	if (boolf != NULL) {
+		while (getline(&buffer, &size, boolf) > 0) {
+			int ret=process_boolean(buffer, name, sizeof(name), &val);
+			if (ret==-1) 
+				errors++;
+			if (ret==1) {
 				datum = hashtab_search(policydb->p_bools.table, name);
 				if (!datum) {
 					fprintf(stderr,"unknown boolean %s\n", name);
@@ -68,9 +99,9 @@ static int load_booleans(struct policydb *policydb, char *path) {
 				datum->state = val;
 			}
 		}
+		fclose(boolf);
 	}
-	fclose(boolf);
-
+	free(buffer);
 	if (errors)
 		errno = EINVAL;
 
@@ -127,6 +158,18 @@ int sepol_genbools(void *data, size_t len, char *booleans)
 	return -1;
 }
 
+int sepol_genbools_policydb(policydb_t *policydb, const char *booleans)
+{
+	int rc;
+
+	rc = load_booleans(policydb, booleans);
+	if (!rc)
+		rc = evaluate_conds(policydb);
+	if (rc)
+		errno = EINVAL;
+	return rc;
+}
+
 int sepol_genbools_array(void *data, size_t len, char **names, int *values, int nel)
 {
 	struct policydb policydb;
@@ -165,7 +208,7 @@ int sepol_genbools_array(void *data, size_t len, char **names, int *values, int 
 	}
 
 	if (evaluate_conds(&policydb) < 0) {
-		__sepol_debug_printf("%s:  Error while re-evaluating conditionals: %s\n",
+		__sepol_debug_printf("%s:  Error while re-evaluating conditionals\n",
 				     __FUNCTION__);
 		errno = EINVAL;
 		goto err;

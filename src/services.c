@@ -12,11 +12,29 @@
  *
  * 	Added conditional policy language extensions
  *
+ * Updated: Red Hat, Inc.  James Morris <jmorris@redhat.com>
+ *
+ *      Fine-grained netlink support
+ *      IPv6 support
+ *      Code cleanup
+ *
  * Copyright (C) 2004-2005 Trusted Computer Solutions, Inc.
  * Copyright (C) 2003 - 2004 Tresys Technology, LLC
- *	This program is free software; you can redistribute it and/or modify
- *  	it under the terms of the GNU General Public License as published by
- *	the Free Software Foundation, version 2.
+ * Copyright (C) 2003 - 2004 Red Hat, Inc.
+ *
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License as published by the Free Software Foundation; either
+ *  version 2.1 of the License, or (at your option) any later version.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
  
 /* FLASK */
@@ -73,7 +91,7 @@ int sepol_set_policydb_from_file(FILE *fp)
 		return -1;
 	}
 	policydb = &mypolicydb;
-	return 0;
+	return sepol_sidtab_init(sidtab);
 }
 
 
@@ -277,9 +295,10 @@ mls_ops:
  */
 static int context_struct_compute_av(context_struct_t *scontext,
 				     context_struct_t *tcontext,
-				     security_class_t tclass,
-				     access_vector_t requested __attribute__ ((unused)),
-				     struct av_decision *avd)
+				     sepol_security_class_t tclass,
+				     sepol_access_vector_t requested,
+				     struct sepol_av_decision *avd,
+				     unsigned int *reason)
 {
 	constraint_node_t *constraint;
 	struct role_allow *ra;
@@ -302,6 +321,7 @@ static int context_struct_compute_av(context_struct_t *scontext,
 	avd->auditallow = 0;
 	avd->auditdeny = 0xffffffff;
 	avd->seqno = latest_granting;
+	*reason = 0;
 
 	/*
 	 * If a specific type enforcement rule was defined for
@@ -319,10 +339,15 @@ static int context_struct_compute_av(context_struct_t *scontext,
 		if (avdatum->specified & AVTAB_AUDITALLOW)
 			avd->auditallow = avtab_auditallow(avdatum);
 	}
-	
+
 	/* Check conditional av table for additional permissions */
 	cond_compute_av(&policydb->te_cond_avtab, &avkey, avd);
 
+	if (requested & ~avd->allowed) {
+		*reason |= SEPOL_COMPUTEAV_TE;
+		requested &= avd->allowed;
+	}
+	
 	/* 
 	 * Remove any permissions prohibited by a constraint (this includes
 	 * the MLS policy).
@@ -335,6 +360,11 @@ static int context_struct_compute_av(context_struct_t *scontext,
 			avd->allowed = (avd->allowed) & ~(constraint->permissions);
 		}
 		constraint = constraint->next;
+	}
+
+	if (requested & ~avd->allowed) {
+		*reason |= SEPOL_COMPUTEAV_CONS;
+		requested &= avd->allowed;
 	}
 
 	/* 
@@ -353,13 +383,18 @@ static int context_struct_compute_av(context_struct_t *scontext,
 		if (!ra)
 			avd->allowed = (avd->allowed) & ~(PROCESS__TRANSITION |
 			                                PROCESS__DYNTRANSITION);
-	}	
+	}
+
+	if (requested & ~avd->allowed) {
+		*reason |= SEPOL_COMPUTEAV_RBAC;
+		requested &= avd->allowed;
+	}
 
 	return 0;
 }
 
-int sepol_validate_transition(security_id_t oldsid, security_id_t newsid,
-                              security_id_t tasksid, security_class_t tclass)
+int sepol_validate_transition(sepol_security_id_t oldsid, sepol_security_id_t newsid,
+                              sepol_security_id_t tasksid, sepol_security_class_t tclass)
 {
 	context_struct_t *ocontext;
 	context_struct_t *ncontext;
@@ -407,11 +442,12 @@ int sepol_validate_transition(security_id_t oldsid, security_id_t newsid,
 	return 0;
 }
 
-int sepol_compute_av(security_id_t ssid,
-			security_id_t tsid,
-			security_class_t tclass,
-			access_vector_t requested,
-			struct av_decision *avd)
+int sepol_compute_av_reason(sepol_security_id_t ssid,
+			    sepol_security_id_t tsid,
+			    sepol_security_class_t tclass,
+			    sepol_access_vector_t requested,
+			    struct sepol_av_decision *avd,
+			    unsigned int *reason)
 {
 	context_struct_t *scontext = 0, *tcontext = 0;
 	int rc = 0;
@@ -430,11 +466,20 @@ int sepol_compute_av(security_id_t ssid,
 	}
 
 	rc = context_struct_compute_av(scontext, tcontext, tclass, 
-				       requested, avd);
+				       requested, avd, reason);
 out:
 	return rc;
 }
 
+int sepol_compute_av(sepol_security_id_t ssid,
+		     sepol_security_id_t tsid,
+		     sepol_security_class_t tclass,
+		     sepol_access_vector_t requested,
+		     struct sepol_av_decision *avd)
+{
+	unsigned int reason = 0;
+	return sepol_compute_av_reason(ssid, tsid, tclass, requested, avd, &reason);
+}
 
 /*
  * Write the security context string representation of 
@@ -444,7 +489,7 @@ out:
  * the length of the string.
  */
 int context_struct_to_string(context_struct_t * context,
-			     security_context_t * scontext,
+			     sepol_security_context_t * scontext,
 			     size_t *scontext_len)
 {
 	char *scontextp;
@@ -463,7 +508,7 @@ int context_struct_to_string(context_struct_t * context,
 	if (!scontextp) {
 		return -ENOMEM;
 	}
-	*scontext = (security_context_t) scontextp;
+	*scontext = (sepol_security_context_t) scontextp;
 
 	/*
 	 * Copy the user name, role name and type name into the context.
@@ -489,8 +534,8 @@ int context_struct_to_string(context_struct_t * context,
  * to point to this string and set `*scontext_len' to
  * the length of the string.
  */
-int sepol_sid_to_context(security_id_t sid,
-			    security_context_t * scontext,
+int sepol_sid_to_context(sepol_security_id_t sid,
+			    sepol_security_context_t * scontext,
 			    size_t *scontext_len)
 {
 	context_struct_t *context;
@@ -512,11 +557,11 @@ out:
  * Return a SID associated with the security context that
  * has the string representation specified by `scontext'.
  */
-int sepol_context_to_sid(security_context_t scontext,
+int sepol_context_to_sid(sepol_security_context_t scontext,
 			    size_t scontext_len,
-			    security_id_t * sid)
+			    sepol_security_id_t * sid)
 {
-	security_context_t scontext2;
+	sepol_security_context_t scontext2;
 	context_struct_t context;
 	role_datum_t *role;
 	type_datum_t *typdatum;
@@ -525,7 +570,7 @@ int sepol_context_to_sid(security_context_t scontext,
 	int rc = 0;
 
 	if (sid)
-		*sid = SECSID_NULL;
+		*sid = SEPOL_SECSID_NULL;
 
 	/* Copy the string so that we can modify the copy as we parse it.
 	   The string should already by null terminated, but we append a
@@ -625,13 +670,13 @@ int sepol_check_context(char *context)
 static inline int compute_sid_handle_invalid_context(
 	context_struct_t *scontext,
 	context_struct_t *tcontext,
-	security_class_t tclass,
+	sepol_security_class_t tclass,
 	context_struct_t *newcontext)
 {
 	if (selinux_enforcing) {
 		return -EACCES;
 	} else {
-		security_context_t s, t, n;
+		sepol_security_context_t s, t, n;
 		size_t slen, tlen, nlen;
 
 		context_struct_to_string(scontext, &s, &slen);
@@ -648,11 +693,11 @@ static inline int compute_sid_handle_invalid_context(
 	} 
 }
 
-static int sepol_compute_sid(security_id_t ssid,
-				security_id_t tsid,
-				security_class_t tclass,
+static int sepol_compute_sid(sepol_security_id_t ssid,
+				sepol_security_id_t tsid,
+				sepol_security_class_t tclass,
 				uint32_t specified,
-				security_id_t * out_sid)
+				sepol_security_id_t * out_sid)
 {
 	context_struct_t *scontext = 0, *tcontext = 0, newcontext;
 	struct role_trans *roletr = 0;
@@ -783,10 +828,10 @@ out:
  * Compute a SID to use for labeling a new object in the 
  * class `tclass' based on a SID pair.  
  */
-int sepol_transition_sid(security_id_t ssid,
-			    security_id_t tsid,
-			    security_class_t tclass,
-			    security_id_t * out_sid)
+int sepol_transition_sid(sepol_security_id_t ssid,
+			    sepol_security_id_t tsid,
+			    sepol_security_class_t tclass,
+			    sepol_security_id_t * out_sid)
 {
 	return sepol_compute_sid(ssid, tsid, tclass, AVTAB_TRANSITION, out_sid);
 }
@@ -797,10 +842,10 @@ int sepol_transition_sid(security_id_t ssid,
  * polyinstantiated object of class `tclass' based on 
  * a SID pair.
  */
-int sepol_member_sid(security_id_t ssid,
-			security_id_t tsid,
-			security_class_t tclass,
-			security_id_t * out_sid)
+int sepol_member_sid(sepol_security_id_t ssid,
+			sepol_security_id_t tsid,
+			sepol_security_class_t tclass,
+			sepol_security_id_t * out_sid)
 {
 	return sepol_compute_sid(ssid, tsid, tclass, AVTAB_MEMBER, out_sid);
 }
@@ -810,10 +855,10 @@ int sepol_member_sid(security_id_t ssid,
  * Compute a SID to use for relabeling an object in the 
  * class `tclass' based on a SID pair.  
  */
-int sepol_change_sid(security_id_t ssid,
-			security_id_t tsid,
-			security_class_t tclass,
-			security_id_t * out_sid)
+int sepol_change_sid(sepol_security_id_t ssid,
+			sepol_security_id_t tsid,
+			sepol_security_class_t tclass,
+			sepol_security_id_t * out_sid)
 {
 	return sepol_compute_sid(ssid, tsid, tclass, AVTAB_CHANGE, out_sid);
 }
@@ -889,7 +934,7 @@ static int validate_class(hashtab_key_t key, hashtab_datum_t datum, void *p)
 }
 
 /* Clone the SID into the new SID table. */
-static int clone_sid(security_id_t sid,
+static int clone_sid(sepol_security_id_t sid,
 		     context_struct_t *context,
 		     void *arg)
 {
@@ -904,7 +949,7 @@ static inline int convert_context_handle_invalid_context(
 	if (selinux_enforcing) {
 		return -EINVAL;
 	} else {
-		security_context_t s;
+		sepol_security_context_t s;
 		size_t len;
 
 		context_struct_to_string(context, &s, &len);
@@ -926,7 +971,7 @@ typedef struct {
  * in the policy `p->newp'.  Verify that the
  * context is valid under the new policy.
  */
-static int convert_context(security_id_t key __attribute__ ((unused)),
+static int convert_context(sepol_security_id_t key __attribute__ ((unused)),
 			   context_struct_t * c,
 			   void *p)
 {
@@ -935,7 +980,7 @@ static int convert_context(security_id_t key __attribute__ ((unused)),
 	role_datum_t *role;
 	type_datum_t *typdatum;
 	user_datum_t *usrdatum;
-	security_context_t s;
+	sepol_security_context_t s;
 	size_t len;
 	int rc = -EINVAL;
        
@@ -1074,8 +1119,8 @@ err:
  * for all files within that file system.
  */
 int sepol_fs_sid(char *name,
-		    security_id_t * fs_sid,
-		    security_id_t * file_sid)
+		    sepol_security_id_t * fs_sid,
+		    sepol_security_id_t * file_sid)
 {
 	int rc = 0;
 	ocontext_t *c;
@@ -1120,7 +1165,7 @@ int sepol_port_sid(uint16_t domain __attribute__ ((unused)),
 		      uint16_t type __attribute__ ((unused)),
 		      uint8_t protocol,
 		      uint16_t port,
-		      security_id_t * out_sid)
+		      sepol_security_id_t * out_sid)
 {
 	ocontext_t *c;
 	int rc = 0;
@@ -1160,8 +1205,8 @@ int sepol_port_sid(uint16_t domain __attribute__ ((unused)),
  * interface.
  */
 int sepol_netif_sid(char *name,
-		       security_id_t * if_sid,
-		       security_id_t * msg_sid)
+		       sepol_security_id_t * if_sid,
+		       sepol_security_id_t * msg_sid)
 {
 	int rc = 0;
 	ocontext_t *c;
@@ -1219,7 +1264,7 @@ static int match_ipv6_addrmask(uint32_t *input, uint32_t *addr, uint32_t *mask)
 int sepol_node_sid(uint16_t domain,
 		      void *addrp,
 		      size_t addrlen,
-		      security_id_t *out_sid)
+		      sepol_security_id_t *out_sid)
 {
 	int rc = 0;
 	ocontext_t *c;
@@ -1290,19 +1335,19 @@ int sepol_node_sid(uint16_t domain,
  */
 #define SIDS_NEL 25
 
-int sepol_get_user_sids(security_id_t fromsid,
+int sepol_get_user_sids(sepol_security_id_t fromsid,
 	                   char *username,
-			   security_id_t **sids,
+			   sepol_security_id_t **sids,
 			   uint32_t *nel)
 {
 	context_struct_t *fromcon, usercon;
-	security_id_t *mysids, *mysids2, sid;
+	sepol_security_id_t *mysids, *mysids2, sid;
 	uint32_t mynel = 0, maxnel = SIDS_NEL;
 	user_datum_t *user;
 	role_datum_t *role;
-	struct av_decision avd;
+	struct sepol_av_decision avd;
 	int rc = 0;
-	unsigned int i, j;
+	unsigned int i, j, reason;
 
 	fromcon = sepol_sidtab_search(sidtab, fromsid);
 	if (!fromcon) {
@@ -1318,12 +1363,12 @@ int sepol_get_user_sids(security_id_t fromsid,
 	}
 	usercon.user = user->value;
 
-	mysids = malloc(maxnel*sizeof(security_id_t));
+	mysids = malloc(maxnel*sizeof(sepol_security_id_t));
 	if (!mysids) {
 		rc = -ENOMEM;
 		goto out;
 	}
-	memset(mysids, 0, maxnel*sizeof(security_id_t));
+	memset(mysids, 0, maxnel*sizeof(sepol_security_id_t));
 
 	for (i = ebitmap_startbit(&user->roles); i < ebitmap_length(&user->roles); i++) {
 		if (!ebitmap_get_bit(&user->roles, i)) 
@@ -1343,7 +1388,7 @@ int sepol_get_user_sids(security_id_t fromsid,
 			rc = context_struct_compute_av(fromcon, &usercon, 
 						       SECCLASS_PROCESS,
 						       PROCESS__TRANSITION, 
-						       &avd);
+						       &avd, &reason);
 			if (rc ||  !(avd.allowed & PROCESS__TRANSITION)) 
 				continue;
 			rc = sepol_sidtab_context_to_sid(sidtab, &usercon, &sid);
@@ -1355,15 +1400,15 @@ int sepol_get_user_sids(security_id_t fromsid,
 				mysids[mynel++] = sid;
 			} else {
 				maxnel += SIDS_NEL;
-				mysids2 = malloc(maxnel*sizeof(security_id_t));
+				mysids2 = malloc(maxnel*sizeof(sepol_security_id_t));
 
 				if (!mysids2) {
 					rc = -ENOMEM;
 					free(mysids);
 					goto out;
 				}
-				memset(mysids2, 0, maxnel*sizeof(security_id_t));
-				memcpy(mysids2, mysids, mynel * sizeof(security_id_t));
+				memset(mysids2, 0, maxnel*sizeof(sepol_security_id_t));
+				memcpy(mysids2, mysids, mynel * sizeof(sepol_security_id_t));
 				free(mysids);
 				mysids = mysids2;
 				mysids[mynel++] = sid;
@@ -1385,8 +1430,8 @@ out:
  */
 int sepol_genfs_sid(const char *fstype,
 	               char *path,
-		       security_class_t sclass,
-		       security_id_t *sid)
+		       sepol_security_class_t sclass,
+		       sepol_security_id_t *sid)
 {
 	size_t len;
 	genfs_t *genfs;
@@ -1434,7 +1479,7 @@ out:
 int sepol_fs_use(
 	const char *fstype,
 	unsigned int *behavior,
-	security_id_t *sid)
+	sepol_security_id_t *sid)
 {
 	int rc = 0;
 	ocontext_t *c;
