@@ -252,6 +252,29 @@ void user_datum_destroy(user_datum_t * x)
 	}
 }
 
+void level_datum_init(level_datum_t * x)
+{
+	memset(x, 0, sizeof(level_datum_t));
+}
+
+void level_datum_destroy(level_datum_t * x __attribute__ ((unused)))
+{
+	/* the mls_level_t referenced by the level_datum is managed
+	 * separately for now, so there is nothing to destroy */
+	return;
+}
+
+void cat_datum_init(cat_datum_t * x)
+{
+	memset(x, 0, sizeof(cat_datum_t));
+}
+
+void cat_datum_destroy(cat_datum_t * x __attribute__ ((unused)))
+{
+	/* it's currently a simple struct - really nothing to destroy */
+	return;
+}
+
 void class_perm_node_init(class_perm_node_t * x)
 {
 	memset(x, 0, sizeof(class_perm_node_t));
@@ -502,7 +525,11 @@ int policydb_user_cache(hashtab_key_t key
 		return -1;
 	}
 
-	if (p->policy_type != POLICY_KERN) {
+	/* we do not expand user's MLS info in kernel policies because the
+	 * semantic representation is not present and we do not expand user's
+	 * MLS info in module policies because all of the necessary mls
+	 * information is not present */
+	if (p->policy_type != POLICY_KERN && p->policy_type != POLICY_MOD) {
 		mls_range_destroy(&user->exp_range);
 		if (mls_semantic_range_expand(&user->range,
 					      &user->exp_range, p, NULL)) {
@@ -907,9 +934,10 @@ static int sens_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p
 	if (key)
 		free(key);
 	levdatum = (level_datum_t *) datum;
-	ebitmap_destroy(&levdatum->level->cat);
+	mls_level_destroy(levdatum->level);
 	free(levdatum->level);
-	free(datum);
+	level_datum_destroy(levdatum);
+	free(levdatum);
 	return 0;
 }
 
@@ -918,6 +946,7 @@ static int cat_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p
 {
 	if (key)
 		free(key);
+	cat_datum_destroy((cat_datum_t *) datum);
 	free(datum);
 	return 0;
 }
@@ -2199,7 +2228,7 @@ static int mls_read_level(mls_level_t * lp, struct policy_file *fp)
 {
 	uint32_t *buf;
 
-	memset(lp, 0, sizeof(mls_level_t));
+	mls_level_init(lp);
 
 	buf = next_entry(fp, sizeof(uint32_t));
 	if (!buf) {
@@ -2305,9 +2334,10 @@ static int sens_read(policydb_t * p
 	level_datum_t *levdatum;
 	uint32_t *buf, len;
 
-	levdatum = calloc(1, sizeof(level_datum_t));
+	levdatum = malloc(sizeof(level_datum_t));
 	if (!levdatum)
 		return -1;
+	level_datum_init(levdatum);
 
 	buf = next_entry(fp, (sizeof(uint32_t) * 2));
 	if (!buf)
@@ -2347,9 +2377,10 @@ static int cat_read(policydb_t * p
 	cat_datum_t *catdatum;
 	uint32_t *buf, len;
 
-	catdatum = calloc(1, sizeof(cat_datum_t));
+	catdatum = malloc(sizeof(cat_datum_t));
 	if (!catdatum)
 		return -1;
+	cat_datum_init(catdatum);
 
 	buf = next_entry(fp, (sizeof(uint32_t) * 3));
 	if (!buf)

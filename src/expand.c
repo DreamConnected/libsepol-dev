@@ -823,13 +823,17 @@ static int sens_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	if (state->verbose)
 		INFO(state->handle, "copying sensitivity level %s", id);
 
-	if ((new_level =
-	     (level_datum_t *) calloc(1, sizeof(*new_level))) == NULL
-	    || (new_level->level =
-		(mls_level_t *) calloc(1, sizeof(mls_level_t))) == NULL
-	    || (new_id = strdup(id)) == NULL) {
+	new_level = (level_datum_t *) malloc(sizeof(level_datum_t));
+	if (!new_level)
 		goto out_of_mem;
-	}
+	level_datum_init(new_level);
+	new_level->level = (mls_level_t *) malloc(sizeof(mls_level_t));
+	if (!new_level->level)
+		goto out_of_mem;
+	mls_level_init(new_level->level);
+	new_id = strdup(id);
+	if (!new_id)
+		goto out_of_mem;
 
 	if (mls_level_cpy(new_level->level, level->level)) {
 		goto out_of_mem;
@@ -847,9 +851,10 @@ static int sens_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
       out_of_mem:
 	ERR(state->handle, "Out of memory!");
 	if (new_level != NULL && new_level->level != NULL) {
-		ebitmap_destroy(&new_level->level->cat);
+		mls_level_destroy(new_level->level);
 		free(new_level->level);
 	}
+	level_datum_destroy(new_level);
 	free(new_level);
 	free(new_id);
 	return -1;
@@ -870,10 +875,13 @@ static int cats_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	if (state->verbose)
 		INFO(state->handle, "copying category attribute %s", id);
 
-	if ((new_cat = (cat_datum_t *) calloc(1, sizeof(*new_cat))) == NULL ||
-	    (new_id = strdup(id)) == NULL) {
+	new_cat = (cat_datum_t *) malloc(sizeof(cat_datum_t));
+	if (!new_cat)
 		goto out_of_mem;
-	}
+	cat_datum_init(new_cat);
+	new_id = strdup(id);
+	if (!new_id)
+		goto out_of_mem;
 
 	new_cat->s.value = cat->s.value;
 	new_cat->isalias = cat->isalias;
@@ -887,6 +895,7 @@ static int cats_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 
       out_of_mem:
 	ERR(state->handle, "Out of memory!");
+	cat_datum_destroy(new_cat);
 	free(new_cat);
 	free(new_id);
 	return -1;

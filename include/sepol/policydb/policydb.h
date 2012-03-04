@@ -532,6 +532,10 @@ extern void type_datum_init(type_datum_t * x);
 extern void type_datum_destroy(type_datum_t * x);
 extern void user_datum_init(user_datum_t * x);
 extern void user_datum_destroy(user_datum_t * x);
+extern void level_datum_init(level_datum_t * x);
+extern void level_datum_destroy(level_datum_t * x);
+extern void cat_datum_init(cat_datum_t * x);
+extern void cat_datum_destroy(cat_datum_t * x);
 
 extern int check_assertions(sepol_handle_t * handle,
 			    policydb_t * p, avrule_t * avrules);
