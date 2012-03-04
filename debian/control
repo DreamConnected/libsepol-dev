@@ -12,7 +12,6 @@ Package: sepol-utils
 Section: admin
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Multi-Arch: foreign
 Description: Security Enhanced Linux policy utility programs
  This package provides a utility for a Security-enhanced
  Linux system to rewrite existing mandatory access control policy with
