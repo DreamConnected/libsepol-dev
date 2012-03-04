@@ -1,0 +1,5 @@
+usr/lib/*/libsepol.so
+usr/lib/*/libsepol.a
+usr/lib/*/pkgconfig/
+usr/include/sepol/
+usr/share/man/man3/
