@@ -110,6 +110,12 @@ static struct policydb_compat_info policydb_compat[] = {
 	 .sym_num = SYM_NUM,
 	 .ocon_num = OCON_NODE6 + 1,
 	 },
+        {
+	 .type = POLICY_KERN,
+	 .version = POLICYDB_VERSION_BOUNDARY,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_NODE6 + 1,
+	},
 	{
 	 .type = POLICY_BASE,
 	 .version = MOD_POLICYDB_VERSION_BASE,
@@ -141,6 +147,18 @@ static struct policydb_compat_info policydb_compat[] = {
 	 .ocon_num = OCON_NODE6 + 1,
 	 },
 	{
+	 .type = POLICY_BASE,
+	 .version = MOD_POLICYDB_VERSION_BOUNDARY,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_NODE6 + 1,
+	},
+	{
+	 .type = POLICY_BASE,
+	 .version = MOD_POLICYDB_VERSION_BOUNDARY_ALIAS,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_NODE6 + 1,
+	},
+	{
 	 .type = POLICY_MOD,
 	 .version = MOD_POLICYDB_VERSION_BASE,
 	 .sym_num = SYM_NUM,
@@ -170,6 +188,18 @@ static struct policydb_compat_info policydb_compat[] = {
 	 .sym_num = SYM_NUM,
 	 .ocon_num = 0
 	 },
+	{
+	 .type = POLICY_MOD,
+	 .version = MOD_POLICYDB_VERSION_BOUNDARY,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = 0
+	},
+	{
+	 .type = POLICY_MOD,
+	 .version = MOD_POLICYDB_VERSION_BOUNDARY_ALIAS,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = 0
+	},
 };
 
 #if 0
@@ -1855,20 +1885,25 @@ static int role_read(policydb_t * p
 {
 	char *key = 0;
 	role_datum_t *role;
-	uint32_t buf[2];
+	uint32_t buf[3];
 	size_t len;
-	int rc;
+	int rc, to_read = 2;
 
 	role = calloc(1, sizeof(role_datum_t));
 	if (!role)
 		return -1;
 
-	rc = next_entry(buf, fp, sizeof(uint32_t) * 2);
+	if (policydb_has_boundary_feature(p))
+		to_read = 3;
+
+	rc = next_entry(buf, fp, sizeof(uint32_t) * to_read);
 	if (rc < 0)
 		goto bad;
 
 	len = le32_to_cpu(buf[0]);
 	role->s.value = le32_to_cpu(buf[1]);
+	if (policydb_has_boundary_feature(p))
+		role->bounds = le32_to_cpu(buf[2]);
 
 	key = malloc(len + 1);
 	if (!key)
@@ -1919,12 +1954,20 @@ static int type_read(policydb_t * p
 	uint32_t buf[5];
 	size_t len;
 	int rc, to_read;
+	int pos = 0;
 
 	typdatum = calloc(1, sizeof(type_datum_t));
 	if (!typdatum)
 		return -1;
 
-	if (p->policy_type == POLICY_KERN)
+	if (policydb_has_boundary_feature(p)) {
+		if (p->policy_type != POLICY_KERN
+		    && p->policyvers >= MOD_POLICYDB_VERSION_BOUNDARY_ALIAS)
+			to_read = 5;
+		else
+			to_read = 4;
+	}
+	else if (p->policy_type == POLICY_KERN)
 		to_read = 3;
 	else if (p->policyvers >= MOD_POLICYDB_VERSION_PERMISSIVE)
 		to_read = 5;
@@ -1935,13 +1978,43 @@ static int type_read(policydb_t * p
 	if (rc < 0)
 		goto bad;
 
-	len = le32_to_cpu(buf[0]);
-	typdatum->s.value = le32_to_cpu(buf[1]);
-	typdatum->primary = le32_to_cpu(buf[2]);
+	len = le32_to_cpu(buf[pos]);
+	typdatum->s.value = le32_to_cpu(buf[++pos]);
+	if (policydb_has_boundary_feature(p)) {
+		uint32_t properties;
+
+		if (p->policy_type != POLICY_KERN
+		    && p->policyvers >= MOD_POLICYDB_VERSION_BOUNDARY_ALIAS) {
+			typdatum->primary = le32_to_cpu(buf[++pos]);
+			properties = le32_to_cpu(buf[++pos]);
+		}
+		else {
+			properties = le32_to_cpu(buf[++pos]);
+
+			if (properties & TYPEDATUM_PROPERTY_PRIMARY)
+				typdatum->primary = 1;
+		}
+
+		if (properties & TYPEDATUM_PROPERTY_ATTRIBUTE)
+			typdatum->flavor = TYPE_ATTRIB;
+		if (properties & TYPEDATUM_PROPERTY_ALIAS
+		    && p->policy_type != POLICY_KERN)
+			typdatum->flavor = TYPE_ALIAS;
+		if (properties & TYPEDATUM_PROPERTY_PERMISSIVE
+		    && p->policy_type != POLICY_KERN)
+			typdatum->flags |= TYPE_FLAGS_PERMISSIVE;
+
+		typdatum->bounds = le32_to_cpu(buf[++pos]);
+	} else {
+		typdatum->primary = le32_to_cpu(buf[++pos]);
+		if (p->policy_type != POLICY_KERN) {
+			typdatum->flavor = le32_to_cpu(buf[++pos]);
+			if (p->policyvers >= MOD_POLICYDB_VERSION_PERMISSIVE)
+				typdatum->flags = le32_to_cpu(buf[++pos]);
+		}
+	}
+
 	if (p->policy_type != POLICY_KERN) {
-		typdatum->flavor = le32_to_cpu(buf[3]);
-		if (p->policyvers >= MOD_POLICYDB_VERSION_PERMISSIVE)
-			typdatum->flags = le32_to_cpu(buf[4]);
 		if (ebitmap_read(&typdatum->types, fp))
 			goto bad;
 	}
@@ -2293,20 +2366,25 @@ static int user_read(policydb_t * p, hashtab_t h, struct policy_file *fp)
 {
 	char *key = 0;
 	user_datum_t *usrdatum;
-	uint32_t buf[2];
+	uint32_t buf[3];
 	size_t len;
-	int rc;
+	int rc, to_read = 2;
 
 	usrdatum = calloc(1, sizeof(user_datum_t));
 	if (!usrdatum)
 		return -1;
 
-	rc = next_entry(buf, fp, sizeof(uint32_t) * 2);
+	if (policydb_has_boundary_feature(p))
+		to_read = 3;
+
+	rc = next_entry(buf, fp, sizeof(uint32_t) * to_read);
 	if (rc < 0)
 		goto bad;
 
 	len = le32_to_cpu(buf[0]);
 	usrdatum->s.value = le32_to_cpu(buf[1]);
+	if (policydb_has_boundary_feature(p))
+		usrdatum->bounds = le32_to_cpu(buf[2]);
 
 	key = malloc(len + 1);
 	if (!key)
