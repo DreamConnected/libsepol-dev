@@ -48,8 +48,6 @@ Description: SELinux library for manipulating binary security policies
 Package: libsepol1-dev
 Section: libdevel
 Architecture: any
-Provides: libsepol-dev
-Conflicts: libsepol-dev
 Depends: ${shlibs:Depends}, ${misc:Depends}, libsepol1 (= ${binary:Version})
 Multi-Arch: same
 Description: SELinux binary policy manipulation library and development files
