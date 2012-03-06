@@ -1,6 +1,6 @@
 Source: libsepol
-VCS-Git: git://git.debian.org/~srivasta/debian/libsepol.git
-VCS-Browser: http://git.debian.org/git/?p=users/srivasta/debian/libsepol.git
+VCS-Git: git://anonscm.debian.org/git/selinux/libsepol.git
+VCS-Browser: http://anonscm.debian.org/gitweb/?p=selinux/libsepol.git;a=summary
 Priority: optional
 Section: libs
 Maintainer: Russell Coker <russell@coker.com.au>
