@@ -11,11 +11,12 @@ libsepol (2.1.4-2) UNRELEASED; urgency=low
     - Drop Multi-Arch: same for -dev package
     - Drop Multi-Arch: foreign for sepol-utils package
     - Update Vcs-* fields
+    - Add Homepage field
   * debian/patches/fix-pc-file.patch: Properly set multi-arch path in .pc file
     (Closes: #658440)
   * Add debian/gbp.conf file
 
- -- Laurent Bigonville <bigon@debian.org>  Tue, 06 Mar 2012 01:48:06 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 06 Mar 2012 01:54:14 +0100
 
 libsepol (2.1.4-1) unstable; urgency=low
 
