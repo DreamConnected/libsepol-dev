@@ -6,13 +6,13 @@ Section: libs
 Maintainer: Russell Coker <russell@coker.com.au>
 Uploaders: Manoj Srivastava <srivasta@debian.org>
 Standards-Version: 3.9.3
-Build-Depends: debhelper (>= 9), file, dpkg-dev (>= 1.16.0)
+Build-Depends: debhelper (>= 9), dpkg-dev (>= 1.16.0), file
 Homepage: http://userspace.selinuxproject.org/
 
 Package: sepol-utils
 Section: admin
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Security Enhanced Linux policy utility programs
  This package provides a utility for a Security-enhanced
  Linux system to rewrite existing mandatory access control policy with
@@ -26,7 +26,7 @@ Description: Security Enhanced Linux policy utility programs
 Package: libsepol1
 Priority: required
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${misc:Depends}, ${shlibs:Depends}
 Pre-Depends: multiarch-support
 Multi-Arch: same
 Description: SELinux library for manipulating binary security policies
@@ -48,7 +48,7 @@ Description: SELinux library for manipulating binary security policies
 Package: libsepol1-dev
 Section: libdevel
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libsepol1 (= ${binary:Version})
+Depends: libsepol1 (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
 Description: SELinux binary policy manipulation library and development files
  libsepol allows programs to easily modify SELinux binary policies.  This
  means changing the default values for booleans, or reading the policy for
