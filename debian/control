@@ -11,7 +11,7 @@ Homepage: http://userspace.selinuxproject.org/
 
 Package: sepol-utils
 Section: admin
-Architecture: any
+Architecture: linux-any
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Security Enhanced Linux policy utility programs
  This package provides a utility for a Security-enhanced
@@ -25,7 +25,7 @@ Description: Security Enhanced Linux policy utility programs
 
 Package: libsepol1
 Priority: required
-Architecture: any
+Architecture: linux-any
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Pre-Depends: multiarch-support
 Multi-Arch: same
@@ -47,7 +47,7 @@ Description: SELinux library for manipulating binary security policies
 
 Package: libsepol1-dev
 Section: libdevel
-Architecture: any
+Architecture: linux-any
 Depends: libsepol1 (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
 Description: SELinux binary policy manipulation library and development files
  libsepol allows programs to easily modify SELinux binary policies.  This
