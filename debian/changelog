@@ -13,13 +13,14 @@ libsepol (2.1.4-2) UNRELEASED; urgency=low
     - Update Vcs-* fields
     - Add Homepage field
     - Make all binary packages arch:linux-any
+    - Put under the Debian SELinux team maintenance
   * debian/patches/fix-pc-file.patch: Properly set multi-arch path in .pc file
     (Closes: #658440)
   * Add debian/gbp.conf file
   * debian/libsepol1.postinst: Unconditionally call telinit and ignore any
     errors (Closes: #652669, #663270)
 
- -- Laurent Bigonville <bigon@debian.org>  Sun, 18 Mar 2012 11:56:35 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Sun, 18 Mar 2012 12:19:25 +0100
 
 libsepol (2.1.4-1) unstable; urgency=low
 
