@@ -10,6 +10,10 @@ export LIBDIR=$${DESTDIR}/usr/lib/${DEB_HOST_MULTIARCH}
 export SHLIBDIR=$${DESTDIR}/lib/${DEB_HOST_MULTIARCH}
 export LIBBASE=lib/${DEB_HOST_MULTIARCH}
 
+# The build system doesn't use CPPFLAGS, pass them to CFLAGS to enable the
+# missing (hardening) flags.
+export DEB_CFLAGS_MAINT_APPEND = $(shell dpkg-buildflags --get CPPFLAGS)
+
 %:
 	dh $@
 
