@@ -49,6 +49,8 @@ Package: libsepol1-dev
 Section: libdevel
 Architecture: linux-any
 Depends: libsepol1 (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Provides: libsepol-dev
+Conflicts: libsepol-dev
 Description: SELinux binary policy manipulation library and development files
  libsepol allows programs to easily modify SELinux binary policies.  This
  means changing the default values for booleans, or reading the policy for
