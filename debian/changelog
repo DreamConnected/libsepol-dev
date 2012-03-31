@@ -1,9 +1,10 @@
-libsepol (2.1.4-3) UNRELEASED; urgency=low
+libsepol (2.1.4-3) unstable; urgency=low
 
+  * Team upload.
   * debian/rules: Append CPPFLAGS hardening flags to CFLAGS (Closes: #665316)
   * debian/control: Re-add Conflicts/Provides for the libsepol1-dev package
 
- -- Laurent Bigonville <bigon@debian.org>  Wed, 28 Mar 2012 14:08:34 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Sun, 01 Apr 2012 00:56:03 +0200
 
 libsepol (2.1.4-2) unstable; urgency=low
 
