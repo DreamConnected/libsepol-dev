@@ -1,8 +1,9 @@
 libsepol (2.1.4-4) UNRELEASED; urgency=low
 
   * debian/gbp.conf: Change default git-buildpackage build-directory
+  * debian/watch: Fix watch file URL
 
- -- Laurent Bigonville <bigon@debian.org>  Mon, 10 Sep 2012 23:44:13 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 10 Sep 2012 23:49:09 +0200
 
 libsepol (2.1.4-3) unstable; urgency=low
 
