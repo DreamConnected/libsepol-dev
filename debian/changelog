@@ -1,11 +1,12 @@
-libsepol (2.1.8-1) UNRELEASED; urgency=low
+libsepol (2.1.8-1) experimental; urgency=low
 
+  * Team upload.
   * New Upstream release
   * debian/gbp.conf: Change default git-buildpackage build-directory and the
     debian-branch to "debian" instead of "upstream"
   * debian/watch: Fix watch file URL
 
- -- Laurent Bigonville <bigon@debian.org>  Tue, 25 Sep 2012 11:36:25 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 25 Sep 2012 22:46:14 +0200
 
 libsepol (2.1.4-3) unstable; urgency=low
 
