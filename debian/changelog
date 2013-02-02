@@ -1,3 +1,10 @@
+libsepol (2.1.8-2) UNRELEASED; urgency=low
+
+  * debian/rules: Automatically chose host gcc used when cross-compiling
+    (Closes: #688878)
+
+ -- Laurent Bigonville <bigon@debian.org>  Sat, 02 Feb 2013 17:37:42 +0100
+
 libsepol (2.1.8-1) experimental; urgency=low
 
   * Team upload.
