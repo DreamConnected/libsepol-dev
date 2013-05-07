@@ -1,5 +1,6 @@
-libsepol (2.1.8-2) UNRELEASED; urgency=low
+libsepol (2.1.9-1) UNRELEASED; urgency=low
 
+  * New Upstream release
   * debian/rules: Automatically chose host gcc used when cross-compiling
     (Closes: #688878)
 
