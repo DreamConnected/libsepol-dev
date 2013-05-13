@@ -1,3 +1,9 @@
+libsepol (2.1.9-2) UNRELEASED; urgency=low
+
+  * debian/rules: Really fix cross-compilation (Closes: #688878)
+
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 13 May 2013 15:26:46 +0200
+
 libsepol (2.1.9-1) unstable; urgency=low
 
   * Team upload.
