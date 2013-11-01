@@ -3,8 +3,9 @@ libsepol (2.2-1) UNRELEASED; urgency=low
   * New upstream release
     - Drop debian/patches/fix-pc-file.patch: Merged upstream
   * debian/control: Bump Standards-Version to 3.9.4 (no further changes)
+  * debian/control: Use canonical URL for VCS-Git field
 
- -- Laurent Bigonville <bigon@debian.org>  Fri, 01 Nov 2013 11:32:42 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Fri, 01 Nov 2013 11:43:33 +0100
 
 libsepol (2.1.9-2) unstable; urgency=low
 

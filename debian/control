@@ -1,5 +1,5 @@
 Source: libsepol
-VCS-Git: git://anonscm.debian.org/git/selinux/libsepol.git
+VCS-Git: git://anonscm.debian.org/selinux/libsepol.git
 VCS-Browser: http://anonscm.debian.org/gitweb/?p=selinux/libsepol.git;a=summary
 Priority: optional
 Section: libs
