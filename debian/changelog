@@ -1,8 +1,9 @@
 libsepol (2.2-1) UNRELEASED; urgency=low
 
   * New upstream release
+    - Drop debian/patches/fix-pc-file.patch: Merged upstream
 
- -- Laurent Bigonville <bigon@debian.org>  Fri, 01 Nov 2013 11:23:47 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Fri, 01 Nov 2013 11:27:29 +0100
 
 libsepol (2.1.9-2) unstable; urgency=low
 
