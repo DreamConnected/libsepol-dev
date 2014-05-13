@@ -1,10 +1,11 @@
-libsepol (2.3-1) UNRELEASED; urgency=medium
+libsepol (2.3-1) unstable; urgency=medium
 
+  * Team upload.
   * New upstream release
   * debian/control: Mark -dev package as Multi-arch: same. (Closes: #738049)
   * debian/control: Bump Standards-Version to 3.9.5 (no further changes)
 
- -- Laurent Bigonville <bigon@debian.org>  Tue, 13 May 2014 17:02:29 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 13 May 2014 17:35:24 +0200
 
 libsepol (2.2-1) unstable; urgency=low
 
