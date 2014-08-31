@@ -1,5 +1,6 @@
 libsepol (2.3-2) unstable; urgency=medium
 
+  * Team upload.
   * Drop debian/libsepol1.postinst: Reloading systemd during an upgrade in an
     uncontroled way might endup with unwanted side effects (Closes: #753727)
 
