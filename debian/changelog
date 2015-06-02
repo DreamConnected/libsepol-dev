@@ -1,10 +1,11 @@
 libsepol (2.4-1) UNRELEASED; urgency=medium
 
   * New upstream release
+    - debian/control: Add flex to the build-dependency
   * debian/control: Bump Standards-Version to 3.9.6 (no further changes)
   * debian/watch: Update watch file URL
 
- -- Laurent Bigonville <bigon@debian.org>  Tue, 02 Jun 2015 14:56:01 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 02 Jun 2015 15:03:43 +0200
 
 libsepol (2.3-2) unstable; urgency=medium
 
