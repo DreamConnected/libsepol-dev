@@ -1,4 +1,18 @@
 libsepol.so.1 libsepol1 #MINVER#
+ cil_add_file@Base 2.4
+ cil_build_policydb@Base 2.4
+ cil_compile@Base 2.4
+ cil_db_destroy@Base 2.4
+ cil_db_init@Base 2.4
+ cil_filecons_to_string@Base 2.4
+ cil_selinuxusers_to_string@Base 2.4
+ cil_set_disable_dontaudit@Base 2.4
+ cil_set_disable_neverallow@Base 2.4
+ cil_set_handle_unknown@Base 2.4
+ cil_set_log_handler@Base 2.4
+ cil_set_log_level@Base 2.4
+ cil_set_preserve_tunables@Base 2.4
+ cil_userprefixes_to_string@Base 2.4
  expand_module_avrules@Base 2.1.4
  sepol_bool_clone@Base 1.14
  sepol_bool_compare2@Base 1.14
@@ -130,6 +144,7 @@ libsepol.so.1 libsepol1 #MINVER#
  sepol_policydb_mls_enabled@Base 1.14
  sepol_policydb_read@Base 1.14
  sepol_policydb_set_handle_unknown@Base 2.0.25
+ sepol_policydb_set_target_platform@Base 2.4
  sepol_policydb_set_typevers@Base 1.14
  sepol_policydb_set_vers@Base 1.14
  sepol_policydb_to_image@Base 1.14
