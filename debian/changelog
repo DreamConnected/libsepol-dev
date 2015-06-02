@@ -1,8 +1,9 @@
 libsepol (2.3-3) UNRELEASED; urgency=medium
 
   * debian/control: Bump Standards-Version to 3.9.6 (no further changes)
+  * debian/watch: Update watch file URL
 
- -- Laurent Bigonville <bigon@debian.org>  Tue, 02 Jun 2015 13:54:07 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 02 Jun 2015 14:55:30 +0200
 
 libsepol (2.3-2) unstable; urgency=medium
 
