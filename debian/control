@@ -27,7 +27,7 @@ Package: libsepol1
 Priority: required
 Architecture: linux-any
 Depends: ${misc:Depends}, ${shlibs:Depends}
-Pre-Depends: multiarch-support
+Pre-Depends: ${misc:Pre-Depends}
 Multi-Arch: same
 Description: SELinux library for manipulating binary security policies
  Security-enhanced Linux is a patch of the Linux kernel and a number
