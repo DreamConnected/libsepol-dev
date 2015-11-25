@@ -1,3 +1,9 @@
+libsepol (2.4-3) UNRELEASED; urgency=medium
+
+  * debian/gbp.conf: Sign tags by default
+
+ -- Laurent Bigonville <bigon@debian.org>  Wed, 25 Nov 2015 18:33:10 +0100
+
 libsepol (2.4-2) unstable; urgency=medium
 
   * Team upload.
