@@ -1,8 +1,9 @@
-libsepol (2.4-3) UNRELEASED; urgency=medium
+libsepol (2.5-1) UNRELEASED; urgency=medium
 
+  * New upstream release
   * debian/gbp.conf: Sign tags by default
 
- -- Laurent Bigonville <bigon@debian.org>  Wed, 25 Nov 2015 18:33:10 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 28 Mar 2016 16:43:11 +0200
 
 libsepol (2.4-2) unstable; urgency=medium
 
