@@ -1,9 +1,10 @@
 libsepol (2.5-1) UNRELEASED; urgency=medium
 
   * New upstream release
+    - Adjust .symbols file. The symbols are now versioned
   * debian/gbp.conf: Sign tags by default
 
- -- Laurent Bigonville <bigon@debian.org>  Mon, 28 Mar 2016 16:43:11 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 28 Mar 2016 17:38:43 +0200
 
 libsepol (2.4-2) unstable; urgency=medium
 
