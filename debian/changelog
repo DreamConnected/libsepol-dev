@@ -4,8 +4,9 @@ libsepol (2.5-1) UNRELEASED; urgency=medium
     - Adjust .symbols file. The symbols are now versioned
   * debian/gbp.conf: Sign tags by default
   * debian/control: Bump Standards-Version to 3.9.7 (no further changes)
+  * debian/control: Fix Vcs-* URL's to please lintian (again)
 
- -- Laurent Bigonville <bigon@debian.org>  Mon, 28 Mar 2016 17:42:21 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 28 Mar 2016 17:46:07 +0200
 
 libsepol (2.4-2) unstable; urgency=medium
 
