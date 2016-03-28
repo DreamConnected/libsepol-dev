@@ -5,8 +5,9 @@ libsepol (2.5-1) UNRELEASED; urgency=medium
   * debian/gbp.conf: Sign tags by default
   * debian/control: Bump Standards-Version to 3.9.7 (no further changes)
   * debian/control: Fix Vcs-* URL's to please lintian (again)
+  * debian/rules: Pass --list-missing to dh_install
 
- -- Laurent Bigonville <bigon@debian.org>  Mon, 28 Mar 2016 17:46:07 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 28 Mar 2016 17:49:47 +0200
 
 libsepol (2.4-2) unstable; urgency=medium
 
