@@ -1,5 +1,6 @@
-libsepol (2.5-1) UNRELEASED; urgency=medium
+libsepol (2.5-1) unstable; urgency=medium
 
+  * Team upload.
   * New upstream release
     - Adjust .symbols file. The symbols are now versioned
   * debian/gbp.conf: Sign tags by default
@@ -7,7 +8,7 @@ libsepol (2.5-1) UNRELEASED; urgency=medium
   * debian/control: Fix Vcs-* URL's to please lintian (again)
   * debian/rules: Pass --list-missing to dh_install
 
- -- Laurent Bigonville <bigon@debian.org>  Mon, 28 Mar 2016 17:49:47 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Sun, 24 Apr 2016 15:15:01 +0200
 
 libsepol (2.4-2) unstable; urgency=medium
 
