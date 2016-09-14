@@ -1,4 +1,5 @@
 libsepol.so.1 libsepol1 #MINVER#
+* Build-Depends-Package: libsepol1-dev
  LIBSEPOL_1.0@LIBSEPOL_1.0 2.5
  LIBSEPOL_1.1@LIBSEPOL_1.1 2.5
  cil_add_file@LIBSEPOL_1.0 2.5
