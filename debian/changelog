@@ -1,8 +1,12 @@
-libsepol (2.5-2) UNRELEASED; urgency=medium
+libsepol (2.6-1) UNRELEASED; urgency=medium
 
+  * New upstream release
+    - Make the build reproducible (Closes: #825656)
+    - Produce more meaningful error messages for conflicting type rules
+      (Closes: #832331)
   * debian/libsepol1.symbols: Add the Build-Depends-Package field
 
- -- Laurent Bigonville <bigon@debian.org>  Wed, 14 Sep 2016 10:35:49 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Wed, 26 Oct 2016 21:47:59 +0200
 
 libsepol (2.5-1) unstable; urgency=medium
 
