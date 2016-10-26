@@ -147,36 +147,49 @@ static int report_assertion_extended_permissions(sepol_handle_t *handle,
 	avtab_key_t tmp_key;
 	avtab_extended_perms_t *xperms;
 	avtab_extended_perms_t error;
+	ebitmap_t *sattr = &p->type_attr_map[stype];
+	ebitmap_t *tattr = &p->type_attr_map[ttype];
+	ebitmap_node_t *snode, *tnode;
+	unsigned int i, j;
 	int rc = 1;
 	int ret = 0;
 
 	memcpy(&tmp_key, k, sizeof(avtab_key_t));
 	tmp_key.specified = AVTAB_XPERMS_ALLOWED;
 
-	for (node = avtab_search_node(avtab, &tmp_key);
-	     node;
-	     node = avtab_search_node_next(node, tmp_key.specified)) {
-		xperms = node->datum.xperms;
-		if ((xperms->specified != AVTAB_XPERMS_IOCTLFUNCTION)
-				&& (xperms->specified != AVTAB_XPERMS_IOCTLDRIVER))
+	ebitmap_for_each_bit(sattr, snode, i) {
+		if (!ebitmap_node_get_bit(snode, i))
 			continue;
+		ebitmap_for_each_bit(tattr, tnode, j) {
+			if (!ebitmap_node_get_bit(tnode, j))
+				continue;
+			tmp_key.source_type = i + 1;
+			tmp_key.target_type = j + 1;
+			for (node = avtab_search_node(avtab, &tmp_key);
+			     node;
+			     node = avtab_search_node_next(node, tmp_key.specified)) {
+				xperms = node->datum.xperms;
+				if ((xperms->specified != AVTAB_XPERMS_IOCTLFUNCTION)
+						&& (xperms->specified != AVTAB_XPERMS_IOCTLDRIVER))
+					continue;
 
-		rc = check_extended_permissions(avrule->xperms, xperms);
-		/* failure on the extended permission check_extended_permissionss */
-		if (rc) {
-			extended_permissions_violated(&error, avrule->xperms, xperms);
-			ERR(handle, "neverallowxperm on line %lu of %s (or line %lu of policy.conf) violated by\n"
-					"allowxperm %s %s:%s %s;",
-					avrule->source_line, avrule->source_filename, avrule->line,
-					p->p_type_val_to_name[stype],
-					p->p_type_val_to_name[ttype],
-					p->p_class_val_to_name[curperm->tclass - 1],
-					sepol_extended_perms_to_string(&error));
+				rc = check_extended_permissions(avrule->xperms, xperms);
+				/* failure on the extended permission check_extended_permissions */
+				if (rc) {
+					extended_permissions_violated(&error, avrule->xperms, xperms);
+					ERR(handle, "neverallowxperm on line %lu of %s (or line %lu of policy.conf) violated by\n"
+							"allowxperm %s %s:%s %s;",
+							avrule->source_line, avrule->source_filename, avrule->line,
+							p->p_type_val_to_name[i],
+							p->p_type_val_to_name[j],
+							p->p_class_val_to_name[curperm->tclass - 1],
+							sepol_extended_perms_to_string(&error));
 
-			rc = 0;
-			ret++;
+					rc = 0;
+					ret++;
+				}
+			}
 		}
-
 	}
 
 	/* failure on the regular permissions */
@@ -304,9 +317,57 @@ oom:
 }
 
 /*
- * If the ioctl permission is granted in check_assertion_avtab_match for the
- * source/target/class matching the current avrule neverallow, a lookup is
- * performed to determine if extended permissions exist for the source/target/class.
+ * Look up the extended permissions in avtab and verify that neverallowed
+ * permissions are not granted.
+ */
+static int check_assertion_extended_permissions_avtab(avrule_t *avrule, avtab_t *avtab,
+						unsigned int stype, unsigned int ttype,
+						avtab_key_t *k, policydb_t *p)
+{
+	avtab_ptr_t node;
+	avtab_key_t tmp_key;
+	avtab_extended_perms_t *xperms;
+	av_extended_perms_t *neverallow_xperms = avrule->xperms;
+	ebitmap_t *sattr = &p->type_attr_map[stype];
+	ebitmap_t *tattr = &p->type_attr_map[ttype];
+	ebitmap_node_t *snode, *tnode;
+	unsigned int i, j;
+	int rc = 1;
+
+	memcpy(&tmp_key, k, sizeof(avtab_key_t));
+	tmp_key.specified = AVTAB_XPERMS_ALLOWED;
+
+	ebitmap_for_each_bit(sattr, snode, i) {
+		if (!ebitmap_node_get_bit(snode, i))
+			continue;
+		ebitmap_for_each_bit(tattr, tnode, j) {
+			if (!ebitmap_node_get_bit(tnode, j))
+				continue;
+			tmp_key.source_type = i + 1;
+			tmp_key.target_type = j + 1;
+			for (node = avtab_search_node(avtab, &tmp_key);
+			     node;
+			     node = avtab_search_node_next(node, tmp_key.specified)) {
+				xperms = node->datum.xperms;
+
+				if ((xperms->specified != AVTAB_XPERMS_IOCTLFUNCTION)
+						&& (xperms->specified != AVTAB_XPERMS_IOCTLDRIVER))
+					continue;
+				rc = check_extended_permissions(neverallow_xperms, xperms);
+				if (rc)
+					break;
+			}
+		}
+	}
+
+	return rc;
+}
+
+/*
+ * When the ioctl permission is granted on an avtab entry that matches an
+ * avrule neverallowxperm entry, enumerate over the matching
+ * source/target/class sets to determine if the extended permissions exist
+ * and if the neverallowed ioctls are granted.
  *
  * Four scenarios of interest:
  * 1. PASS - the ioctl permission is not granted for this source/target/class
@@ -319,33 +380,72 @@ oom:
  *    granted
  */
 static int check_assertion_extended_permissions(avrule_t *avrule, avtab_t *avtab,
-						avtab_key_t *k)
+						avtab_key_t *k, policydb_t *p)
 {
-	avtab_ptr_t node;
-	avtab_key_t tmp_key;
-	avtab_extended_perms_t *xperms;
-	av_extended_perms_t *neverallow_xperms = avrule->xperms;
-	int rc = 1;
+	ebitmap_t src_matches, tgt_matches, matches;
+	unsigned int i, j;
+	ebitmap_node_t *snode, *tnode;
+	class_perm_node_t *cp;
+	int rc;
+	int ret = 1;
 
-	memcpy(&tmp_key, k, sizeof(avtab_key_t));
-	tmp_key.specified = AVTAB_XPERMS_ALLOWED;
+	ebitmap_init(&src_matches);
+	ebitmap_init(&tgt_matches);
+	ebitmap_init(&matches);
+	rc = ebitmap_and(&src_matches, &avrule->stypes.types,
+			 &p->attr_type_map[k->source_type - 1]);
+	if (rc)
+		goto oom;
 
-	for (node = avtab_search_node(avtab, &tmp_key);
-	     node;
-	     node = avtab_search_node_next(node, tmp_key.specified)) {
-		xperms = node->datum.xperms;
-		if ((xperms->specified != AVTAB_XPERMS_IOCTLFUNCTION)
-				&& (xperms->specified != AVTAB_XPERMS_IOCTLDRIVER))
-			continue;
+	if (ebitmap_length(&src_matches) == 0)
+		goto exit;
 
-		rc = check_extended_permissions(neverallow_xperms, xperms);
+	if (avrule->flags == RULE_SELF) {
+		rc = ebitmap_and(&matches, &p->attr_type_map[k->source_type - 1],
+				&p->attr_type_map[k->target_type - 1]);
 		if (rc)
-			break;
+			goto oom;
+		rc = ebitmap_and(&tgt_matches, &avrule->stypes.types, &matches);
+		if (rc)
+			goto oom;
+	} else {
+		rc = ebitmap_and(&tgt_matches, &avrule->ttypes.types,
+				&p->attr_type_map[k->target_type -1]);
+		if (rc)
+			goto oom;
 	}
 
-	return rc;
-}
+	if (ebitmap_length(&tgt_matches) == 0)
+		goto exit;
 
+	for (cp = avrule->perms; cp; cp = cp->next) {
+		if (cp->tclass != k->target_class)
+			continue;
+		ebitmap_for_each_bit(&src_matches, snode, i) {
+			if (!ebitmap_node_get_bit(snode, i))
+				continue;
+			ebitmap_for_each_bit(&tgt_matches, tnode, j) {
+				if (!ebitmap_node_get_bit(tnode, j))
+					continue;
+
+				ret = check_assertion_extended_permissions_avtab(
+						avrule, avtab, i, j, k, p);
+				if (ret)
+					goto exit;
+			}
+		}
+	}
+	goto exit;
+
+oom:
+	ERR(NULL, "Out of memory - unable to check neverallows");
+
+exit:
+	ebitmap_destroy(&src_matches);
+	ebitmap_destroy(&tgt_matches);
+	ebitmap_destroy(&matches);
+	return ret;
+}
 
 static int check_assertion_avtab_match(avtab_key_t *k, avtab_datum_t *d, void *args)
 {
@@ -355,7 +455,7 @@ static int check_assertion_avtab_match(avtab_key_t *k, avtab_datum_t *d, void *a
 	avrule_t *avrule = a->avrule;
 	avtab_t *avtab = a->avtab;
 
-	if (k->specified != AVTAB_ALLOWED && k->specified != AVTAB_XPERMS_ALLOWED)
+	if (k->specified != AVTAB_ALLOWED)
 		goto exit;
 
 	if (!match_any_class_permissions(avrule->perms, k->target_class, d->data))
@@ -386,7 +486,7 @@ static int check_assertion_avtab_match(avtab_key_t *k, avtab_datum_t *d, void *a
 		goto exit;
 
 	if (avrule->specified == AVRULE_XPERMS_NEVERALLOW) {
-		rc = check_assertion_extended_permissions(avrule, avtab, k);
+		rc = check_assertion_extended_permissions(avrule, avtab, k, p);
 		if (rc == 0)
 			goto exit;
 	}

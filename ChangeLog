@@ -1,3 +1,43 @@
+2.6 2016-10-14
+	* Fix linker scripts / map files, from Stephen Smalley.
+	* Fix bugs found by fuzzing secilc with AFL, from Nicolas Iooss.
+	* Add support for converting extended permissions to CIL, from James Carter.
+	* Create user and role caches when building binary policy, from Gary Tierney.
+	* Remove Android.mk files and only keep them in Android tree, from Bowgo Tsai.
+	* Check for too many permissions in classes and commons in CIL, from James Carter.
+	* Fix xperm mapping between avrule and avtab, from Jeff Vander Stoep.
+	* tests: Fix mispelling of optimization option, from Nicolas Iooss.
+	* Fix unused/uninitialized variables on mac build, from William Roberts.
+	* Produce more meaningful error messages for conflicting type rules in CIL, from Guido Trentalancia.
+	* make "make test" fail when a CUnit test fails, from Nicolas Iooss.
+	* tests: fix g_b_role_2 test, from Nicolas Iooss.
+	* Change which attributes CIL keeps in the binary policy, from James Carter.
+	* Port str_read() from kernel and remove multiple occurances of similar code, from William Roberts.
+	* Use calloc instead of malloc for all the *_to_val_structs, from William Roberts.
+	* Fix bugs found by AFL, from William Roberts.
+	* Fix memory leak in expand.c, from William Roberts.
+	* Fix invalid read when policy file is corrupt, from William Roberts.
+	* Fix possible use of uninitialized variables, from William Roberts.
+	* Warn instead of fail if permission is not resolved, from James Carter.
+	* Ignore object_r when adding userrole mappings to policydb, from Steve Lawrence.
+	* Add missing return to sepol_node_query(), from Petr Lautrbach.
+	* Add missing <stdarg.h> include, from Thomas Petazzoni.
+	* Correctly detect unknown classes in sepol_string_to_security_class, from Joshua Brindle.
+	* Sort object files for deterministic linking order, from Laurent Bigonville.
+	* Fix neverallowxperm checking on attributes, from Jeff Vander Stoep.
+	* Remove libsepol.map when cleaning, from Nicolas Iooss.
+	* Add high-level language line marking support to CIL, from James Carter.
+	* Change logic of bounds checking to match change in kernel, from James Carter.
+	* Fix multiple spelling errors, from Laurent Bigonville.
+	* Only apply bounds checking to source types in rules, from Stephen Smalley.
+	* Fix CIL and not add an attribute as a type in the attr_type_map, from James Carter
+	* Build policy on systems not supporting DCCP protocol, from Richard Haines.
+	* Fix extended permissions neverallow checking, from Jeff Vander Stoep.
+	* Fix CIL neverallow and bounds checking, from James Carter
+	* Android.mk: Add -D_GNU_SOURCE to common_cflags, from Nick Kralevich.
+	* Add support for portcon dccp protocol, from Richard Haines
+	* Fix bug in CIL when resetting classes, from Steve Lawrence
+
 2.5 2016-02-23
 	* Fix unused variable annotations, from Nicolas Iooss.
 	* Fix uninitialized variable in CIL, from Nicolas Iooss.

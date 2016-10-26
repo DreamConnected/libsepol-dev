@@ -31,6 +31,9 @@
 #include <stdio.h>
 #include <assert.h>
 #include <netinet/in.h>
+#ifndef IPPROTO_DCCP
+#define IPPROTO_DCCP 33
+#endif
 
 #include <sepol/policydb/policydb.h>
 #include <sepol/policydb/polcaps.h>
@@ -606,9 +609,11 @@ int __cil_typeattr_bitmap_init(policydb_t *pdb)
 			rc = SEPOL_ERR;
 			goto exit;
 		}
-		if (ebitmap_set_bit(&pdb->attr_type_map[i], i, 1)) {
-			rc = SEPOL_ERR;
-			goto exit;
+		if (pdb->type_val_to_struct[i] && pdb->type_val_to_struct[i]->flavor != TYPE_ATTRIB) {
+			if (ebitmap_set_bit(&pdb->attr_type_map[i], i, 1)) {
+				rc = SEPOL_ERR;
+				goto exit;
+			}
 		}
 
 	}
@@ -747,6 +752,12 @@ int cil_userrole_to_policydb(policydb_t *pdb, const struct cil_db *db, struct ci
 			rc = __cil_get_sepol_role_datum(pdb, DATUM(db->val_to_role[i]), &sepol_role);
 			if (rc != SEPOL_OK) {
 				goto exit;
+			}
+
+			if (sepol_role->s.value == 1) {
+				// role is object_r, ignore it since it is implicitly associated
+				// with all users
+				continue;
 			}
 
 			if (ebitmap_set_bit(&sepol_user->roles.roles, sepol_role->s.value - 1, 1)) {
@@ -973,7 +984,7 @@ avtab_datum_t *cil_cond_av_list_search(avtab_key_t *key, cond_av_list_t *cond_li
 	return NULL;
 }
 
-int __cil_insert_type_rule(policydb_t *pdb, uint32_t kind, uint32_t src, uint32_t tgt, uint32_t obj, uint32_t res, cond_node_t *cond_node, enum cil_flavor cond_flavor)
+int __cil_insert_type_rule(policydb_t *pdb, uint32_t kind, uint32_t src, uint32_t tgt, uint32_t obj, uint32_t res, struct cil_type_rule *cil_rule, cond_node_t *cond_node, enum cil_flavor cond_flavor)
 {
 	int rc = SEPOL_OK;
 	avtab_key_t avtab_key;
@@ -1008,7 +1019,7 @@ int __cil_insert_type_rule(policydb_t *pdb, uint32_t kind, uint32_t src, uint32_
 		 * non-duplicate rule using the same key.
 		 */
 		if (existing->datum.data != res) {
-			cil_log(CIL_ERR, "Conflicting type rules\n");
+			cil_log(CIL_ERR, "Conflicting type rules (scontext=%s tcontext=%s tclass=%s result=%s)\n", cil_rule->src_str, cil_rule->tgt_str, cil_rule->obj_str, cil_rule->result_str);
 			rc = SEPOL_ERR;
 		}
 		goto exit;
@@ -1034,7 +1045,7 @@ int __cil_insert_type_rule(policydb_t *pdb, uint32_t kind, uint32_t src, uint32_
 			search_datum = cil_cond_av_list_search(&avtab_key, other_list);
 			if (search_datum == NULL) {
 				if (existing->datum.data != res) {
-					cil_log(CIL_ERR, "Conflicting type rules\n");
+					cil_log(CIL_ERR, "Conflicting type rules (scontext=%s tcontext=%s tclass=%s result=%s)\n", cil_rule->src_str, cil_rule->tgt_str, cil_rule->obj_str, cil_rule->result_str);
 					rc = SEPOL_ERR;
 					goto exit;
 				}
@@ -1093,7 +1104,7 @@ int __cil_type_rule_to_avtab(policydb_t *pdb, const struct cil_db *db, struct ci
 				rc = __cil_get_sepol_class_datum(pdb, DATUM(c->data), &sepol_obj);
 				if (rc != SEPOL_OK) goto exit;
 
-				rc = __cil_insert_type_rule(pdb, kind, sepol_src->s.value, sepol_tgt->s.value, sepol_obj->s.value, sepol_result->s.value, cond_node, cond_flavor);
+				rc = __cil_insert_type_rule(pdb, kind, sepol_src->s.value, sepol_tgt->s.value, sepol_obj->s.value, sepol_result->s.value, cil_rule, cond_node, cond_flavor);
 				if (rc != SEPOL_OK) goto exit;
 			}
 		}
@@ -1770,13 +1781,12 @@ int __cil_cond_to_policydb_helper(struct cil_tree_node *node, __attribute__((unu
 		cil_typetrans = (struct cil_nametypetransition*)node->data;
 		if (DATUM(cil_typetrans->name)->fqn != CIL_KEY_STAR) {
 			cil_log(CIL_ERR, "typetransition with file name not allowed within a booleanif block.\n");
-			cil_log(CIL_ERR,"Invalid typetransition statement at line %d of %s\n", 
-			node->line, node->path);
+			cil_tree_log(node, CIL_ERR,"Invalid typetransition statement");
 			goto exit;
 		}
 		rc = __cil_typetransition_to_avtab(pdb, db, cil_typetrans, cond_node, cond_flavor, filename_trans_table);
 		if (rc != SEPOL_OK) {
-			cil_log(CIL_ERR, "Failed to insert type transition into avtab at line %d of %s\n", node->line, node->path);
+			cil_tree_log(node, CIL_ERR, "Failed to insert type transition into avtab");
 			goto exit;
 		}
 		break;
@@ -1784,7 +1794,7 @@ int __cil_cond_to_policydb_helper(struct cil_tree_node *node, __attribute__((unu
 		cil_type_rule = node->data;
 		rc = __cil_type_rule_to_avtab(pdb, db, cil_type_rule, cond_node, cond_flavor);
 		if (rc != SEPOL_OK) {
-			cil_log(CIL_ERR, "Failed to insert typerule into avtab at line %d of %s\n", node->line, node->path);
+			cil_tree_log(node, CIL_ERR, "Failed to insert typerule into avtab");
 			goto exit;
 		}
 		break;
@@ -1792,7 +1802,7 @@ int __cil_cond_to_policydb_helper(struct cil_tree_node *node, __attribute__((unu
 		cil_avrule = node->data;
 		rc = __cil_avrule_to_avtab(pdb, db, cil_avrule, cond_node, cond_flavor);
 		if (rc != SEPOL_OK) {
-			cil_log(CIL_ERR, "Failed to insert avrule into avtab at line %d of %s\n", node->line, node->path);
+			cil_tree_log(node, CIL_ERR, "Failed to insert avrule into avtab");
 			goto exit;
 		}
 		break;
@@ -1800,8 +1810,7 @@ int __cil_cond_to_policydb_helper(struct cil_tree_node *node, __attribute__((unu
 	case CIL_TUNABLEIF:
 		break;
 	default:
-		cil_log(CIL_ERR, "Invalid statement within booleanif at line %d of %s\n", 
-			node->line, node->path);
+		cil_tree_log(node, CIL_ERR, "Invalid statement within booleanif");
 		goto exit;
 	}
 
@@ -2060,14 +2069,13 @@ int cil_booleanif_to_policydb(policydb_t *pdb, const struct cil_db *db, struct c
 	tmp_cond = cond_node_create(pdb, NULL);
 	if (tmp_cond == NULL) {
 		rc = SEPOL_ERR;
-		cil_log(CIL_INFO, "Failed to create sepol conditional node at line %d of %s\n", 
-			node->line, node->path);
+		cil_tree_log(node, CIL_INFO, "Failed to create sepol conditional node");
 		goto exit;
 	}
 	
 	rc = __cil_cond_expr_to_sepol_expr(pdb, cil_boolif->datum_expr, &tmp_cond->expr);
 	if (rc != SEPOL_OK) {
-		cil_log(CIL_INFO, "Failed to convert CIL conditional expression to sepol expression at line %d of %s\n", node->line, node->path);
+		cil_tree_log(node, CIL_INFO, "Failed to convert CIL conditional expression to sepol expression");
 		goto exit;
 	}
 
@@ -2123,7 +2131,7 @@ int cil_booleanif_to_policydb(policydb_t *pdb, const struct cil_db *db, struct c
 		bool_args.cond_flavor = CIL_CONDTRUE;
 		rc = cil_tree_walk(true_node, __cil_cond_to_policydb_helper, NULL, NULL, &bool_args);
 		if (rc != SEPOL_OK) {
-			cil_log(CIL_ERR, "Failure while walking true conditional block at line %d of %s\n", true_node->line, true_node->path);
+			cil_tree_log(true_node, CIL_ERR, "Failure while walking true conditional block");
 			goto exit;
 		}
 	}
@@ -2132,7 +2140,7 @@ int cil_booleanif_to_policydb(policydb_t *pdb, const struct cil_db *db, struct c
 		bool_args.cond_flavor = CIL_CONDFALSE;
 		rc = cil_tree_walk(false_node, __cil_cond_to_policydb_helper, NULL, NULL, &bool_args);
 		if (rc != SEPOL_OK) {
-			cil_log(CIL_ERR, "Failure while walking false conditional block at line %d of %s\n", false_node->line, false_node->path);
+			cil_tree_log(false_node, CIL_ERR, "Failure while walking false conditional block");
 			goto exit;
 		}
 	}
@@ -3035,6 +3043,9 @@ int cil_portcon_to_policydb(policydb_t *pdb, struct cil_sort *portcons)
 		case CIL_PROTOCOL_TCP:
 			new_ocon->u.port.protocol = IPPROTO_TCP;
 			break;
+		case CIL_PROTOCOL_DCCP:
+			new_ocon->u.port.protocol = IPPROTO_DCCP;
+			break;
 		default:
 			/* should not get here */
 			rc = SEPOL_ERR;
@@ -3583,7 +3594,7 @@ int __cil_node_to_policydb(struct cil_tree_node *node, void *extra_args)
 
 exit:
 	if (rc != SEPOL_OK) {
-		cil_log(CIL_ERR, "Binary policy creation failed at line %d of %s\n", node->line, node->path);
+		cil_tree_log(node, CIL_ERR, "Binary policy creation failed");
 	}
 	return rc;
 }
@@ -4227,6 +4238,9 @@ exit:
 static avrule_t *__cil_init_sepol_avrule(uint32_t kind, struct cil_tree_node *node)
 {
 	avrule_t *avrule;
+	struct cil_tree_node *source_node;
+	char *source_path;
+	int is_cil;
 
 	avrule = cil_malloc(sizeof(avrule_t));
 	avrule->specified = kind;
@@ -4235,8 +4249,17 @@ static avrule_t *__cil_init_sepol_avrule(uint32_t kind, struct cil_tree_node *no
 	__cil_init_sepol_type_set(&avrule->ttypes);
 	avrule->perms = NULL;
 	avrule->line = node->line;
-	avrule->source_filename = node->path;
+
+	avrule->source_filename = NULL;
 	avrule->source_line = node->line;
+	source_node = cil_tree_get_next_path(node, &source_path, &is_cil);
+	if (source_node) {
+		avrule->source_filename = source_path;
+		if (!is_cil) {
+			avrule->source_line = node->hll_line;
+		}
+	}
+
 	avrule->next = NULL;
 	return avrule;
 }
@@ -4263,10 +4286,8 @@ static void __cil_print_parents(const char *pad, struct cil_tree_node *n)
 
 	__cil_print_parents(pad, n->parent);
 
-	if (!n->path) {
-		cil_log(CIL_ERR,"%s%s\n", pad, cil_node_to_string(n));
-	} else {
-		cil_log(CIL_ERR,"%s%s at line %d of %s\n", pad, cil_node_to_string(n), n->line, n->path);
+	if (n->flavor != CIL_SRC_INFO) {
+		cil_tree_log(n, CIL_ERR,"%s%s", pad, cil_node_to_string(n));
 	}
 }
 
@@ -4357,7 +4378,7 @@ static int __cil_print_neverallow_failure(const struct cil_db *db, struct cil_tr
 		allow_str = CIL_KEY_ALLOWX;
 		avrule_flavor = CIL_AVRULEX;
 	}
-	cil_log(CIL_ERR, "%s check failed at line %d of %s\n", neverallow_str, node->line, node->path);
+	cil_tree_log(node, CIL_ERR, "%s check failed", neverallow_str);
 	__cil_print_rule("  ", neverallow_str, cil_rule);
 	cil_list_init(&matching, CIL_NODE);
 	rc = cil_find_matching_avrule_in_ast(db->ast->root, avrule_flavor, &target, matching, CIL_FALSE);
@@ -4380,10 +4401,9 @@ exit:
 	return rc;
 }
 
-static int cil_check_neverallow(const struct cil_db *db, policydb_t *pdb, struct cil_tree_node *node)
+static int cil_check_neverallow(const struct cil_db *db, policydb_t *pdb, struct cil_tree_node *node, int *violation)
 {
-	int rc = SEPOL_ERR;
-	int ret = CIL_FALSE;
+	int rc = SEPOL_OK;
 	struct cil_avrule *cil_rule = node->data;
 	struct cil_symtab_datum *tgt = cil_rule->tgt;
 	uint32_t kind;
@@ -4422,11 +4442,11 @@ static int cil_check_neverallow(const struct cil_db *db, policydb_t *pdb, struct
 
 		rc = check_assertion(pdb, rule);
 		if (rc == CIL_TRUE) {
+			*violation = CIL_TRUE;
 			rc = __cil_print_neverallow_failure(db, node);
 			if (rc != SEPOL_OK) {
 				goto exit;
 			}
-			ret = CIL_TRUE;
 		}
 
 	} else {
@@ -4444,12 +4464,11 @@ static int cil_check_neverallow(const struct cil_db *db, policydb_t *pdb, struct
 			rule->xperms = item->data;
 			rc = check_assertion(pdb, rule);
 			if (rc == CIL_TRUE) {
+				*violation = CIL_TRUE;
 				rc = __cil_print_neverallow_failure(db, node);
 				if (rc != SEPOL_OK) {
 					goto exit;
 				}
-				ret = CIL_TRUE;
-				goto exit;
 			}
 		}
 	}
@@ -4466,34 +4485,23 @@ exit:
 	rule->xperms = NULL;
 	__cil_destroy_sepol_avrules(rule);
 
-	if (rc) {
-		return rc;
-	} else {
-		return ret;
-	}
+	return rc;
 }
 
-static int cil_check_neverallows(const struct cil_db *db, policydb_t *pdb, struct cil_list *neverallows)
+static int cil_check_neverallows(const struct cil_db *db, policydb_t *pdb, struct cil_list *neverallows, int *violation)
 {
 	int rc = SEPOL_OK;
-	int ret = CIL_FALSE;
 	struct cil_list_item *item;
 
 	cil_list_for_each(item, neverallows) {
-		rc = cil_check_neverallow(db, pdb, item->data);
-		if (rc < 0) {
+		rc = cil_check_neverallow(db, pdb, item->data, violation);
+		if (rc != SEPOL_OK) {
 			goto exit;
-		} else if (rc > 0) {
-			ret = CIL_TRUE;
 		}
 	}
 
 exit:
-	if (rc || ret) {
-		return SEPOL_ERR;
-	} else {
-		return SEPOL_OK;
-	}
+	return rc;
 }
 
 static struct cil_list *cil_classperms_from_sepol(policydb_t *pdb, uint16_t class, uint32_t data, struct cil_class *class_value_to_cil[], struct cil_perm **perm_value_to_cil[])
@@ -4548,7 +4556,7 @@ exit:
 	return rc;
 }
 
-static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void *type_value_to_cil, struct cil_class *class_value_to_cil[], struct cil_perm **perm_value_to_cil[])
+static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void *type_value_to_cil, struct cil_class *class_value_to_cil[], struct cil_perm **perm_value_to_cil[], int *violation)
 {
 	int rc = SEPOL_OK;
 	int i;
@@ -4574,6 +4582,9 @@ static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void 
 		if (bad) {
 			avtab_ptr_t cur;
 			struct cil_avrule target;
+			struct cil_tree_node *n1 = NULL;
+
+			*violation = CIL_TRUE;
 
                         target.is_extended = 0;
 			target.rule_kind = CIL_AVRULE_ALLOWED;
@@ -4585,7 +4596,6 @@ static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void 
 			for (cur = bad; cur; cur = cur->next) {
 				struct cil_list_item *i2;
 				struct cil_list *matching;
-				struct cil_tree_node *n;
 
 				rc = cil_avrule_from_sepol(pdb, cur, &target, type_value_to_cil, class_value_to_cil, perm_value_to_cil);
 				if (rc != SEPOL_OK) {
@@ -4594,7 +4604,7 @@ static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void 
 				}
 				__cil_print_rule("  ", "allow", &target);
 				cil_list_init(&matching, CIL_NODE);
-				rc = cil_find_matching_avrule_in_ast(db->ast->root, CIL_AVRULE, &target, matching, CIL_FALSE);
+				rc = cil_find_matching_avrule_in_ast(db->ast->root, CIL_AVRULE, &target, matching, CIL_TRUE);
 				if (rc) {
 					cil_log(CIL_ERR, "Error occurred while checking type bounds\n");
 					cil_list_destroy(&matching, CIL_FALSE);
@@ -4602,14 +4612,17 @@ static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void 
 					bounds_destroy_bad(bad);
 					goto exit;
 				}
-
 				cil_list_for_each(i2, matching) {
-					__cil_print_parents("    ", (struct cil_tree_node *)i2->data);
+					struct cil_tree_node *n2 = i2->data;
+					struct cil_avrule *r2 = n2->data;
+					if (n1 == n2) {
+						cil_log(CIL_ERR, "    <See previous>\n");
+					} else {
+						n1 = n2;
+						__cil_print_parents("    ", n2);
+						__cil_print_rule("      ", "allow", r2);
+					}
 				}
-				i2 = matching->tail;
-				n = i2->data;
-				__cil_print_rule("      ", "allow", n->data);
-				cil_log(CIL_ERR,"\n");
 				cil_list_destroy(&matching, CIL_FALSE);
 				cil_list_destroy(&target.perms.classperms, CIL_TRUE);
 			}
@@ -4753,20 +4766,45 @@ int cil_binary_create_allocated_pdb(const struct cil_db *db, sepol_policydb_t *p
 	__cil_set_conditional_state_and_flags(pdb);
 
 	if (db->disable_neverallow != CIL_TRUE) {
+		int violation = CIL_FALSE;
 		cil_log(CIL_INFO, "Checking Neverallows\n");
-		rc = cil_check_neverallows(db, pdb, neverallows);
+		rc = cil_check_neverallows(db, pdb, neverallows, &violation);
 		if (rc != SEPOL_OK) goto exit;
 
 		cil_log(CIL_INFO, "Checking User Bounds\n");
-		bounds_check_users(NULL, pdb);
+		rc = bounds_check_users(NULL, pdb);
+		if (rc) {
+			violation = CIL_TRUE;
+		}
 
 		cil_log(CIL_INFO, "Checking Role Bounds\n");
-		bounds_check_roles(NULL, pdb);
+		rc = bounds_check_roles(NULL, pdb);
+		if (rc) {
+			violation = CIL_TRUE;
+		}
 
 		cil_log(CIL_INFO, "Checking Type Bounds\n");
-		rc = cil_check_type_bounds(db, pdb, type_value_to_cil, class_value_to_cil, perm_value_to_cil);
+		rc = cil_check_type_bounds(db, pdb, type_value_to_cil, class_value_to_cil, perm_value_to_cil, &violation);
 		if (rc != SEPOL_OK) goto exit;
 
+		if (violation == CIL_TRUE) {
+			rc = SEPOL_ERR;
+			goto exit;
+		}
+
+	}
+
+	/* This pre-expands the roles and users for context validity checking */
+	if (hashtab_map(pdb->p_roles.table, policydb_role_cache, pdb)) {
+		cil_log(CIL_INFO, "Failure creating roles cache");
+		rc = SEPOL_ERR;
+		goto exit;
+    }
+
+	if (hashtab_map(pdb->p_users.table, policydb_user_cache, pdb)) {
+		cil_log(CIL_INFO, "Failure creating users cache");
+		rc = SEPOL_ERR;
+		goto exit;
 	}
 
 	rc = SEPOL_OK;
