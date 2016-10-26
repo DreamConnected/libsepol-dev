@@ -26,6 +26,9 @@
 #include <getopt.h>
 #include <libgen.h>
 #include <netinet/in.h>
+#ifndef IPPROTO_DCCP
+#define IPPROTO_DCCP 33
+#endif
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -44,6 +47,8 @@
 #include <sepol/policydb/services.h>
 #include <sepol/policydb/util.h>
 
+#include "private.h"
+
 #ifdef __GNUC__
 #  define UNUSED(x) UNUSED_ ## x __attribute__((__unused__))
 #else
@@ -55,7 +60,9 @@ FILE *out_file;
 #define STACK_SIZE 16
 #define DEFAULT_LEVEL "systemlow"
 #define DEFAULT_OBJECT "object_r"
-#define GEN_REQUIRE_ATTR "cil_gen_require"
+#define GEN_REQUIRE_ATTR "cil_gen_require" /* Also in libsepol/cil/src/cil_post.c */
+#define TYPEATTR_INFIX "_typeattr_"        /* Also in libsepol/cil/src/cil_post.c */
+#define ROLEATTR_INFIX "_roleattr_"
 
 __attribute__ ((format(printf, 1, 2)))
 static void log_err(const char *fmt, ...)
@@ -121,7 +128,7 @@ static int get_line(char **start, char *end, char **line)
 
 	for (len = 0; p < end && *p != '\n' && *p != '\0'; p++, len++);
 
-	if (len == 0) {
+	if (zero_or_saturated(len)) {
 		rc = 0;
 		goto exit;
 	}
@@ -602,6 +609,103 @@ exit:
 	return rc;
 }
 
+#define next_bit_in_range(i, p) ((i + 1 < sizeof(p)*8) && xperm_test((i + 1), p))
+
+static int xperms_to_cil(const av_extended_perms_t *xperms)
+{
+	uint16_t value;
+	uint16_t low_bit;
+	uint16_t low_value;
+	unsigned int bit;
+	unsigned int in_range = 0;
+	int first = 1;
+
+	if ((xperms->specified != AVTAB_XPERMS_IOCTLFUNCTION)
+		&& (xperms->specified != AVTAB_XPERMS_IOCTLDRIVER))
+		return -1;
+
+	for (bit = 0; bit < sizeof(xperms->perms)*8; bit++) {
+		if (!xperm_test(bit, xperms->perms))
+			continue;
+
+		if (in_range && next_bit_in_range(bit, xperms->perms)) {
+			/* continue until high value found */
+			continue;
+		} else if (next_bit_in_range(bit, xperms->perms)) {
+			/* low value */
+			low_bit = bit;
+			in_range = 1;
+			continue;
+		}
+
+		if (!first)
+			cil_printf(" ");
+		else
+			first = 0;
+
+		if (xperms->specified & AVTAB_XPERMS_IOCTLFUNCTION) {
+			value = xperms->driver<<8 | bit;
+			low_value = xperms->driver<<8 | low_bit;
+			if (in_range) {
+				cil_printf("(range 0x%hx 0x%hx)", low_value, value);
+				in_range = 0;
+			} else {
+				cil_printf("0x%hx", value);
+			}
+		} else if (xperms->specified & AVTAB_XPERMS_IOCTLDRIVER) {
+			value = bit << 8;
+			low_value = low_bit << 8;
+			if (in_range) {
+				cil_printf("(range 0x%hx 0x%hx)", low_value, (uint16_t) (value|0xff));
+				in_range = 0;
+			} else {
+				cil_printf("(range 0x%hx 0x%hx)", value, (uint16_t) (value|0xff));
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int avrulex_to_cil(int indent, struct policydb *pdb, uint32_t type, const char *src, const char *tgt, const class_perm_node_t *classperms, const av_extended_perms_t *xperms)
+{
+	int rc = -1;
+	const char *rule;
+	const struct class_perm_node *classperm;
+
+	switch (type) {
+	case AVRULE_XPERMS_ALLOWED:
+		rule = "allowx";
+		break;
+	case AVRULE_XPERMS_AUDITALLOW:
+		rule = "auditallowx";
+		break;
+	case AVRULE_XPERMS_DONTAUDIT:
+		rule = "dontauditx";
+		break;
+	case AVRULE_XPERMS_NEVERALLOW:
+		rule = "neverallowx";
+		break;
+	default:
+		log_err("Unknown avrule xperm type: %i", type);
+		rc = -1;
+		goto exit;
+	}
+
+	for (classperm = classperms; classperm != NULL; classperm = classperm->next) {
+		cil_indent(indent);
+		cil_printf("(%s %s %s (%s %s (", rule, src, tgt,
+			   "ioctl", pdb->p_class_val_to_name[classperm->tclass - 1]);
+		xperms_to_cil(xperms);
+		cil_printf(")))\n");
+	}
+
+	return 0;
+
+exit:
+	return rc;
+}
+
 static int num_digits(int n)
 {
 	int num = 1;
@@ -623,9 +727,9 @@ static int set_to_cil_attr(struct policydb *pdb, int is_type, char ***names, uin
 	num_attrs++;
 
 	if (is_type) {
-		attr_infix = "_typeattr_";
+		attr_infix = TYPEATTR_INFIX;
 	} else {
-		attr_infix = "_roleattr_";
+		attr_infix = ROLEATTR_INFIX;
 	}
 
 	len = strlen(pdb->name) + strlen(attr_infix) + num_digits(num_attrs) + 1;
@@ -1070,6 +1174,11 @@ static int avrule_list_to_cil(int indent, struct policydb *pdb, struct avrule *a
 	struct type_set *ts;
 
 	for (avrule = avrule_list; avrule != NULL; avrule = avrule->next) {
+		if ((avrule->specified & (AVRULE_NEVERALLOW|AVRULE_XPERMS_NEVERALLOW)) &&
+		    avrule->source_filename) {
+			cil_println(0, ";;* lmx %lu %s\n",avrule->source_line, avrule->source_filename);
+		}
+
 		ts = &avrule->stypes;
 		rc = process_typeset(indent, pdb, ts, attr_list, &snames, &num_snames);
 		if (rc != 0) {
@@ -1084,14 +1193,22 @@ static int avrule_list_to_cil(int indent, struct policydb *pdb, struct avrule *a
 
 		for (s = 0; s < num_snames; s++) {
 			for (t = 0; t < num_tnames; t++) {
-				rc = avrule_to_cil(indent, pdb, avrule->specified, snames[s], tnames[t], avrule->perms);
+				if (avrule->specified & AVRULE_XPERMS) {
+					rc = avrulex_to_cil(indent, pdb, avrule->specified, snames[s], tnames[t], avrule->perms, avrule->xperms);
+				} else {
+					rc = avrule_to_cil(indent, pdb, avrule->specified, snames[s], tnames[t], avrule->perms);
+				}
 				if (rc != 0) {
 					goto exit;
 				}
 			}
 
 			if (avrule->flags & RULE_SELF) {
-				rc = avrule_to_cil(indent, pdb, avrule->specified, snames[s], "self", avrule->perms);
+				if (avrule->specified & AVRULE_XPERMS) {
+					rc = avrulex_to_cil(indent, pdb, avrule->specified, snames[s], "self", avrule->perms, avrule->xperms);
+				} else {
+					rc = avrule_to_cil(indent, pdb, avrule->specified, snames[s], "self", avrule->perms);
+				}
 				if (rc != 0) {
 					goto exit;
 				}
@@ -1100,6 +1217,11 @@ static int avrule_list_to_cil(int indent, struct policydb *pdb, struct avrule *a
 
 		names_destroy(&snames, &num_snames);
 		names_destroy(&tnames, &num_tnames);
+
+		if ((avrule->specified & (AVRULE_NEVERALLOW|AVRULE_XPERMS_NEVERALLOW)) &&
+		    avrule->source_filename) {
+			cil_println(0, ";;* lme\n");
+		}
 	}
 
 	return 0;
@@ -1292,7 +1414,7 @@ static int cond_list_to_cil(int indent, struct policydb *pdb, struct cond_node *
 {
 	int rc = -1;
 	struct cond_node *cond;
-	struct list *attr_list;
+	struct list *attr_list = NULL;
 
 	rc = list_init(&attr_list);
 	if (rc != 0) {
@@ -2537,6 +2659,7 @@ static int ocontext_selinux_port_to_cil(struct policydb *pdb, struct ocontext *p
 		switch (portcon->u.port.protocol) {
 		case IPPROTO_TCP: protocol = "tcp"; break;
 		case IPPROTO_UDP: protocol = "udp"; break;
+		case IPPROTO_DCCP: protocol = "dccp"; break;
 		default:
 			log_err("Unknown portcon protocol: %i", portcon->u.port.protocol);
 			rc = -1;
@@ -3470,7 +3593,7 @@ static int block_to_cil(struct policydb *pdb, struct avrule_block *block, struct
 {
 	int rc = -1;
 	struct avrule_decl *decl;
-	struct list *attr_list;
+	struct list *attr_list = NULL;
 
 	decl = block->branch_list;
 
@@ -3619,7 +3742,7 @@ static int blocks_to_cil(struct policydb *pdb)
 	int rc = -1;
 	struct avrule_block *block;
 	int indent = 0;
-	struct stack *stack;
+	struct stack *stack = NULL;
 
 	rc = stack_init(&stack);
 	if (rc != 0) {
@@ -3687,7 +3810,7 @@ static int linked_blocks_to_cil(struct policydb *pdb)
 	// Since it is linked, all optional blocks have been resolved
 	int rc = -1;
 	struct avrule_block *block;
-	struct stack *stack;
+	struct stack *stack = NULL;
 
 	rc = stack_init(&stack);
 	if (rc != 0) {
