@@ -1,5 +1,6 @@
-libsepol (2.6-1) UNRELEASED; urgency=medium
+libsepol (2.6-1) unstable; urgency=medium
 
+  * Team upload.
   * New upstream release
     - Make the build reproducible (Closes: #825656)
     - Produce more meaningful error messages for conflicting type rules
@@ -8,7 +9,7 @@ libsepol (2.6-1) UNRELEASED; urgency=medium
   * debian/control: Bump Standards-Version to 3.9.8 (no further changes)
   * debian/gbp.conf: Rename git-buildpackage section to buildpackage
 
- -- Laurent Bigonville <bigon@debian.org>  Thu, 27 Oct 2016 13:37:46 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Thu, 27 Oct 2016 15:54:09 +0200
 
 libsepol (2.5-1) unstable; urgency=medium
 
