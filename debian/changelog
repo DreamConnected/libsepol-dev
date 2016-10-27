@@ -6,8 +6,9 @@ libsepol (2.6-1) UNRELEASED; urgency=medium
       (Closes: #832331)
   * debian/libsepol1.symbols: Add the Build-Depends-Package field
   * debian/control: Bump Standards-Version to 3.9.8 (no further changes)
+  * debian/gbp.conf: Rename git-buildpackage section to buildpackage
 
- -- Laurent Bigonville <bigon@debian.org>  Wed, 26 Oct 2016 21:49:18 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Thu, 27 Oct 2016 13:37:46 +0200
 
 libsepol (2.5-1) unstable; urgency=medium
 
