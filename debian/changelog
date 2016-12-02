@@ -1,3 +1,11 @@
+libsepol (2.6-2) UNRELEASED; urgency=medium
+
+  * debian/patches/fix_use-after-free_python3.patch: Fix use-after-free when
+    using python3 bindings, this was preventing to modify/delete
+    bool|iface|user, from upstream (Closes: #846484)
+
+ -- Laurent Bigonville <bigon@debian.org>  Fri, 02 Dec 2016 02:24:14 +0100
+
 libsepol (2.6-1) unstable; urgency=medium
 
   * Team upload.
