@@ -1,3 +1,4 @@
-version=3
+version=4
 
-https://github.com/SELinuxProject/selinux/wiki/Releases (?:.*)/releases/(?:\d*)/libsepol-([\d\.]*)\.tar\.gz
+opts="uversionmangle=s/-(rc)/~$1/" \
+https://github.com/SELinuxProject/selinux/wiki/Releases (?:.*)/releases/(?:\d*)/@PACKAGE@@ANY_VERSION@@ARCHIVE_EXT@

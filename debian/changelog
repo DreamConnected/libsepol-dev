@@ -1,3 +1,9 @@
+libsepol (2.6-3) UNRELEASED; urgency=medium
+
+  * debian/watch: Add support for rc releases and use macros
+
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 20 Jun 2017 19:34:41 +0200
+
 libsepol (2.6-2) unstable; urgency=medium
 
   * Team upload.
