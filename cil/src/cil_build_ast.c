@@ -482,6 +482,10 @@ int cil_gen_perm(struct cil_db *db, struct cil_tree_node *parse_current, struct 
 	cil_perm_init(&perm);
 
 	key = parse_current->data;
+	if (key == NULL) {
+		cil_log(CIL_ERR, "Bad permission\n");
+		goto exit;
+	}
 
 	rc = cil_gen_node(db, ast_node, (struct cil_symtab_datum*)perm, (hashtab_key_t)key, CIL_SYM_PERMS, flavor);
 	if (rc != SEPOL_OK) {
@@ -529,6 +533,7 @@ int cil_gen_perm_nodes(struct cil_db *db, struct cil_tree_node *current_perm, st
 
 		rc = cil_gen_perm(db, current_perm, new_ast, flavor, num_perms);
 		if (rc != SEPOL_OK) {
+			cil_tree_node_destroy(&new_ast);
 			goto exit;
 		}
 
@@ -546,6 +551,8 @@ int cil_gen_perm_nodes(struct cil_db *db, struct cil_tree_node *current_perm, st
 
 exit:
 	cil_log(CIL_ERR, "Bad permissions\n");
+	cil_tree_children_destroy(ast_node);
+	cil_clear_node(ast_node);
 	return rc;
 }
 
@@ -2746,6 +2753,7 @@ static int __cil_fill_constraint_expr(struct cil_tree_node *current, enum cil_fl
 		}
 		rc = __cil_fill_constraint_expr(current->next->next->cl_head, flavor, &rexpr, depth);
 		if (rc != SEPOL_OK) {
+			cil_list_destroy(&lexpr, CIL_TRUE);
 			goto exit;
 		}
 		cil_list_init(expr, flavor);
@@ -3166,6 +3174,75 @@ void cil_destroy_typeattributeset(struct cil_typeattributeset *attrset)
 	cil_list_destroy(&attrset->datum_expr, CIL_FALSE);
 
 	free(attrset);
+}
+
+int cil_gen_expandtypeattribute(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
+{
+	enum cil_syntax syntax[] = {
+		CIL_SYN_STRING,
+		CIL_SYN_STRING | CIL_SYN_LIST,
+		CIL_SYN_STRING,
+		CIL_SYN_END
+	};
+	char *expand_str;
+	int syntax_len = sizeof(syntax)/sizeof(*syntax);
+	struct cil_expandtypeattribute *expandattr = NULL;
+	int rc = SEPOL_ERR;
+
+	if (db == NULL || parse_current == NULL || ast_node == NULL) {
+		goto exit;
+	}
+
+	rc = __cil_verify_syntax(parse_current, syntax, syntax_len);
+	if (rc != SEPOL_OK) {
+		goto exit;
+	}
+
+	cil_expandtypeattribute_init(&expandattr);
+
+	if (parse_current->next->cl_head == NULL) {
+		cil_list_init(&expandattr->attr_strs, CIL_TYPE);
+		cil_list_append(expandattr->attr_strs, CIL_STRING, parse_current->next->data);
+	} else {
+		rc = cil_fill_list(parse_current->next->cl_head, CIL_TYPE, &expandattr->attr_strs);
+		if (rc != SEPOL_OK) {
+			goto exit;
+		}
+	}
+
+	expand_str = parse_current->next->next->data;
+
+	if (expand_str == CIL_KEY_CONDTRUE) {
+		expandattr->expand = CIL_TRUE;
+	} else if (expand_str == CIL_KEY_CONDFALSE) {
+		expandattr->expand = CIL_FALSE;
+	} else {
+		cil_log(CIL_ERR, "Value must be either \'true\' or \'false\'");
+		goto exit;
+	}
+
+	ast_node->data = expandattr;
+	ast_node->flavor = CIL_EXPANDTYPEATTRIBUTE;
+
+	return SEPOL_OK;
+
+exit:
+	cil_tree_log(parse_current, CIL_ERR, "Bad expandtypeattribute statement");
+	cil_destroy_expandtypeattribute(expandattr);
+	return rc;
+}
+
+void cil_destroy_expandtypeattribute(struct cil_expandtypeattribute *expandattr)
+{
+	if (expandattr == NULL) {
+		return;
+	}
+
+	cil_list_destroy(&expandattr->attr_strs, CIL_TRUE);
+
+	cil_list_destroy(&expandattr->attr_datums, CIL_FALSE);
+
+	free(expandattr);
 }
 
 int cil_gen_typepermissive(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
@@ -4179,6 +4256,89 @@ void cil_destroy_filecon(struct cil_filecon *filecon)
 	free(filecon);
 }
 
+int cil_gen_ibpkeycon(__attribute__((unused)) struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
+{
+	enum cil_syntax syntax[] = {
+		CIL_SYN_STRING,
+		CIL_SYN_STRING,
+		CIL_SYN_STRING | CIL_SYN_LIST,
+		CIL_SYN_STRING | CIL_SYN_LIST,
+		CIL_SYN_END
+	};
+	int syntax_len = sizeof(syntax) / sizeof(*syntax);
+	int rc = SEPOL_ERR;
+	struct cil_ibpkeycon *ibpkeycon = NULL;
+
+	if (!parse_current || !ast_node)
+		goto exit;
+
+	rc = __cil_verify_syntax(parse_current, syntax, syntax_len);
+	if (rc != SEPOL_OK)
+		goto exit;
+
+	cil_ibpkeycon_init(&ibpkeycon);
+
+	ibpkeycon->subnet_prefix_str = parse_current->next->data;
+
+	if (parse_current->next->next->cl_head) {
+		if (parse_current->next->next->cl_head->next &&
+		    !parse_current->next->next->cl_head->next->next) {
+			rc = cil_fill_integer(parse_current->next->next->cl_head, &ibpkeycon->pkey_low, 0);
+			if (rc != SEPOL_OK) {
+				cil_log(CIL_ERR, "Improper ibpkey specified\n");
+				goto exit;
+			}
+			rc = cil_fill_integer(parse_current->next->next->cl_head->next, &ibpkeycon->pkey_high, 0);
+			if (rc != SEPOL_OK) {
+				cil_log(CIL_ERR, "Improper ibpkey specified\n");
+				goto exit;
+			}
+		} else {
+			cil_log(CIL_ERR, "Improper ibpkey range specified\n");
+			rc = SEPOL_ERR;
+			goto exit;
+		}
+	} else {
+		rc = cil_fill_integer(parse_current->next->next, &ibpkeycon->pkey_low, 0);
+		if (rc != SEPOL_OK) {
+			cil_log(CIL_ERR, "Improper ibpkey specified\n");
+			goto exit;
+		}
+		ibpkeycon->pkey_high = ibpkeycon->pkey_low;
+	}
+
+	if (!parse_current->next->next->next->cl_head) {
+		ibpkeycon->context_str = parse_current->next->next->next->data;
+	} else {
+		cil_context_init(&ibpkeycon->context);
+
+		rc = cil_fill_context(parse_current->next->next->next->cl_head, ibpkeycon->context);
+		if (rc != SEPOL_OK)
+			goto exit;
+	}
+
+	ast_node->data = ibpkeycon;
+	ast_node->flavor = CIL_IBPKEYCON;
+	return SEPOL_OK;
+
+exit:
+	cil_tree_log(parse_current, CIL_ERR, "Bad ibpkeycon declaration");
+	cil_destroy_ibpkeycon(ibpkeycon);
+
+	return rc;
+}
+
+void cil_destroy_ibpkeycon(struct cil_ibpkeycon *ibpkeycon)
+{
+	if (!ibpkeycon)
+		return;
+
+	if (!ibpkeycon->context_str && ibpkeycon->context)
+		cil_destroy_context(ibpkeycon->context);
+
+	free(ibpkeycon);
+}
+
 int cil_gen_portcon(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
 {
 	enum cil_syntax syntax[] = {
@@ -4220,12 +4380,12 @@ int cil_gen_portcon(struct cil_db *db, struct cil_tree_node *parse_current, stru
 	if (parse_current->next->next->cl_head != NULL) {
 		if (parse_current->next->next->cl_head->next != NULL
 		&& parse_current->next->next->cl_head->next->next == NULL) {
-			rc = cil_fill_integer(parse_current->next->next->cl_head, &portcon->port_low);
+			rc = cil_fill_integer(parse_current->next->next->cl_head, &portcon->port_low, 10);
 			if (rc != SEPOL_OK) {
 				cil_log(CIL_ERR, "Improper port specified\n");
 				goto exit;
 			}
-			rc = cil_fill_integer(parse_current->next->next->cl_head->next, &portcon->port_high);
+			rc = cil_fill_integer(parse_current->next->next->cl_head->next, &portcon->port_high, 10);
 			if (rc != SEPOL_OK) {
 				cil_log(CIL_ERR, "Improper port specified\n");
 				goto exit;
@@ -4236,7 +4396,7 @@ int cil_gen_portcon(struct cil_db *db, struct cil_tree_node *parse_current, stru
 			goto exit;
 		}
 	} else {
-		rc = cil_fill_integer(parse_current->next->next, &portcon->port_low);
+		rc = cil_fill_integer(parse_current->next->next, &portcon->port_low, 10);
 		if (rc != SEPOL_OK) {
 			cil_log(CIL_ERR, "Improper port specified\n");
 			goto exit;
@@ -4507,6 +4667,68 @@ void cil_destroy_netifcon(struct cil_netifcon *netifcon)
 	free(netifcon);
 }
 
+int cil_gen_ibendportcon(__attribute__((unused)) struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
+{
+	enum cil_syntax syntax[] = {
+		CIL_SYN_STRING,
+		CIL_SYN_STRING,
+		CIL_SYN_STRING,
+		CIL_SYN_STRING | CIL_SYN_LIST,
+		CIL_SYN_END
+	};
+	int syntax_len = sizeof(syntax) / sizeof(*syntax);
+	int rc = SEPOL_ERR;
+	struct cil_ibendportcon *ibendportcon = NULL;
+
+	if (!parse_current || !ast_node)
+		goto exit;
+
+	rc = __cil_verify_syntax(parse_current, syntax, syntax_len);
+	if (rc != SEPOL_OK)
+		goto exit;
+
+	cil_ibendportcon_init(&ibendportcon);
+
+	ibendportcon->dev_name_str = parse_current->next->data;
+
+	rc = cil_fill_integer(parse_current->next->next, &ibendportcon->port, 10);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Improper ibendport port specified\n");
+		goto exit;
+	}
+
+	if (!parse_current->next->next->next->cl_head) {
+		ibendportcon->context_str = parse_current->next->next->next->data;
+	} else {
+		cil_context_init(&ibendportcon->context);
+
+		rc = cil_fill_context(parse_current->next->next->next->cl_head, ibendportcon->context);
+		if (rc != SEPOL_OK)
+			goto exit;
+	}
+
+	ast_node->data = ibendportcon;
+	ast_node->flavor = CIL_IBENDPORTCON;
+
+	return SEPOL_OK;
+
+exit:
+	cil_tree_log(parse_current, CIL_ERR, "Bad ibendportcon declaration");
+	cil_destroy_ibendportcon(ibendportcon);
+	return SEPOL_ERR;
+}
+
+void cil_destroy_ibendportcon(struct cil_ibendportcon *ibendportcon)
+{
+	if (!ibendportcon)
+		return;
+
+	if (!ibendportcon->context_str && ibendportcon->context)
+		cil_destroy_context(ibendportcon->context);
+
+	free(ibendportcon);
+}
+
 int cil_gen_pirqcon(struct cil_db *db, struct cil_tree_node *parse_current, struct cil_tree_node *ast_node)
 {
 	enum cil_syntax syntax[] = {
@@ -4530,7 +4752,7 @@ int cil_gen_pirqcon(struct cil_db *db, struct cil_tree_node *parse_current, stru
 
 	cil_pirqcon_init(&pirqcon);
 
-	rc = cil_fill_integer(parse_current->next, &pirqcon->pirq);
+	rc = cil_fill_integer(parse_current->next, &pirqcon->pirq, 10);
 	if (rc != SEPOL_OK) {
 		goto exit;
 	}
@@ -4596,12 +4818,12 @@ int cil_gen_iomemcon(struct cil_db *db, struct cil_tree_node *parse_current, str
 	if (parse_current->next->cl_head != NULL) {
 		if (parse_current->next->cl_head->next != NULL &&
 		    parse_current->next->cl_head->next->next == NULL) {
-			rc = cil_fill_integer64(parse_current->next->cl_head, &iomemcon->iomem_low);
+			rc = cil_fill_integer64(parse_current->next->cl_head, &iomemcon->iomem_low, 0);
 			if (rc != SEPOL_OK) {
 				cil_log(CIL_ERR, "Improper iomem specified\n");
 				goto exit;
 			}
-			rc = cil_fill_integer64(parse_current->next->cl_head->next, &iomemcon->iomem_high);
+			rc = cil_fill_integer64(parse_current->next->cl_head->next, &iomemcon->iomem_high, 0);
 			if (rc != SEPOL_OK) {
 				cil_log(CIL_ERR, "Improper iomem specified\n");
 				goto exit;
@@ -4612,7 +4834,7 @@ int cil_gen_iomemcon(struct cil_db *db, struct cil_tree_node *parse_current, str
 			goto exit;
 		}
 	} else {
-		rc = cil_fill_integer64(parse_current->next, &iomemcon->iomem_low);;
+		rc = cil_fill_integer64(parse_current->next, &iomemcon->iomem_low, 0);
 		if (rc != SEPOL_OK) {
 			cil_log(CIL_ERR, "Improper iomem specified\n");
 			goto exit;
@@ -4681,12 +4903,12 @@ int cil_gen_ioportcon(struct cil_db *db, struct cil_tree_node *parse_current, st
 	if (parse_current->next->cl_head != NULL) {
 		if (parse_current->next->cl_head->next != NULL &&
 		    parse_current->next->cl_head->next->next == NULL) {
-			rc = cil_fill_integer(parse_current->next->cl_head, &ioportcon->ioport_low);
+			rc = cil_fill_integer(parse_current->next->cl_head, &ioportcon->ioport_low, 0);
 			if (rc != SEPOL_OK) {
 				cil_log(CIL_ERR, "Improper ioport specified\n");
 				goto exit;
 			}
-			rc = cil_fill_integer(parse_current->next->cl_head->next, &ioportcon->ioport_high);
+			rc = cil_fill_integer(parse_current->next->cl_head->next, &ioportcon->ioport_high, 0);
 			if (rc != SEPOL_OK) {
 				cil_log(CIL_ERR, "Improper ioport specified\n");
 				goto exit;
@@ -4697,7 +4919,7 @@ int cil_gen_ioportcon(struct cil_db *db, struct cil_tree_node *parse_current, st
 			goto exit;
 		}
 	} else {
-		rc = cil_fill_integer(parse_current->next, &ioportcon->ioport_low);
+		rc = cil_fill_integer(parse_current->next, &ioportcon->ioport_low, 0);
 		if (rc != SEPOL_OK) {
 			cil_log(CIL_ERR, "Improper ioport specified\n");
 			goto exit;
@@ -4763,7 +4985,7 @@ int cil_gen_pcidevicecon(struct cil_db *db, struct cil_tree_node *parse_current,
 
 	cil_pcidevicecon_init(&pcidevicecon);
 
-	rc = cil_fill_integer(parse_current->next, &pcidevicecon->dev);
+	rc = cil_fill_integer(parse_current->next, &pcidevicecon->dev, 0);
 	if (rc != SEPOL_OK) {
 		goto exit;
 	}
@@ -5356,7 +5578,7 @@ void cil_destroy_ipaddr(struct cil_ipaddr *ipaddr)
 	free(ipaddr);
 }
 
-int cil_fill_integer(struct cil_tree_node *int_node, uint32_t *integer)
+int cil_fill_integer(struct cil_tree_node *int_node, uint32_t *integer, int base)
 {
 	int rc = SEPOL_ERR;
 	char *endptr = NULL;
@@ -5367,7 +5589,7 @@ int cil_fill_integer(struct cil_tree_node *int_node, uint32_t *integer)
 	}
 
 	errno = 0;
-	val = strtol(int_node->data, &endptr, 10);
+	val = strtol(int_node->data, &endptr, base);
 	if (errno != 0 || endptr == int_node->data || *endptr != '\0') {
 		rc = SEPOL_ERR;
 		goto exit;
@@ -5382,7 +5604,7 @@ exit:
 	return rc;
 }
 
-int cil_fill_integer64(struct cil_tree_node *int_node, uint64_t *integer)
+int cil_fill_integer64(struct cil_tree_node *int_node, uint64_t *integer, int base)
 {
 	int rc = SEPOL_ERR;
 	char *endptr = NULL;
@@ -5393,7 +5615,7 @@ int cil_fill_integer64(struct cil_tree_node *int_node, uint64_t *integer)
 	}
 
 	errno = 0;
-	val = strtoull(int_node->data, &endptr, 10);
+	val = strtoull(int_node->data, &endptr, base);
 	if (errno != 0 || endptr == int_node->data || *endptr != '\0') {
 		rc = SEPOL_ERR;
 		goto exit;
@@ -5584,9 +5806,11 @@ int cil_gen_default(struct cil_tree_node *parse_current, struct cil_tree_node *a
 	if (parse_current->next->cl_head == NULL) {
 		cil_list_init(&def->class_strs, CIL_CLASS);
 		cil_list_append(def->class_strs, CIL_STRING, parse_current->next->data);
-		rc = SEPOL_OK;
 	} else {
 		rc = cil_fill_list(parse_current->next->cl_head, CIL_CLASS, &def->class_strs);
+		if (rc != SEPOL_OK) {
+			goto exit;
+		}
 	}
 
 	object = parse_current->next->next->data;
@@ -5649,9 +5873,11 @@ int cil_gen_defaultrange(struct cil_tree_node *parse_current, struct cil_tree_no
 	if (parse_current->next->cl_head == NULL) {
 		cil_list_init(&def->class_strs, CIL_CLASS);
 		cil_list_append(def->class_strs, CIL_STRING, parse_current->next->data);
-		rc = SEPOL_OK;
 	} else {
 		rc = cil_fill_list(parse_current->next->cl_head, CIL_CLASS, &def->class_strs);
+		if (rc != SEPOL_OK) {
+			goto exit;
+		}
 	}
 
 	object = parse_current->next->next->data;
@@ -6001,6 +6227,9 @@ int __cil_build_ast_node_helper(struct cil_tree_node *parse_current, uint32_t *f
 	} else if (parse_current->data == CIL_KEY_TYPEATTRIBUTESET) {
 		rc = cil_gen_typeattributeset(db, parse_current, ast_node);
 		*finished = CIL_TREE_SKIP_NEXT;
+	} else if (parse_current->data == CIL_KEY_EXPANDTYPEATTRIBUTE) {
+		rc = cil_gen_expandtypeattribute(db, parse_current, ast_node);
+		*finished = CIL_TREE_SKIP_NEXT;
 	} else if (parse_current->data == CIL_KEY_TYPEALIAS) {
 		rc = cil_gen_alias(db, parse_current, ast_node, CIL_TYPEALIAS);
 	} else if (parse_current->data == CIL_KEY_TYPEALIASACTUAL) {
@@ -6130,6 +6359,12 @@ int __cil_build_ast_node_helper(struct cil_tree_node *parse_current, uint32_t *f
 		*finished = CIL_TREE_SKIP_NEXT;
 	} else if (parse_current->data == CIL_KEY_FILECON) {
 		rc = cil_gen_filecon(db, parse_current, ast_node);
+		*finished = CIL_TREE_SKIP_NEXT;
+	} else if (parse_current->data == CIL_KEY_IBPKEYCON) {
+		rc = cil_gen_ibpkeycon(db, parse_current, ast_node);
+		*finished = CIL_TREE_SKIP_NEXT;
+	} else if (parse_current->data == CIL_KEY_IBENDPORTCON) {
+		rc = cil_gen_ibendportcon(db, parse_current, ast_node);
 		*finished = CIL_TREE_SKIP_NEXT;
 	} else if (parse_current->data == CIL_KEY_PORTCON) {
 		rc = cil_gen_portcon(db, parse_current, ast_node);
