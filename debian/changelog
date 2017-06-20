@@ -2,9 +2,10 @@ libsepol (2.7~rc2-1) UNRELEASED; urgency=medium
 
   * New upstream release candidate
     - Drop debian/patches/fix_use-after-free_python3.patch: applied upstream
+    - debian/libsepol1.symbols: Update the .symbols file
   * debian/watch: Add support for rc releases and use macros
 
- -- Laurent Bigonville <bigon@debian.org>  Tue, 20 Jun 2017 19:39:46 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 20 Jun 2017 21:02:05 +0200
 
 libsepol (2.6-2) unstable; urgency=medium
 
