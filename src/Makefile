@@ -30,6 +30,15 @@ LOBJS += $(sort $(patsubst %.c,%.lo,$(sort $(wildcard $(CILDIR)/src/*.c)) $(CIL_
 override CFLAGS += -I$(CILDIR)/include
 endif
 
+LD_SONAME_FLAGS=-soname,$(LIBSO),--version-script=$(LIBMAP),-z,defs
+
+LN=ln
+OS := $(shell uname)
+ifeq ($(OS), Darwin)
+LD_SONAME_FLAGS=-install_name,$(LIBSO)
+LDFLAGS += -undefined dynamic_lookup
+LN=gln
+endif
 
 all: $(LIBA) $(LIBSO) $(LIBPC)
 
@@ -39,7 +48,7 @@ $(LIBA):  $(OBJS)
 	$(RANLIB) $@
 
 $(LIBSO): $(LOBJS) $(LIBMAP)
-	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ $(LOBJS) -Wl,-soname,$(LIBSO),--version-script=$(LIBMAP),-z,defs
+	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ $(LOBJS) -Wl,$(LD_SONAME_FLAGS)
 	ln -sf $@ $(TARGET) 
 
 $(LIBPC): $(LIBPC).in ../VERSION
@@ -53,8 +62,15 @@ else
 endif
 
 ifneq ($(DISABLE_CIL),y)
+$(CILDIR)/src/cil_lexer.o: $(CILDIR)/src/cil_lexer.c
+	$(CC) $(filter-out -Werror, $(CFLAGS)) -fPIC -c -o $@ $<
+
+$(CILDIR)/src/cil_lexer.lo: $(CILDIR)/src/cil_lexer.c
+	$(CC) $(filter-out -Werror, $(CFLAGS)) -fPIC -DSHARED -c -o $@ $<
+
 $(CILDIR)/src/cil_lexer.c: $(CILDIR)/src/cil_lexer.l
-	$(LEX) -t $< > $@
+	$(LEX) -o $@ $<
+
 endif
 
 %.o:  %.c 
@@ -70,7 +86,7 @@ install: all
 	install -m 755 $(LIBSO) $(SHLIBDIR)
 	test -d $(LIBDIR)/pkgconfig || install -m 755 -d $(LIBDIR)/pkgconfig
 	install -m 644 $(LIBPC) $(LIBDIR)/pkgconfig
-	ln -sf --relative $(SHLIBDIR)/$(LIBSO) $(LIBDIR)/$(TARGET)
+	$(LN) -sf --relative $(SHLIBDIR)/$(LIBSO) $(LIBDIR)/$(TARGET)
 
 relabel:
 	/sbin/restorecon $(SHLIBDIR)/$(LIBSO)
