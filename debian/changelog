@@ -4,8 +4,9 @@ libsepol (2.7-1) UNRELEASED; urgency=medium
   * debian/control: Remove Manoj from the uploader list and add myself
     instead. Thanks to him for all the work in the past.
   * Bump debhelper compatibility to 10
+  * Bump Standards-Version to 4.1.0 (no further changes)
 
- -- Laurent Bigonville <bigon@debian.org>  Sat, 09 Sep 2017 22:07:40 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Sat, 09 Sep 2017 22:08:06 +0200
 
 libsepol (2.7~rc2-1) experimental; urgency=medium
 
