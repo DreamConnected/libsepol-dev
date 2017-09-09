@@ -1,3 +1,9 @@
+libsepol (2.7-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Laurent Bigonville <bigon@debian.org>  Sat, 09 Sep 2017 22:01:40 +0200
+
 libsepol (2.7~rc2-1) experimental; urgency=medium
 
   * Team upload.
