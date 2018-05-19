@@ -1,0 +1,234 @@
+Index: libsepol-2.7/cil/src/cil.c
+===================================================================
+--- libsepol-2.7.orig/cil/src/cil.c
++++ libsepol-2.7/cil/src/cil.c
+@@ -109,6 +109,7 @@ static void cil_init_keys(void)
+ 	CIL_KEY_UDP = cil_strpool_add("udp");
+ 	CIL_KEY_TCP = cil_strpool_add("tcp");
+ 	CIL_KEY_DCCP = cil_strpool_add("dccp");
++	CIL_KEY_SCTP = cil_strpool_add("sctp");
+ 	CIL_KEY_AUDITALLOW = cil_strpool_add("auditallow");
+ 	CIL_KEY_TUNABLEIF = cil_strpool_add("tunableif");
+ 	CIL_KEY_ALLOW = cil_strpool_add("allow");
+Index: libsepol-2.7/cil/src/cil_binary.c
+===================================================================
+--- libsepol-2.7.orig/cil/src/cil_binary.c
++++ libsepol-2.7/cil/src/cil_binary.c
+@@ -34,6 +34,9 @@
+ #ifndef IPPROTO_DCCP
+ #define IPPROTO_DCCP 33
+ #endif
++#ifndef IPPROTO_SCTP
++#define IPPROTO_SCTP 132
++#endif
+ 
+ #include <sepol/policydb/policydb.h>
+ #include <sepol/policydb/polcaps.h>
+@@ -3272,6 +3275,9 @@ int cil_portcon_to_policydb(policydb_t *
+ 		case CIL_PROTOCOL_DCCP:
+ 			new_ocon->u.port.protocol = IPPROTO_DCCP;
+ 			break;
++		case CIL_PROTOCOL_SCTP:
++			new_ocon->u.port.protocol = IPPROTO_SCTP;
++			break;
+ 		default:
+ 			/* should not get here */
+ 			rc = SEPOL_ERR;
+Index: libsepol-2.7/cil/src/cil_build_ast.c
+===================================================================
+--- libsepol-2.7.orig/cil/src/cil_build_ast.c
++++ libsepol-2.7/cil/src/cil_build_ast.c
+@@ -4371,6 +4371,8 @@ int cil_gen_portcon(struct cil_db *db, s
+ 		portcon->proto = CIL_PROTOCOL_TCP;
+ 	} else if (proto == CIL_KEY_DCCP) {
+ 		portcon->proto = CIL_PROTOCOL_DCCP;
++	} else if (proto == CIL_KEY_SCTP) {
++		portcon->proto = CIL_PROTOCOL_SCTP;
+ 	} else {
+ 		cil_log(CIL_ERR, "Invalid protocol\n");
+ 		rc = SEPOL_ERR;
+Index: libsepol-2.7/cil/src/cil_internal.h
+===================================================================
+--- libsepol-2.7.orig/cil/src/cil_internal.h
++++ libsepol-2.7/cil/src/cil_internal.h
+@@ -103,6 +103,7 @@ char *CIL_KEY_STAR;
+ char *CIL_KEY_TCP;
+ char *CIL_KEY_UDP;
+ char *CIL_KEY_DCCP;
++char *CIL_KEY_SCTP;
+ char *CIL_KEY_AUDITALLOW;
+ char *CIL_KEY_TUNABLEIF;
+ char *CIL_KEY_ALLOW;
+@@ -738,7 +739,8 @@ struct cil_filecon {
+ enum cil_protocol {
+ 	CIL_PROTOCOL_UDP = 1,
+ 	CIL_PROTOCOL_TCP,
+-	CIL_PROTOCOL_DCCP
++	CIL_PROTOCOL_DCCP,
++	CIL_PROTOCOL_SCTP
+ };
+ 
+ struct cil_ibpkeycon {
+Index: libsepol-2.7/cil/src/cil_policy.c
+===================================================================
+--- libsepol-2.7.orig/cil/src/cil_policy.c
++++ libsepol-2.7/cil/src/cil_policy.c
+@@ -1757,6 +1757,8 @@ static void cil_portcons_to_policy(FILE
+ 			fprintf(out, "tcp ");
+ 		} else if (portcon->proto == CIL_PROTOCOL_DCCP) {
+ 			fprintf(out, "dccp ");
++		} else if (portcon->proto == CIL_PROTOCOL_SCTP) {
++			fprintf(out, "sctp ");
+ 		}
+ 		if (portcon->port_low == portcon->port_high) {
+ 			fprintf(out, "%d ", portcon->port_low);
+Index: libsepol-2.7/cil/src/cil_tree.c
+===================================================================
+--- libsepol-2.7.orig/cil/src/cil_tree.c
++++ libsepol-2.7/cil/src/cil_tree.c
+@@ -1432,6 +1432,8 @@ void cil_tree_print_node(struct cil_tree
+ 				cil_log(CIL_INFO, " tcp");
+ 			} else if (portcon->proto == CIL_PROTOCOL_DCCP) {
+ 				cil_log(CIL_INFO, " dccp");
++			} else if (portcon->proto == CIL_PROTOCOL_SCTP) {
++				cil_log(CIL_INFO, " sctp");
+ 			}
+ 			cil_log(CIL_INFO, " (%d %d)", portcon->port_low, portcon->port_high);
+ 
+Index: libsepol-2.7/include/sepol/port_record.h
+===================================================================
+--- libsepol-2.7.orig/include/sepol/port_record.h
++++ libsepol-2.7/include/sepol/port_record.h
+@@ -16,6 +16,7 @@ typedef struct sepol_port_key sepol_port
+ #define SEPOL_PROTO_UDP 0
+ #define SEPOL_PROTO_TCP 1
+ #define SEPOL_PROTO_DCCP 2
++#define SEPOL_PROTO_SCTP 3
+ 
+ /* Key */
+ extern int sepol_port_compare(const sepol_port_t * port,
+Index: libsepol-2.7/src/kernel_to_cil.c
+===================================================================
+--- libsepol-2.7.orig/src/kernel_to_cil.c
++++ libsepol-2.7/src/kernel_to_cil.c
+@@ -12,6 +12,9 @@
+ #ifndef IPPROTO_DCCP
+ #define IPPROTO_DCCP 33
+ #endif
++#ifndef IPPROTO_SCTP
++#define IPPROTO_SCTP 132
++#endif
+ 
+ #include <sepol/policydb/avtab.h>
+ #include <sepol/policydb/conditional.h>
+@@ -2631,6 +2634,7 @@ static int write_selinux_port_rules_to_c
+ 		case IPPROTO_TCP: protocol = "tcp"; break;
+ 		case IPPROTO_UDP: protocol = "udp"; break;
+ 		case IPPROTO_DCCP: protocol = "dccp"; break;
++		case IPPROTO_SCTP: protocol = "sctp"; break;
+ 		default:
+ 			sepol_log_err("Unknown portcon protocol: %i", portcon->u.port.protocol);
+ 			rc = -1;
+Index: libsepol-2.7/src/kernel_to_common.c
+===================================================================
+--- libsepol-2.7.orig/src/kernel_to_common.c
++++ libsepol-2.7/src/kernel_to_common.c
+@@ -10,6 +10,9 @@
+ #ifndef IPPROTO_DCCP
+ #define IPPROTO_DCCP 33
+ #endif
++#ifndef IPPROTO_SCTP
++#define IPPROTO_SCTP 132
++#endif
+ 
+ #include <sepol/policydb/ebitmap.h>
+ #include <sepol/policydb/hashtab.h>
+Index: libsepol-2.7/src/kernel_to_conf.c
+===================================================================
+--- libsepol-2.7.orig/src/kernel_to_conf.c
++++ libsepol-2.7/src/kernel_to_conf.c
+@@ -11,6 +11,9 @@
+ #ifndef IPPROTO_DCCP
+ #define IPPROTO_DCCP 33
+ #endif
++#ifndef IPPROTO_SCTP
++#define IPPROTO_SCTP 132
++#endif
+ 
+ #include <sepol/policydb/avtab.h>
+ #include <sepol/policydb/conditional.h>
+@@ -2491,6 +2494,7 @@ static int write_selinux_port_rules_to_c
+ 		case IPPROTO_TCP: protocol = "tcp"; break;
+ 		case IPPROTO_UDP: protocol = "udp"; break;
+ 		case IPPROTO_DCCP: protocol = "dccp"; break;
++		case IPPROTO_SCTP: protocol = "sctp"; break;
+ 		default:
+ 			sepol_log_err("Unknown portcon protocol: %i", portcon->u.port.protocol);
+ 			rc = -1;
+Index: libsepol-2.7/src/module_to_cil.c
+===================================================================
+--- libsepol-2.7.orig/src/module_to_cil.c
++++ libsepol-2.7/src/module_to_cil.c
+@@ -30,6 +30,9 @@
+ #ifndef IPPROTO_DCCP
+ #define IPPROTO_DCCP 33
+ #endif
++#ifndef IPPROTO_SCTP
++#define IPPROTO_SCTP 132
++#endif
+ #include <signal.h>
+ #include <stdarg.h>
+ #include <stdio.h>
+@@ -2656,6 +2659,7 @@ static int ocontext_selinux_port_to_cil(
+ 		case IPPROTO_TCP: protocol = "tcp"; break;
+ 		case IPPROTO_UDP: protocol = "udp"; break;
+ 		case IPPROTO_DCCP: protocol = "dccp"; break;
++		case IPPROTO_SCTP: protocol = "sctp"; break;
+ 		default:
+ 			log_err("Unknown portcon protocol: %i", portcon->u.port.protocol);
+ 			rc = -1;
+Index: libsepol-2.7/src/port_record.c
+===================================================================
+--- libsepol-2.7.orig/src/port_record.c
++++ libsepol-2.7/src/port_record.c
+@@ -186,6 +186,8 @@ const char *sepol_port_get_proto_str(int
+ 		return "tcp";
+ 	case SEPOL_PROTO_DCCP:
+ 		return "dccp";
++	case SEPOL_PROTO_SCTP:
++		return "sctp";
+ 	default:
+ 		return "???";
+ 	}
+Index: libsepol-2.7/src/ports.c
+===================================================================
+--- libsepol-2.7.orig/src/ports.c
++++ libsepol-2.7/src/ports.c
+@@ -2,6 +2,9 @@
+ #ifndef IPPROTO_DCCP
+ #define IPPROTO_DCCP 33
+ #endif
++#ifndef IPPROTO_SCTP
++#define IPPROTO_SCTP 132
++#endif
+ #include <stdlib.h>
+ 
+ #include "debug.h"
+@@ -21,6 +24,8 @@ static inline int sepol2ipproto(sepol_ha
+ 		return IPPROTO_UDP;
+ 	case SEPOL_PROTO_DCCP:
+ 		return IPPROTO_DCCP;
++	case SEPOL_PROTO_SCTP:
++		return IPPROTO_SCTP;
+ 	default:
+ 		ERR(handle, "unsupported protocol %u", proto);
+ 		return STATUS_ERR;
+@@ -37,6 +42,8 @@ static inline int ipproto2sepol(sepol_ha
+ 		return SEPOL_PROTO_UDP;
+ 	case IPPROTO_DCCP:
+ 		return SEPOL_PROTO_DCCP;
++	case IPPROTO_SCTP:
++		return SEPOL_PROTO_SCTP;
+ 	default:
+ 		ERR(handle, "invalid protocol %u " "found in policy", proto);
+ 		return STATUS_ERR;

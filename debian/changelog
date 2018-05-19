@@ -1,3 +1,10 @@
+libsepol (2.7-2) unstable; urgency=medium
+
+  * https://marc.info/?l=selinux&m=152078548332657&q=raw
+    Add the above patch for sctp support as part of fixing bug 895988.
+
+ -- Russell Coker <russell@coker.com.au>  Sat, 19 May 2018 10:08:20 +1000
+
 libsepol (2.7-1) unstable; urgency=medium
 
   * New upstream release
