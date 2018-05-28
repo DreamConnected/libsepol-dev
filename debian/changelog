@@ -8,8 +8,9 @@ libsepol (2.8-1) UNRELEASED; urgency=medium
   * debian/rules: Adjust to match upstream changes to the build system
   * debian/rules: Use dh_missing --list-missing instead of dh_install
   * debian/control: Downgrade libsepol1 to Priority: optional
+  * debian/copyright: Fix a spelling error, thanks to lintian
 
- -- Laurent Bigonville <bigon@debian.org>  Mon, 28 May 2018 14:50:19 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 28 May 2018 14:51:26 +0200
 
 libsepol (2.7-2) unstable; urgency=medium
 
