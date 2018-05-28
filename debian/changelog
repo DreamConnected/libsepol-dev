@@ -1,9 +1,10 @@
 libsepol (2.8-1) UNRELEASED; urgency=medium
 
   * New upstream release
+    - Drop debian/patches/sctp, merged upstream
   * debian/control: Point Vcs-* fields to new (salsa) machine
 
- -- Laurent Bigonville <bigon@debian.org>  Mon, 28 May 2018 14:33:35 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 28 May 2018 14:34:30 +0200
 
 libsepol (2.7-2) unstable; urgency=medium
 
