@@ -1,5 +1,5 @@
 
-/* Author : Stephen Smalley, <sds@epoch.ncsc.mil> */
+/* Author : Stephen Smalley, <sds@tycho.nsa.gov> */
 
 /*
  * Updated: Trusted Computer Solutions, Inc. <dgoeddel@trustedcs.com>
@@ -1420,6 +1420,8 @@ void ocontext_selinux_free(ocontext_t **ocontexts)
 			if (i == OCON_ISID || i == OCON_FS || i == OCON_NETIF
 				|| i == OCON_FSUSE)
 				free(ctmp->u.name);
+			else if (i == OCON_IBENDPORT)
+				free(ctmp->u.ibendport.dev_name);
 			free(ctmp);
 		}
 	}
@@ -1569,14 +1571,6 @@ int scope_destroy(hashtab_key_t key, hashtab_datum_t datum, void *p
 	}
 	free(cur);
 	return 0;
-}
-
-hashtab_destroy_func_t get_symtab_destroy_func(int sym_num)
-{
-	if (sym_num < 0 || sym_num >= SYM_NUM) {
-		return NULL;
-	}
-	return (hashtab_destroy_func_t) destroy_f[sym_num];
 }
 
 /*
