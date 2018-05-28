@@ -775,7 +775,7 @@ static void cil_classes_to_policy(FILE *out, struct cil_list *classorder)
 	}
 }
 
-static void cil_defaults_to_policy(FILE *out, struct cil_list *defaults, char *kind)
+static void cil_defaults_to_policy(FILE *out, struct cil_list *defaults, const char *kind)
 {
 	struct cil_list_item *i1, *i2, *i3;
 	struct cil_default *def;
@@ -1085,7 +1085,7 @@ static void cil_typeattributes_to_policy(FILE *out, struct cil_list *types, stru
 		type = i1->data;
 		cil_list_for_each(i2, attributes) {
 			attribute = i2->data;
-			if (!attribute->used)
+			if (!attribute->keep)
 				continue;
 			if (ebitmap_get_bit(attribute->types, type->value)) {
 				if (first) {
@@ -1757,6 +1757,8 @@ static void cil_portcons_to_policy(FILE *out, struct cil_sort *portcons, int mls
 			fprintf(out, "tcp ");
 		} else if (portcon->proto == CIL_PROTOCOL_DCCP) {
 			fprintf(out, "dccp ");
+		} else if (portcon->proto == CIL_PROTOCOL_SCTP) {
+			fprintf(out, "sctp ");
 		}
 		if (portcon->port_low == portcon->port_high) {
 			fprintf(out, "%d ", portcon->port_low);
