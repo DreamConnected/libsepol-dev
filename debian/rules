@@ -20,7 +20,7 @@ endif
 %:
 	dh $@
 
-override_dh_install:
-	dh_install --list-missing
+override_dh_missing:
+	dh_missing --list-missing
 
 override_dh_auto_test:
