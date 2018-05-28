@@ -2,11 +2,12 @@ libsepol (2.8-1) UNRELEASED; urgency=medium
 
   * New upstream release
     - Drop debian/patches/sctp, merged upstream
+    - debian/libsepol1.symbols: Add new exported symbols
   * debian/control: Point Vcs-* fields to new (salsa) machine
   * debian/control: Bump Standards-Version to 4.1.4 (no further changes)
   * debian/rules: Adjust to match upstream changes to the build system
 
- -- Laurent Bigonville <bigon@debian.org>  Mon, 28 May 2018 14:42:56 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Mon, 28 May 2018 14:44:20 +0200
 
 libsepol (2.7-2) unstable; urgency=medium
 

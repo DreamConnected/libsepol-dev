@@ -21,6 +21,7 @@ libsepol.so.1 libsepol1 #MINVER#
  cil_set_log_handler@LIBSEPOL_1.0 2.5
  cil_set_log_level@LIBSEPOL_1.0 2.5
  cil_set_mls@LIBSEPOL_1.1 2.5
+ cil_set_multiple_decls@LIBSEPOL_1.1 2.8
  cil_set_policy_version@LIBSEPOL_1.1 2.5
  cil_set_preserve_tunables@LIBSEPOL_1.0 2.5
  cil_set_target_platform@LIBSEPOL_1.1 2.5
@@ -192,6 +193,8 @@ libsepol.so.1 libsepol1 #MINVER#
  sepol_node_set_mask@LIBSEPOL_1.0 2.5
  sepol_node_set_mask_bytes@LIBSEPOL_1.0 2.5
  sepol_node_set_proto@LIBSEPOL_1.0 2.5
+ sepol_polcap_getname@LIBSEPOL_1.1 2.8
+ sepol_polcap_getnum@LIBSEPOL_1.1 2.8
  sepol_policy_file_create@LIBSEPOL_1.0 2.5
  sepol_policy_file_free@LIBSEPOL_1.0 2.5
  sepol_policy_file_get_len@LIBSEPOL_1.0 2.5
