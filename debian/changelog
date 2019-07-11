@@ -262,13 +262,13 @@ libsepol (2.0.40-1) unstable; urgency=low
 libsepol (2.0.39-1) unstable; urgency=low
 
   * New upstream point release. Adds support for building Xen policies
-    from Paul Nuzzi. 
+    from Paul Nuzzi.
 
  -- Manoj Srivastava <srivasta@debian.org>  Thu, 15 Oct 2009 22:53:54 -0500
 
 libsepol (2.0.38-2) unstable; urgency=high
 
-  * Handle the init=/bin/sh case in postinst    
+  * Handle the init=/bin/sh case in postinst
     The previous tests did not check to see if the process running with
     process id 1 was actually /sbin/init, or if /dev/initctl was present to
     be talked to.
