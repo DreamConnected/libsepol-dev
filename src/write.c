@@ -46,6 +46,11 @@
 #include "private.h"
 #include "mls.h"
 
+#define glblub_version ((p->policy_type == POLICY_KERN && \
+		     p->policyvers >= POLICYDB_VERSION_GLBLUB) || \
+		    (p->policy_type == POLICY_BASE && \
+		     p->policyvers >= MOD_POLICYDB_VERSION_GLBLUB))
+
 struct policy_data {
 	struct policy_file *fp;
 	struct policydb *p;
@@ -1034,6 +1039,13 @@ static int class_write(hashtab_key_t key, hashtab_datum_t datum, void *ptr)
 	     p->policyvers >= MOD_POLICYDB_VERSION_NEW_OBJECT_DEFAULTS)) {
 		buf[0] = cpu_to_le32(cladatum->default_user);
 		buf[1] = cpu_to_le32(cladatum->default_role);
+		if (!glblub_version && cladatum->default_range == DEFAULT_GLBLUB) {
+			WARN(fp->handle,
+                             "class %s default_range set to GLBLUB but policy version is %d (%d required), discarding",
+                             p->p_class_val_to_name[cladatum->s.value - 1], p->policyvers,
+                             p->policy_type == POLICY_KERN? POLICYDB_VERSION_GLBLUB:MOD_POLICYDB_VERSION_GLBLUB);
+                        cladatum->default_range = 0;
+                }
 		buf[2] = cpu_to_le32(cladatum->default_range);
 		items = put_entry(buf, sizeof(uint32_t), 3, fp);
 		if (items != 3)
@@ -1759,9 +1771,8 @@ static int only_process(ebitmap_t *in)
 	unsigned int i;
 	ebitmap_node_t *node;
 
-	ebitmap_for_each_bit(in, node, i) {
-		if (ebitmap_node_get_bit(node, i) &&
-		    i != SECCLASS_PROCESS - 1)
+	ebitmap_for_each_positive_bit(in, node, i) {
+		if (i != SECCLASS_PROCESS - 1)
 			return 0;
 	}
 	return 1;
@@ -2183,13 +2194,11 @@ int policydb_write(policydb_t * p, struct policy_file *fp)
 	    p->policy_type == POLICY_KERN) {
 		ebitmap_node_t *tnode;
 
-		ebitmap_for_each_bit(&p->permissive_map, tnode, i) {
-			if (ebitmap_node_get_bit(tnode, i)) {
-				WARN(fp->handle, "Warning! Policy version %d cannot "
-				     "support permissive types, but some were defined",
-				     p->policyvers);
-				break;
-			}
+		ebitmap_for_each_positive_bit(&p->permissive_map, tnode, i) {
+			WARN(fp->handle, "Warning! Policy version %d cannot "
+			     "support permissive types, but some were defined",
+			     p->policyvers);
+			break;
 		}
 	}
 
