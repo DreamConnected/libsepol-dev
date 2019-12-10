@@ -1,3 +1,9 @@
+libsepol (3.0-1) UNRELEASED; urgency=medium
+
+  * New upstream release
+
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 10 Dec 2019 11:04:20 +0100
+
 libsepol (2.9-2) unstable; urgency=medium
 
   * Upload to unstable
