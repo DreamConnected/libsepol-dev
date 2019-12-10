@@ -3,8 +3,9 @@ libsepol (3.0-1) UNRELEASED; urgency=medium
   * New upstream release
     - debian/libsepol1.symbols: Add newly exported symbols
   * debian/control: Bump Standards-Version to 4.4.1 (no further changes)
+  * Bump debhelper compatibility to 12, remove override for dh_missing
 
- -- Laurent Bigonville <bigon@debian.org>  Tue, 10 Dec 2019 11:19:57 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 10 Dec 2019 11:32:31 +0100
 
 libsepol (2.9-2) unstable; urgency=medium
 

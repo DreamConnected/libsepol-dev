@@ -20,7 +20,4 @@ endif
 %:
 	dh $@
 
-override_dh_missing:
-	dh_missing --list-missing
-
 override_dh_auto_test:
