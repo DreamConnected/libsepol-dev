@@ -2,6 +2,7 @@ libsepol.so.1 libsepol1 #MINVER#
 * Build-Depends-Package: libsepol1-dev
  LIBSEPOL_1.0@LIBSEPOL_1.0 2.5
  LIBSEPOL_1.1@LIBSEPOL_1.1 2.5
+ LIBSEPOL_3.0@LIBSEPOL_3.0 3.0
  cil_add_file@LIBSEPOL_1.0 2.5
  cil_build_policydb@LIBSEPOL_1.0 2.4
  cil_build_policydb@LIBSEPOL_1.1 2.5
@@ -208,6 +209,7 @@ libsepol.so.1 libsepol1 #MINVER#
  sepol_policydb_free@LIBSEPOL_1.0 2.5
  sepol_policydb_from_image@LIBSEPOL_1.0 2.5
  sepol_policydb_mls_enabled@LIBSEPOL_1.0 2.5
+ sepol_policydb_optimize@LIBSEPOL_3.0 3.0
  sepol_policydb_read@LIBSEPOL_1.0 2.5
  sepol_policydb_set_handle_unknown@LIBSEPOL_1.0 2.5
  sepol_policydb_set_target_platform@LIBSEPOL_1.0 2.5
