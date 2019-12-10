@@ -1,4 +1,4 @@
-libsepol (3.0-1) UNRELEASED; urgency=medium
+libsepol (3.0-1) unstable; urgency=medium
 
   * New upstream release
     - debian/libsepol1.symbols: Add newly exported symbols
@@ -7,7 +7,7 @@ libsepol (3.0-1) UNRELEASED; urgency=medium
   * debian/control: Drop explicit build-dep against dpkg-dev (>= 1.16.0), that
     version is available for age
 
- -- Laurent Bigonville <bigon@debian.org>  Tue, 10 Dec 2019 11:33:33 +0100
+ -- Laurent Bigonville <bigon@debian.org>  Tue, 10 Dec 2019 15:47:14 +0100
 
 libsepol (2.9-2) unstable; urgency=medium
 
