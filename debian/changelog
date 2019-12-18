@@ -1,3 +1,9 @@
+libsepol (3.0-2) UNRELEASED; urgency=medium
+
+  * Trim trailing whitespace.
+
+ -- Debian Janitor <janitor@jelmer.uk>  Wed, 18 Dec 2019 04:04:10 +0000
+
 libsepol (3.0-1) unstable; urgency=medium
 
   * New upstream release
@@ -890,4 +896,3 @@ libsepol (1.0-1) unstable; urgency=low
   * Initial Release.
 
  -- Russell Coker <russell@coker.com.au>  Fri, 20 Aug 2004 18:14:00 +1000
-
