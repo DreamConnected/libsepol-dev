@@ -2,6 +2,8 @@ libsepol (3.0-2) UNRELEASED; urgency=medium
 
   * Trim trailing whitespace.
   * Set debhelper-compat version in Build-Depends.
+  * Set upstream metadata fields: Bug-Database, Repository, Repository-
+    Browse.
 
  -- Debian Janitor <janitor@jelmer.uk>  Wed, 18 Dec 2019 04:04:10 +0000
 
