@@ -12,6 +12,7 @@ libsepol (3.0-2) UNRELEASED; urgency=medium
 
   [ Debian Janitor ]
   * Wrap long lines in changelog entries: 1.12.24-1, 1.8-1.
+  * Update standards version to 4.5.0, no changes needed.
 
  -- Laurent Bigonville <bigon@debian.org>  Sun, 19 Jan 2020 12:50:16 +0100
 
