@@ -8,6 +8,7 @@ Uploaders: Laurent Bigonville <bigon@debian.org>, Russell Coker <russell@coker.c
 Standards-Version: 4.5.0
 Build-Depends: debhelper-compat (= 12), file, flex
 Homepage: http://userspace.selinuxproject.org/
+Rules-Requires-Root: no
 
 Package: sepol-utils
 Section: admin
