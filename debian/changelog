@@ -1,4 +1,4 @@
-libsepol (3.1~rc1-1) UNRELEASED; urgency=medium
+libsepol (3.1~rc1-1) experimental; urgency=medium
 
   [ Debian Janitor ]
   * Trim trailing whitespace.
@@ -18,7 +18,7 @@ libsepol (3.1~rc1-1) UNRELEASED; urgency=medium
   * Wrap long lines in changelog entries: 1.12.24-1, 1.8-1.
   * Update standards version to 4.5.0, no changes needed.
 
- -- Laurent Bigonville <bigon@debian.org>  Sat, 23 May 2020 10:22:12 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Sat, 23 May 2020 10:30:39 +0200
 
 libsepol (3.0-1) unstable; urgency=medium
 
