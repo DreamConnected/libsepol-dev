@@ -8,7 +8,7 @@ libsepol (3.1~rc1-1) experimental; urgency=medium
   * Set upstream metadata fields: Bug-Submit.
 
   [ Laurent Bigonville ]
-  * New upstream version 3.1~rc1 (Closes: #955286)
+  * New upstream version 3.1~rc1 (Closes: #955286, #955154)
   * debian/gitlab-ci.yml: Add salsa CI
   * debian/control: Set Rules-Requires-Root: no
   * debian/rules: Do not override CC when cross-compiling, debhelper is
