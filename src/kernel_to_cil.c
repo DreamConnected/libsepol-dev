@@ -777,9 +777,20 @@ exit:
 
 static void write_default_mls_level(FILE *out)
 {
-	sepol_printf(out, "(sensitivity s0)");
-	sepol_printf(out, "(sensitivityorder (s0))");
-	sepol_printf(out, "(level %s (s0))", DEFAULT_LEVEL);
+	sepol_printf(out, "(sensitivity s0)\n");
+	sepol_printf(out, "(sensitivityorder (s0))\n");
+	sepol_printf(out, "(level %s (s0))\n", DEFAULT_LEVEL);
+}
+
+static int map_count_sensitivity_aliases(__attribute__((unused)) char *key, void *data, void *args)
+{
+	level_datum_t *sens = data;
+	unsigned *count = args;
+
+	if (sens->isalias)
+		(*count)++;
+
+	return SEPOL_OK;
 }
 
 static int map_sensitivity_aliases_to_strs(char *key, void *data, void *args)
@@ -799,26 +810,13 @@ static int write_sensitivity_rules_to_cil(FILE *out, struct policydb *pdb)
 {
 	level_datum_t *level;
 	char *prev, *name, *actual;
-	struct strs *strs;
-	unsigned i, num;
+	struct strs *strs = NULL;
+	unsigned i, num = 0;
 	int rc = 0;
-
-	rc = strs_init(&strs, pdb->p_levels.nprim);
-	if (rc != 0) {
-		goto exit;
-	}
 
 	/* sensitivities */
 	for (i=0; i < pdb->p_levels.nprim; i++) {
 		name = pdb->p_sens_val_to_name[i];
-		if (!name) continue;
-		level = hashtab_search(pdb->p_levels.table, name);
-		if (!level) {
-			rc = -1;
-			goto exit;
-		}
-		if (level->isalias) continue;
-
 		sepol_printf(out, "(sensitivity %s)\n", name);
 	}
 
@@ -827,14 +825,6 @@ static int write_sensitivity_rules_to_cil(FILE *out, struct policydb *pdb)
 	prev = NULL;
 	for (i=0; i < pdb->p_levels.nprim; i++) {
 		name = pdb->p_sens_val_to_name[i];
-		if (!name) continue;
-		level = hashtab_search(pdb->p_levels.table, name);
-		if (!level) {
-			rc = -1;
-			goto exit;
-		}
-		if (level->isalias) continue;
-
 		if (prev) {
 			sepol_printf(out, "%s ", prev);
 		}
@@ -845,6 +835,22 @@ static int write_sensitivity_rules_to_cil(FILE *out, struct policydb *pdb)
 	}
 	sepol_printf(out, "))\n");
 
+	rc = hashtab_map(pdb->p_levels.table, map_count_sensitivity_aliases, &num);
+	if (rc != 0) {
+		goto exit;
+	}
+
+	if (num == 0) {
+		/* No aliases, so skip sensitivity alias rules */
+		rc = 0;
+		goto exit;
+	}
+
+	rc = strs_init(&strs, num);
+	if (rc != 0) {
+		goto exit;
+	}
+
 	rc = hashtab_map(pdb->p_levels.table, map_sensitivity_aliases_to_strs, strs);
 	if (rc != 0) {
 		goto exit;
@@ -852,16 +858,9 @@ static int write_sensitivity_rules_to_cil(FILE *out, struct policydb *pdb)
 
 	strs_sort(strs);
 
-	num = strs_num_items(strs);
-
 	/* sensitivity aliases */
 	for (i=0; i < num; i++) {
 		name = strs_read_at_index(strs, i);
-		level = hashtab_search(pdb->p_levels.table, name);
-		if (!level) {
-			rc = -1;
-			goto exit;
-		}
 		sepol_printf(out, "(sensitivityalias %s)\n", name);
 	}
 
@@ -887,6 +886,17 @@ exit:
 	return rc;
 }
 
+static int map_count_category_aliases(__attribute__((unused)) char *key, void *data, void *args)
+{
+	cat_datum_t *cat = data;
+	unsigned *count = args;
+
+	if (cat->isalias)
+		(*count)++;
+
+	return SEPOL_OK;
+}
+
 static int map_category_aliases_to_strs(char *key, void *data, void *args)
 {
 	cat_datum_t *cat = data;
@@ -904,26 +914,13 @@ static int write_category_rules_to_cil(FILE *out, struct policydb *pdb)
 {
 	cat_datum_t *cat;
 	char *prev, *name, *actual;
-	struct strs *strs;
-	unsigned i, num;
+	struct strs *strs = NULL;
+	unsigned i, num = 0;
 	int rc = 0;
-
-	rc = strs_init(&strs, pdb->p_levels.nprim);
-	if (rc != 0) {
-		goto exit;
-	}
 
 	/* categories */
 	for (i=0; i < pdb->p_cats.nprim; i++) {
 		name = pdb->p_cat_val_to_name[i];
-		if (!name) continue;
-		cat = hashtab_search(pdb->p_cats.table, name);
-		if (!cat) {
-			rc = -1;
-			goto exit;
-		}
-		if (cat->isalias) continue;
-
 		sepol_printf(out, "(category %s)\n", name);
 	}
 
@@ -932,14 +929,6 @@ static int write_category_rules_to_cil(FILE *out, struct policydb *pdb)
 	prev = NULL;
 	for (i=0; i < pdb->p_cats.nprim; i++) {
 		name = pdb->p_cat_val_to_name[i];
-		if (!name) continue;
-		cat = hashtab_search(pdb->p_cats.table, name);
-		if (!cat) {
-			rc = -1;
-			goto exit;
-		}
-		if (cat->isalias) continue;
-
 		if (prev) {
 			sepol_printf(out, "%s ", prev);
 		}
@@ -950,6 +939,22 @@ static int write_category_rules_to_cil(FILE *out, struct policydb *pdb)
 	}
 	sepol_printf(out, "))\n");
 
+	rc = hashtab_map(pdb->p_cats.table, map_count_category_aliases, &num);
+	if (rc != 0) {
+		goto exit;
+	}
+
+	if (num == 0) {
+		/* No aliases, so skip category alias rules */
+		rc = 0;
+		goto exit;
+	}
+
+	rc = strs_init(&strs, num);
+	if (rc != 0) {
+		goto exit;
+	}
+
 	rc = hashtab_map(pdb->p_cats.table, map_category_aliases_to_strs, strs);
 	if (rc != 0) {
 		goto exit;
@@ -957,16 +962,9 @@ static int write_category_rules_to_cil(FILE *out, struct policydb *pdb)
 
 	strs_sort(strs);
 
-	num = strs_num_items(strs);
-
 	/* category aliases */
 	for (i=0; i < num; i++) {
 		name = strs_read_at_index(strs, i);
-		cat = hashtab_search(pdb->p_cats.table, name);
-		if (!cat) {
-			rc = -1;
-			goto exit;
-		}
 		sepol_printf(out, "(categoryalias %s)\n", name);
 	}
 
@@ -1367,33 +1365,55 @@ exit:
 	return rc;
 }
 
+static int map_count_type_aliases(__attribute__((unused)) char *key, void *data, void *args)
+{
+	type_datum_t *datum = data;
+	unsigned *count = args;
+
+	if (datum->primary == 0 && datum->flavor == TYPE_TYPE)
+		(*count)++;
+
+	return SEPOL_OK;
+}
+
+static int map_type_aliases_to_strs(char *key, void *data, void *args)
+{
+	type_datum_t *datum = data;
+	struct strs *strs = args;
+	int rc = 0;
+
+	if (datum->primary == 0 && datum->flavor == TYPE_TYPE)
+		rc = strs_add(strs, key);
+
+	return rc;
+}
+
 static int write_type_alias_rules_to_cil(FILE *out, struct policydb *pdb)
 {
 	type_datum_t *alias;
 	struct strs *strs;
 	char *name;
 	char *type;
-	unsigned i, num;
+	unsigned i, num = 0;
 	int rc = 0;
 
-	rc = strs_init(&strs, pdb->p_types.nprim);
+	rc = hashtab_map(pdb->p_types.table, map_count_type_aliases, &num);
 	if (rc != 0) {
 		goto exit;
 	}
 
-	for (i=0; i < pdb->p_types.nprim; i++) {
-		alias = pdb->type_val_to_struct[i];
-		if (!alias->primary) {
-			rc = strs_add(strs, pdb->p_type_val_to_name[i]);
-			if (rc != 0) {
-				goto exit;
-			}
-		}
+	rc = strs_init(&strs, num);
+	if (rc != 0) {
+		goto exit;
+	}
+
+	rc = hashtab_map(pdb->p_types.table, map_type_aliases_to_strs, strs);
+	if (rc != 0) {
+		goto exit;
 	}
 
 	strs_sort(strs);
 
-	num = strs_num_items(strs);
 	for (i=0; i<num; i++) {
 		name = strs_read_at_index(strs, i);
 		if (!name) {
