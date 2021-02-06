@@ -13,8 +13,8 @@ export SHLIBDIR=/lib/${DEB_HOST_MULTIARCH}
 # Upstream recommends using this flag
 export DEB_CFLAGS_MAINT_APPEND = -fno-semantic-interposition
 # The build system doesn't use CPPFLAGS, pass them to CFLAGS to enable the
-# missing (hardening) flags.
-export DEB_CFLAGS_MAINT_APPEND += $(shell dpkg-buildflags --get CPPFLAGS)
+# missing (hardening) flags. Also enable Wall and Wextra to spot basic irregularities.
+export DEB_CFLAGS_MAINT_APPEND += $(shell dpkg-buildflags --get CPPFLAGS) -Wall -Wextra
 
 %:
 	dh $@
