@@ -6,7 +6,7 @@ Section: libs
 Maintainer: Debian SELinux maintainers <selinux-devel@lists.alioth.debian.org>
 Uploaders: Laurent Bigonville <bigon@debian.org>, Russell Coker <russell@coker.com.au>
 Standards-Version: 4.5.0
-Build-Depends: debhelper-compat (= 12), file, flex
+Build-Depends: debhelper-compat (= 13), file, flex
 Homepage: http://userspace.selinuxproject.org/
 Rules-Requires-Root: no
 
