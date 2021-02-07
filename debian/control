@@ -1,6 +1,6 @@
 Source: libsepol
-VCS-Git: https://salsa.debian.org/selinux-team/libsepol.git
-VCS-Browser: https://salsa.debian.org/selinux-team/libsepol
+Vcs-Git: https://salsa.debian.org/selinux-team/libsepol.git
+Vcs-Browser: https://salsa.debian.org/selinux-team/libsepol
 Priority: optional
 Section: libs
 Maintainer: Debian SELinux maintainers <selinux-devel@lists.alioth.debian.org>
