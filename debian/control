@@ -24,7 +24,7 @@ Description: Security Enhanced Linux policy utility programs
  set process and file security contexts and to obtain security policy
  decisions.
 
-Package: libsepol1
+Package: libsepol2
 Architecture: linux-any
 Depends: ${misc:Depends}, ${shlibs:Depends}
 Pre-Depends: ${misc:Pre-Depends}
@@ -45,12 +45,12 @@ Description: SELinux library for manipulating binary security policies
  as by programs like load_policy that need to perform specific transformations
  on binary policies such as customizing policy boolean settings.
 
-Package: libsepol1-dev
+Package: libsepol-dev
 Section: libdevel
 Architecture: linux-any
-Depends: libsepol1 (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
-Provides: libsepol-dev
-Conflicts: libsepol-dev
+Depends: libsepol2 (= ${binary:Version}), ${misc:Depends}, ${shlibs:Depends}
+Breaks: libsepol1-dev (<< 3.2)
+Replaces: libsepol1-dev (<< 3.2)
 Multi-Arch: same
 Description: SELinux binary policy manipulation library and development files
  libsepol allows programs to easily modify SELinux binary policies.  This
