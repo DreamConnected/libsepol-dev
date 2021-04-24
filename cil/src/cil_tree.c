@@ -69,7 +69,7 @@ struct cil_tree_node *cil_tree_get_next_path(struct cil_tree_node *node, char **
 
 	while (node) {
 		if (node->flavor == CIL_NODE && node->data == NULL) {
-			if (node->cl_head->data == CIL_KEY_SRC_INFO) {
+			if (node->cl_head->data == CIL_KEY_SRC_INFO && node->cl_head->next != NULL && node->cl_head->next->next != NULL) {
 				/* Parse Tree */
 				*path = node->cl_head->next->next->data;
 				*is_cil = (node->cl_head->next->data == CIL_KEY_SRC_CIL);
@@ -710,7 +710,6 @@ void cil_tree_print_node(struct cil_tree_node *node)
 		case CIL_EXPANDTYPEATTRIBUTE: {
 			struct cil_expandtypeattribute *attr = node->data;
 
-			fprintf(stderr, "%s %u\n", __func__, __LINE__);
 			cil_log(CIL_INFO, "(EXPANDTYPEATTRIBUTE ");
 			cil_tree_print_expr(attr->attr_datums, attr->attr_strs);
 			cil_log(CIL_INFO, "%s)\n",attr->expand ?
@@ -1688,7 +1687,7 @@ void cil_tree_print_node(struct cil_tree_node *node)
 					struct cil_symtab_datum *datum = ((struct cil_args*)item->data)->arg;
 					if (datum != NULL) {
 						if (datum->nodes != NULL && datum->nodes->head != NULL) {
-							cil_tree_print_node((struct cil_tree_node*)datum->nodes->head->data);
+							cil_tree_print_node(NODE(datum));
 						}
 					} else if (((struct cil_args*)item->data)->arg_str != NULL) {
 						switch (item->flavor) {

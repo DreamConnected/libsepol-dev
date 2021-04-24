@@ -2,6 +2,7 @@
 #include "cil_internal.h"
 #include "cil_log.h"
 #include "cil_list.h"
+#include "cil_reset_ast.h"
 #include "cil_symtab.h"
 
 static inline void cil_reset_classperms_list(struct cil_list *cp_list);
@@ -22,11 +23,12 @@ static int __class_reset_perm_values(__attribute__((unused)) hashtab_key_t k, ha
 static void cil_reset_class(struct cil_class *class)
 {
 	if (class->common != NULL) {
-		struct cil_class *common = class->common;
-		cil_symtab_map(&class->perms, __class_reset_perm_values, &common->num_perms);
+		/* Must assume that the common has been destroyed */
+		int num_common_perms = class->num_perms - class->perms.nprim;
+		cil_symtab_map(&class->perms, __class_reset_perm_values, &num_common_perms);
 		/* during a re-resolve, we need to reset the common, so a classcommon
 		 * statement isn't seen as a duplicate */
-		class->num_perms -= common->num_perms;
+		class->num_perms = class->perms.nprim;
 		class->common = NULL; /* Must make this NULL or there will be an error when re-resolving */
 	}
 	class->ordered = CIL_FALSE;

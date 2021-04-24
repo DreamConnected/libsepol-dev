@@ -154,7 +154,7 @@ int cil_gen_node(struct cil_db *db, struct cil_tree_node *ast_node, struct cil_s
 		}
 	}
 
-	if (ast_node->flavor >= CIL_MIN_DECLARATIVE && ast_node->parent->flavor == CIL_MACRO) {
+	if (ast_node->parent->flavor == CIL_MACRO) {
 		struct cil_list_item *item;
 		struct cil_list *param_list = ((struct cil_macro*)ast_node->parent->data)->params;
 		if (param_list != NULL) {
@@ -231,13 +231,30 @@ exit:
 
 void cil_destroy_block(struct cil_block *block)
 {
+	struct cil_list_item *item;
+	struct cil_tree_node *bi_node;
+	struct cil_blockinherit *inherit;
+
 	if (block == NULL) {
 		return;
 	}
 
 	cil_symtab_datum_destroy(&block->datum);
 	cil_symtab_array_destroy(block->symtab);
-	cil_list_destroy(&block->bi_nodes, CIL_FALSE);
+	if (block->bi_nodes != NULL) {
+		/* unlink blockinherit->block */
+		cil_list_for_each(item, block->bi_nodes) {
+			bi_node = item->data;
+			/* the conditions should always be true, but better be sure */
+			if (bi_node->flavor == CIL_BLOCKINHERIT) {
+				inherit = bi_node->data;
+				if (inherit->block == block) {
+					inherit->block = NULL;
+				}
+			}
+		}
+		cil_list_destroy(&block->bi_nodes, CIL_FALSE);
+	}
 
 	free(block);
 }
@@ -281,6 +298,19 @@ void cil_destroy_blockinherit(struct cil_blockinherit *inherit)
 {
 	if (inherit == NULL) {
 		return;
+	}
+
+	if (inherit->block != NULL && inherit->block->bi_nodes != NULL) {
+		struct cil_tree_node *node;
+		struct cil_list_item *item;
+
+		cil_list_for_each(item, inherit->block->bi_nodes) {
+			node = item->data;
+			if (node->data == inherit) {
+				cil_list_remove(inherit->block->bi_nodes, CIL_NODE, node, CIL_FALSE);
+				break;
+			}
+		}
 	}
 
 	free(inherit);
@@ -2548,17 +2578,12 @@ static enum cil_flavor __cil_get_expr_operator_flavor(const char *op)
 	else return CIL_NONE;
 }
 
-static int __cil_fill_expr(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list *expr, int *depth);
+static int __cil_fill_expr(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list *expr);
 
-static int __cil_fill_expr_helper(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list *expr, int *depth)
+static int __cil_fill_expr_helper(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list *expr)
 {
 	int rc = SEPOL_ERR;
 	enum cil_flavor op;
-
-	if (flavor == CIL_BOOL && *depth > COND_EXPR_MAXDEPTH) {
-		cil_log(CIL_ERR, "Max depth of %d exceeded for boolean expression\n", COND_EXPR_MAXDEPTH);
-		goto exit;
-	}
 
 	op = __cil_get_expr_operator_flavor(current->data);
 
@@ -2572,18 +2597,12 @@ static int __cil_fill_expr_helper(struct cil_tree_node *current, enum cil_flavor
 		current = current->next;
 	}
 
-	if (op == CIL_NONE || op == CIL_ALL) {
-		(*depth)++;
-	}
-
 	for (;current != NULL; current = current->next) {
-		rc = __cil_fill_expr(current, flavor, expr, depth);
+		rc = __cil_fill_expr(current, flavor, expr);
 		if (rc != SEPOL_OK) {
 			goto exit;
 		}
 	}
-
-	(*depth)--;
 
 	return SEPOL_OK;
 
@@ -2591,7 +2610,7 @@ exit:
 	return rc;
 }
 
-static int __cil_fill_expr(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list *expr, int *depth)
+static int __cil_fill_expr(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list *expr)
 {
 	int rc = SEPOL_ERR;
 
@@ -2605,7 +2624,7 @@ static int __cil_fill_expr(struct cil_tree_node *current, enum cil_flavor flavor
 	} else {
 		struct cil_list *sub_expr;
 		cil_list_init(&sub_expr, flavor);
-		rc = __cil_fill_expr_helper(current->cl_head, flavor, sub_expr, depth);
+		rc = __cil_fill_expr_helper(current->cl_head, flavor, sub_expr);
 		if (rc != SEPOL_OK) {
 			cil_list_destroy(&sub_expr, CIL_TRUE);
 			goto exit;
@@ -2623,14 +2642,13 @@ exit:
 int cil_gen_expr(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list **expr)
 {
 	int rc = SEPOL_ERR;
-	int depth = 0;
 
 	cil_list_init(expr, flavor);
 
 	if (current->cl_head == NULL) {
-		rc = __cil_fill_expr(current, flavor, *expr, &depth);
+		rc = __cil_fill_expr(current, flavor, *expr);
 	} else {
-		rc = __cil_fill_expr_helper(current->cl_head, flavor, *expr, &depth);
+		rc = __cil_fill_expr_helper(current->cl_head, flavor, *expr);
 	}
 
 	if (rc != SEPOL_OK) {
@@ -2725,8 +2743,12 @@ static int __cil_fill_constraint_leaf_expr(struct cil_tree_node *current, enum c
 		cil_list_append(*leaf_expr, CIL_STRING, current->next->next->data);
 	} else if (r_flavor == CIL_LIST) {
 		struct cil_list *sub_list;
-		cil_fill_list(current->next->next->cl_head, leaf_expr_flavor, &sub_list);
-		cil_list_append(*leaf_expr, CIL_LIST, &sub_list);
+		rc = cil_fill_list(current->next->next->cl_head, leaf_expr_flavor, &sub_list);
+		if (rc != SEPOL_OK) {
+			cil_list_destroy(leaf_expr, CIL_TRUE);
+			goto exit;
+		}
+		cil_list_append(*leaf_expr, CIL_LIST, sub_list);
 	} else {
 		cil_list_append(*leaf_expr, CIL_CONS_OPERAND, (void *)r_flavor);
 	}
@@ -2738,7 +2760,7 @@ exit:
 	return SEPOL_ERR;
 }
 
-static int __cil_fill_constraint_expr(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list **expr, int *depth)
+static int __cil_fill_constraint_expr(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list **expr)
 {
 	int rc = SEPOL_ERR;
 	enum cil_flavor op;
@@ -2747,12 +2769,6 @@ static int __cil_fill_constraint_expr(struct cil_tree_node *current, enum cil_fl
 
 	if (current->data == NULL || current->cl_head != NULL) {
 		cil_log(CIL_ERR, "Expected a string at the start of the constraint expression\n");
-		goto exit;
-	}
-
-	if (*depth > CEXPR_MAXDEPTH) {
-		cil_log(CIL_ERR, "Max depth of %d exceeded for constraint expression\n", CEXPR_MAXDEPTH);
-		rc = SEPOL_ERR;
 		goto exit;
 	}
 
@@ -2769,14 +2785,13 @@ static int __cil_fill_constraint_expr(struct cil_tree_node *current, enum cil_fl
 	case CIL_CONS_DOM:
 	case CIL_CONS_DOMBY:
 	case CIL_CONS_INCOMP:
-		(*depth)++;
 		rc = __cil_fill_constraint_leaf_expr(current, flavor, op, expr);
 		if (rc != SEPOL_OK) {
 			goto exit;
 		}
 		break;
 	case CIL_NOT:
-		rc = __cil_fill_constraint_expr(current->next->cl_head, flavor, &lexpr, depth);
+		rc = __cil_fill_constraint_expr(current->next->cl_head, flavor, &lexpr);
 		if (rc != SEPOL_OK) {
 			goto exit;
 		}
@@ -2785,11 +2800,11 @@ static int __cil_fill_constraint_expr(struct cil_tree_node *current, enum cil_fl
 		cil_list_append(*expr, CIL_LIST, lexpr);
 		break;
 	default:
-		rc = __cil_fill_constraint_expr(current->next->cl_head, flavor, &lexpr, depth);
+		rc = __cil_fill_constraint_expr(current->next->cl_head, flavor, &lexpr);
 		if (rc != SEPOL_OK) {
 			goto exit;
 		}
-		rc = __cil_fill_constraint_expr(current->next->next->cl_head, flavor, &rexpr, depth);
+		rc = __cil_fill_constraint_expr(current->next->next->cl_head, flavor, &rexpr);
 		if (rc != SEPOL_OK) {
 			cil_list_destroy(&lexpr, CIL_TRUE);
 			goto exit;
@@ -2801,8 +2816,6 @@ static int __cil_fill_constraint_expr(struct cil_tree_node *current, enum cil_fl
 		break;
 	}
 
-	(*depth)--;
-
 	return SEPOL_OK;
 exit:
 
@@ -2812,13 +2825,12 @@ exit:
 int cil_gen_constraint_expr(struct cil_tree_node *current, enum cil_flavor flavor, struct cil_list **expr)
 {
 	int rc = SEPOL_ERR;
-	int depth = 0;
 
 	if (current->cl_head == NULL) {
 		goto exit;
 	}
 
-	rc = __cil_fill_constraint_expr(current->cl_head, flavor, expr, &depth);
+	rc = __cil_fill_constraint_expr(current->cl_head, flavor, expr);
 	if (rc != SEPOL_OK) {
 		goto exit;
 	}
@@ -2843,7 +2855,6 @@ int cil_gen_boolif(struct cil_db *db, struct cil_tree_node *parse_current, struc
 	int syntax_len = sizeof(syntax)/sizeof(*syntax);
 	struct cil_booleanif *bif = NULL;
 	struct cil_tree_node *next = NULL;
-	struct cil_tree_node *cond = NULL;
 	int rc = SEPOL_ERR;
 
 	if (db == NULL || parse_current == NULL || ast_node == NULL) {
@@ -2863,27 +2874,12 @@ int cil_gen_boolif(struct cil_db *db, struct cil_tree_node *parse_current, struc
 		goto exit;
 	}
 
-	cond = parse_current->next->next;
-
-	/* Destroying expr tree after stack is created*/
-	if (cond->cl_head->data != CIL_KEY_CONDTRUE &&
-		cond->cl_head->data != CIL_KEY_CONDFALSE) {
-		rc = SEPOL_ERR;
-		cil_log(CIL_ERR, "Conditional neither true nor false\n");
+	rc = cil_verify_conditional_blocks(parse_current->next->next);
+	if (rc != SEPOL_OK) {
 		goto exit;
 	}
 
-	if (cond->next != NULL) {
-		cond = cond->next;
-		if (cond->cl_head->data != CIL_KEY_CONDTRUE &&
-			cond->cl_head->data != CIL_KEY_CONDFALSE) {
-			rc = SEPOL_ERR;
-			cil_log(CIL_ERR, "Conditional neither true nor false\n");
-			goto exit;
-		}
-	}
-
-
+	/* Destroying expr tree */
 	next = parse_current->next->next;
 	cil_tree_subtree_destroy(parse_current->next);
 	parse_current->next = next;
@@ -2927,7 +2923,6 @@ int cil_gen_tunif(struct cil_db *db, struct cil_tree_node *parse_current, struct
 	int syntax_len = sizeof(syntax)/sizeof(*syntax);
 	struct cil_tunableif *tif = NULL;
 	struct cil_tree_node *next = NULL;
-	struct cil_tree_node *cond = NULL;
 	int rc = SEPOL_ERR;
 
 	if (db == NULL || parse_current == NULL || ast_node == NULL) {
@@ -2946,27 +2941,12 @@ int cil_gen_tunif(struct cil_db *db, struct cil_tree_node *parse_current, struct
 		goto exit;
 	}
 
-	cond = parse_current->next->next;
-
-	if (cond->cl_head->data != CIL_KEY_CONDTRUE &&
-		cond->cl_head->data != CIL_KEY_CONDFALSE) {
-		rc = SEPOL_ERR;
-		cil_log(CIL_ERR, "Conditional neither true nor false\n");
+	rc = cil_verify_conditional_blocks(parse_current->next->next);
+	if (rc != SEPOL_OK) {
 		goto exit;
 	}
 
-	if (cond->next != NULL) {
-		cond = cond->next;
-
-		if (cond->cl_head->data != CIL_KEY_CONDTRUE &&
-			cond->cl_head->data != CIL_KEY_CONDFALSE) {
-			rc = SEPOL_ERR;
-			cil_log(CIL_ERR, "Conditional neither true nor false\n");
-			goto exit;
-		}
-	}
-
-	/* Destroying expr tree after stack is created*/
+	/* Destroying expr tree */
 	next = parse_current->next->next;
 	cil_tree_subtree_destroy(parse_current->next);
 	parse_current->next = next;
@@ -5620,18 +5600,26 @@ int cil_fill_integer(struct cil_tree_node *int_node, uint32_t *integer, int base
 {
 	int rc = SEPOL_ERR;
 	char *endptr = NULL;
-	int val;
+	unsigned long val;
 
-	if (int_node == NULL || integer == NULL) {
+	if (int_node == NULL || int_node->data == NULL || integer == NULL) {
 		goto exit;
 	}
 
 	errno = 0;
-	val = strtol(int_node->data, &endptr, base);
+	val = strtoul(int_node->data, &endptr, base);
 	if (errno != 0 || endptr == int_node->data || *endptr != '\0') {
 		rc = SEPOL_ERR;
 		goto exit;
 	}
+
+	/* Ensure that the value fits a 32-bit integer without triggering -Wtype-limits */
+#if ULONG_MAX > UINT32_MAX
+	if (val > UINT32_MAX) {
+		rc = SEPOL_ERR;
+		goto exit;
+	}
+#endif
 
 	*integer = val;
 
@@ -5648,7 +5636,7 @@ int cil_fill_integer64(struct cil_tree_node *int_node, uint64_t *integer, int ba
 	char *endptr = NULL;
 	uint64_t val;
 
-	if (int_node == NULL || integer == NULL) {
+	if (int_node == NULL || int_node->data == NULL || integer == NULL) {
 		goto exit;
 	}
 
@@ -5672,7 +5660,7 @@ int cil_fill_ipaddr(struct cil_tree_node *addr_node, struct cil_ipaddr *addr)
 {
 	int rc = SEPOL_ERR;
 
-	if (addr_node == NULL || addr == NULL) {
+	if (addr_node == NULL || addr_node->data == NULL || addr == NULL) {
 		goto exit;
 	}
 
@@ -6082,6 +6070,11 @@ int cil_gen_src_info(struct cil_tree_node *parse_current, struct cil_tree_node *
 	/* No need to check syntax, because this is auto generated */
 	struct cil_src_info *info = NULL;
 
+	if (parse_current->next == NULL || parse_current->next->next == NULL) {
+		cil_tree_log(parse_current, CIL_ERR, "Bad <src_info>");
+		return SEPOL_ERR;
+	}
+
 	cil_src_info_init(&info);
 
 	info->is_cil = (parse_current->next->data == CIL_KEY_SRC_CIL) ? CIL_TRUE : CIL_FALSE;
@@ -6441,10 +6434,10 @@ int __cil_build_ast_node_helper(struct cil_tree_node *parse_current, uint32_t *f
 		rc = cil_gen_macro(db, parse_current, ast_node);
 	} else if (parse_current->data == CIL_KEY_CALL) {
 		rc = cil_gen_call(db, parse_current, ast_node);
-		*finished = 1;
+		*finished = CIL_TREE_SKIP_NEXT;
 	} else if (parse_current->data == CIL_KEY_POLICYCAP) {
 		rc = cil_gen_policycap(db, parse_current, ast_node);
-		*finished = 1;
+		*finished = CIL_TREE_SKIP_NEXT;
 	} else if (parse_current->data == CIL_KEY_OPTIONAL) {
 		rc = cil_gen_optional(db, parse_current, ast_node);
 	} else if (parse_current->data == CIL_KEY_IPADDR) {
