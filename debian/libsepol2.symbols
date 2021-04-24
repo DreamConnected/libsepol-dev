@@ -1,5 +1,5 @@
 libsepol.so.2 libsepol2 #MINVER#
-* Build-Depends-Package: libsepol2-dev
+* Build-Depends-Package: libsepol-dev
  LIBSEPOL_1.0@LIBSEPOL_1.0 2.5
  LIBSEPOL_1.1@LIBSEPOL_1.1 2.5
  LIBSEPOL_3.0@LIBSEPOL_3.0 3.0
