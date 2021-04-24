@@ -59,6 +59,7 @@
 #include <sepol/policydb/services.h>
 #include <sepol/policydb/conditional.h>
 #include <sepol/policydb/util.h>
+#include <sepol/sepol.h>
 
 #include "debug.h"
 #include "private.h"
@@ -67,7 +68,6 @@
 #include "flask.h"
 
 #define BUG() do { ERR(NULL, "Badness at %s:%d", __FILE__, __LINE__); } while (0)
-#define BUG_ON(x) do { if (x) ERR(NULL, "Badness at %s:%d", __FILE__, __LINE__); } while (0)
 
 static int selinux_enforcing = 1;
 
@@ -313,17 +313,20 @@ static char *get_class_info(sepol_security_class_t tclass,
 	else
 		state_num = mls + 2;
 
-	int class_buf_len = 0;
-	int new_class_buf_len;
-	int len, buf_used;
+	size_t class_buf_len = 0;
+	size_t new_class_buf_len;
+	size_t buf_used;
+	int len;
 	char *class_buf = NULL, *p;
 	char *new_class_buf = NULL;
 
 	while (1) {
 		new_class_buf_len = class_buf_len + EXPR_BUF_SIZE;
 		new_class_buf = realloc(class_buf, new_class_buf_len);
-			if (!new_class_buf)
-				return NULL;
+		if (!new_class_buf) {
+			free(class_buf);
+			return NULL;
+		}
 		class_buf_len = new_class_buf_len;
 		class_buf = new_class_buf;
 		buf_used = 0;
@@ -331,7 +334,7 @@ static char *get_class_info(sepol_security_class_t tclass,
 
 		/* Add statement type */
 		len = snprintf(p, class_buf_len - buf_used, "%s", statements[state_num]);
-		if (len < 0 || len >= class_buf_len - buf_used)
+		if (len < 0 || (size_t)len >= class_buf_len - buf_used)
 			continue;
 
 		/* Add class entry */
@@ -339,7 +342,7 @@ static char *get_class_info(sepol_security_class_t tclass,
 		buf_used += len;
 		len = snprintf(p, class_buf_len - buf_used, "%s ",
 				policydb->p_class_val_to_name[tclass - 1]);
-		if (len < 0 || len >= class_buf_len - buf_used)
+		if (len < 0 || (size_t)len >= class_buf_len - buf_used)
 			continue;
 
 		/* Add permission entries (validatetrans does not have perms) */
@@ -352,7 +355,7 @@ static char *get_class_info(sepol_security_class_t tclass,
 		} else {
 			len = snprintf(p, class_buf_len - buf_used, "(");
 		}
-		if (len < 0 || len >= class_buf_len - buf_used)
+		if (len < 0 || (size_t)len >= class_buf_len - buf_used)
 			continue;
 		break;
 	}
@@ -469,18 +472,30 @@ static int constraint_expr_eval_reason(context_struct_t *scontext,
 		/* Now process each expression of the constraint */
 		switch (e->expr_type) {
 		case CEXPR_NOT:
-			BUG_ON(sp < 0);
+			if (sp < 0) {
+				BUG();
+				rc = -EINVAL;
+				goto out;
+			}
 			s[sp] = !s[sp];
 			cat_expr_buf(expr_list[expr_counter], "not");
 			break;
 		case CEXPR_AND:
-			BUG_ON(sp < 1);
+			if (sp < 1) {
+				BUG();
+				rc = -EINVAL;
+				goto out;
+			}
 			sp--;
 			s[sp] &= s[sp + 1];
 			cat_expr_buf(expr_list[expr_counter], "and");
 			break;
 		case CEXPR_OR:
-			BUG_ON(sp < 1);
+			if (sp < 1) {
+				BUG();
+				rc = -EINVAL;
+				goto out;
+			}
 			sp--;
 			s[sp] |= s[sp + 1];
 			cat_expr_buf(expr_list[expr_counter], "or");
