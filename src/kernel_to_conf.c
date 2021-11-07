@@ -186,9 +186,13 @@ static char *constraint_expr_to_str(struct policydb *pdb, struct constraint_expr
 					names = ebitmap_to_str(&curr->names, pdb->p_role_val_to_name, 1);
 				}
 				if (!names) {
-					goto exit;
+					names = strdup("NO_IDENTIFIER");
 				}
-				new_val = create_str("%s %s %s", 3, attr1, op, names);
+				if (strchr(names, ' ')) {
+					new_val = create_str("%s %s { %s }", 3, attr1, op, names);
+				} else {
+					new_val = create_str("%s %s %s", 3, attr1, op, names);
+				}
 				free(names);
 			}
 		} else {
@@ -1021,12 +1025,15 @@ static char *cats_ebitmap_to_str(struct ebitmap *cats, char **val_to_name)
 {
 	struct ebitmap_node *node;
 	uint32_t i, start, range, first;
-	char *catsbuf, *p;
+	char *catsbuf = NULL, *p;
 	const char *fmt;
 	char sep;
 	int len, remaining;
 
 	remaining = (int)cats_ebitmap_len(cats, val_to_name);
+	if (remaining == 0) {
+		goto exit;
+	}
 	catsbuf = malloc(remaining);
 	if (!catsbuf) {
 		goto exit;
@@ -2368,9 +2375,10 @@ static int write_user_decl_rules_to_conf(FILE *out, struct policydb *pdb)
 		sepol_printf(out, ";\n");
 	}
 
-	strs_destroy(&strs);
-
 exit:
+	if (strs)
+		strs_destroy(&strs);
+
 	if (rc != 0) {
 		sepol_log_err("Error writing user declarations to policy.conf\n");
 	}
@@ -2523,7 +2531,7 @@ static int write_genfscon_rules_to_conf(FILE *out, struct policydb *pdb)
 				goto exit;
 			}
 
-			rc = strs_create_and_add(strs, "genfscon %s %s %s", 3,
+			rc = strs_create_and_add(strs, "genfscon %s \"%s\" %s", 3,
 						 fstype, name, ctx);
 			free(ctx);
 			if (rc != 0) {
@@ -2645,13 +2653,13 @@ static int write_selinux_node_rules_to_conf(FILE *out, struct policydb *pdb)
 
 	for (node = pdb->ocontexts[4]; node != NULL; node = node->next) {
 		if (inet_ntop(AF_INET, &node->u.node.addr, addr, INET_ADDRSTRLEN) == NULL) {
-			sepol_log_err("Nodecon address is invalid: %s", strerror(errno));
+			sepol_log_err("Nodecon address is invalid: %m");
 			rc = -1;
 			goto exit;
 		}
 
 		if (inet_ntop(AF_INET, &node->u.node.mask, mask, INET_ADDRSTRLEN) == NULL) {
-			sepol_log_err("Nodecon mask is invalid: %s", strerror(errno));
+			sepol_log_err("Nodecon mask is invalid: %m");
 			rc = -1;
 			goto exit;
 		}
@@ -2686,13 +2694,13 @@ static int write_selinux_node6_rules_to_conf(FILE *out, struct policydb *pdb)
 
 	for (node6 = pdb->ocontexts[6]; node6 != NULL; node6 = node6->next) {
 		if (inet_ntop(AF_INET6, &node6->u.node6.addr, addr, INET6_ADDRSTRLEN) == NULL) {
-			sepol_log_err("Nodecon address is invalid: %s", strerror(errno));
+			sepol_log_err("Nodecon address is invalid: %m");
 			rc = -1;
 			goto exit;
 		}
 
 		if (inet_ntop(AF_INET6, &node6->u.node6.mask, mask, INET6_ADDRSTRLEN) == NULL) {
-			sepol_log_err("Nodecon mask is invalid: %s", strerror(errno));
+			sepol_log_err("Nodecon mask is invalid: %m");
 			rc = -1;
 			goto exit;
 		}
@@ -2734,8 +2742,7 @@ static int write_selinux_ibpkey_rules_to_conf(FILE *out, struct policydb *pdb)
 
 		if (inet_ntop(AF_INET6, &subnet_prefix.s6_addr,
 			      subnet_prefix_str, INET6_ADDRSTRLEN) == NULL) {
-			sepol_log_err("ibpkeycon address is invalid: %s",
-				      strerror(errno));
+			sepol_log_err("ibpkeycon address is invalid: %m");
 			rc = -1;
 			goto exit;
 		}
@@ -2988,7 +2995,7 @@ static int write_xen_devicetree_rules_to_conf(FILE *out, struct policydb *pdb)
 			goto exit;
 		}
 
-		sepol_printf(out, "devicetreecon %s %s\n", name, ctx);
+		sepol_printf(out, "devicetreecon \"%s\" %s\n", name, ctx);
 
 		free(ctx);
 	}
@@ -3037,6 +3044,18 @@ int sepol_kernel_policydb_to_conf(FILE *out, struct policydb *pdb)
 
 	if (pdb->policy_type != SEPOL_POLICY_KERN) {
 		sepol_log_err("Policy is not a kernel policy");
+		rc = -1;
+		goto exit;
+	}
+
+	if (pdb->policyvers >= POLICYDB_VERSION_AVTAB && pdb->policyvers <= POLICYDB_VERSION_PERMISSIVE) {
+		/*
+		 * For policy versions between 20 and 23, attributes exist in the policy,
+		 * but only in the type_attr_map. This means that there are gaps in both
+		 * the type_val_to_struct and p_type_val_to_name arrays and policy rules
+		 * can refer to those gaps.
+		 */
+		sepol_log_err("Writing policy versions between 20 and 23 as a policy.conf is not supported");
 		rc = -1;
 		goto exit;
 	}
