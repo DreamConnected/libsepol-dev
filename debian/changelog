@@ -1,3 +1,12 @@
+libsepol (3.3-1) unstable; urgency=medium
+
+  * debian/libsepol2.symbols: Fix the name of the -dev package, ouupsie
+  * New upstream version 3.3 (Closes: #989434, #990526, CVE-2021-36084,
+    CVE-2021-36085, CVE-2021-36086, CVE-2021-36087)
+  * debian/libsepol2.symbols: Add newly exported symbols
+
+ -- Laurent Bigonville <bigon@debian.org>  Sun, 07 Nov 2021 22:40:09 +0100
+
 libsepol (3.2-1) experimental; urgency=medium
 
   [ Christian Göttsche ]
