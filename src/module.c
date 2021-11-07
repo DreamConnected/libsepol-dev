@@ -82,7 +82,7 @@ static int policy_file_length(struct policy_file *fp, size_t *out)
 		break;
 	case PF_USE_MEMORY:
 		*out = fp->size;
-		break;;
+		break;
 	default:
 		*out = 0;
 		break;
@@ -796,7 +796,9 @@ int sepol_module_package_info(struct sepol_policy_file *spf, int *type,
 
 			len = le32_to_cpu(buf[0]);
 			if (str_read(name, file, len)) {
-				ERR(file->handle, "%s", strerror(errno));
+				ERR(file->handle,
+				    "cannot read module name (at section %u): %m",
+				    i);
 				goto cleanup;
 			}
 
@@ -809,7 +811,9 @@ int sepol_module_package_info(struct sepol_policy_file *spf, int *type,
 			}
 			len = le32_to_cpu(buf[0]);
 			if (str_read(version, file, len)) {
-				ERR(file->handle, "%s", strerror(errno));
+				ERR(file->handle,
+				    "cannot read module version (at section %u): %m",
+				i);
 				goto cleanup;
 			}
 			seen |= SEEN_MOD;

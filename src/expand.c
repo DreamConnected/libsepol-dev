@@ -71,6 +71,38 @@ static int map_ebitmap(ebitmap_t * src, ebitmap_t * dst, uint32_t * map)
 	return 0;
 }
 
+static int ebitmap_expand_roles(policydb_t *p, ebitmap_t *roles)
+{
+	ebitmap_node_t *node;
+	unsigned int bit;
+	role_datum_t *role;
+	ebitmap_t tmp;
+
+	ebitmap_init(&tmp);
+	ebitmap_for_each_positive_bit(roles, node, bit) {
+		role = p->role_val_to_struct[bit];
+		assert(role);
+		if (role->flavor != ROLE_ATTRIB) {
+			if (ebitmap_set_bit(&tmp, bit, 1)) {
+				ebitmap_destroy(&tmp);
+				return -1;
+			}
+		} else {
+			if (ebitmap_union(&tmp, &role->roles)) {
+				ebitmap_destroy(&tmp);
+				return -1;
+			}
+		}
+	}
+	ebitmap_destroy(roles);
+	if (ebitmap_cpy(roles, &tmp)) {
+		ebitmap_destroy(&tmp);
+		return -1;
+	}
+	ebitmap_destroy(&tmp);
+	return 0;
+}
+
 static int type_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 			      void *data)
 {
@@ -211,7 +243,7 @@ static int perm_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 	new_perm->s.value = perm->s.value;
 	s->nprim++;
 
-	ret = hashtab_insert(s->table, new_id, (hashtab_datum_t *) new_perm);
+	ret = hashtab_insert(s->table, new_id, (hashtab_datum_t) new_perm);
 	if (ret) {
 		free(new_id);
 		free(new_perm);
@@ -262,7 +294,7 @@ static int common_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 
 	ret =
 	    hashtab_insert(state->out->p_commons.table, new_id,
-			   (hashtab_datum_t *) new_common);
+			   (hashtab_datum_t) new_common);
 	if (ret) {
 		ERR(state->handle, "hashtab overflow");
 		free(new_common);
@@ -331,6 +363,9 @@ static int constraint_node_clone(constraint_node_t ** dst,
 					}
 				} else if (new_expr->attr & CEXPR_ROLE) {
 					if (map_ebitmap(&expr->names, &new_expr->names, state->rolemap)) {
+						goto out_of_mem;
+					}
+					if (ebitmap_expand_roles(state->out, &new_expr->names)) {
 						goto out_of_mem;
 					}
 				} else if (new_expr->attr & CEXPR_USER) {
@@ -457,7 +492,7 @@ static int class_copy_callback(hashtab_key_t key, hashtab_datum_t datum,
 
 	ret =
 	    hashtab_insert(state->out->p_classes.table, new_id,
-			   (hashtab_datum_t *) new_class);
+			   (hashtab_datum_t) new_class);
 	if (ret) {
 		ERR(state->handle, "hashtab overflow");
 		free(new_class);
@@ -1606,7 +1641,7 @@ static avtab_ptr_t find_avtab_node(sepol_handle_t * handle,
 		 * AUDITDENY, aka DONTAUDIT, are &= assigned, versus |= for
 		 * others. Initialize the data accordingly.
 		 */
-		avdatum.data = key->specified == AVTAB_AUDITDENY ? ~0 : 0;
+		avdatum.data = key->specified == AVTAB_AUDITDENY ? ~UINT32_C(0) : UINT32_C(0);
 		/* this is used to get the node - insertion is actually unique */
 		node = avtab_insert_nonunique(avtab, key, &avdatum);
 		if (!node) {
@@ -3017,10 +3052,6 @@ int expand_module(sepol_handle_t * handle,
 	if (hashtab_map(state.base->p_roles.table,
 			role_bounds_copy_callback, &state))
 		goto cleanup;
-	/* escalate the type_set_t in a role attribute to all regular roles
-	 * that belongs to it. */
-	if (hashtab_map(state.base->p_roles.table, role_fix_callback, &state))
-		goto cleanup;
 
 	/* copy MLS's sensitivity level and categories - this needs to be done
 	 * before expanding users (they need to be indexed too) */
@@ -3085,6 +3116,11 @@ int expand_module(sepol_handle_t * handle,
 	 if (hashtab_map(state.out->p_roles.table, role_remap_dominates, &state)) {
 		goto cleanup;
 	}
+
+	/* escalate the type_set_t in a role attribute to all regular roles
+	 * that belongs to it. */
+	if (hashtab_map(state.base->p_roles.table, role_fix_callback, &state))
+		goto cleanup;
 
 	if (copy_and_expand_avrule_block(&state) < 0) {
 		ERR(handle, "Error during expand");
@@ -3338,9 +3374,9 @@ static int expand_cond_insert(cond_av_list_t ** l,
 	return 0;
 }
 
-int expand_cond_av_node(policydb_t * p,
-			avtab_ptr_t node,
-			cond_av_list_t ** newl, avtab_t * expa)
+static int expand_cond_av_node(policydb_t * p,
+			       avtab_ptr_t node,
+			       cond_av_list_t ** newl, avtab_t * expa)
 {
 	avtab_key_t *k = &node->key;
 	avtab_datum_t *d = &node->datum;

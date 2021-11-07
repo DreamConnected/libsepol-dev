@@ -55,9 +55,6 @@
 #include "cil_find.h"
 #include "cil_build_ast.h"
 
-/* There are 44000 filename_trans in current fedora policy. 1.33 times this is the recommended
- * size of a hashtable. The next power of 2 of this is 2 ** 16.
- */
 #define ROLE_TRANS_TABLE_SIZE (1 << 10)
 #define AVRULEX_TABLE_SIZE (1 <<  10)
 #define PERMS_PER_CLASS 32
@@ -593,11 +590,11 @@ exit:
 int __cil_typeattr_bitmap_init(policydb_t *pdb)
 {
 	int rc = SEPOL_ERR;
+	uint32_t i;
 
 	pdb->type_attr_map = cil_malloc(pdb->p_types.nprim * sizeof(ebitmap_t));
 	pdb->attr_type_map = cil_malloc(pdb->p_types.nprim * sizeof(ebitmap_t));
 
-	uint32_t i = 0;
 	for (i = 0; i < pdb->p_types.nprim; i++) {
 		ebitmap_init(&pdb->type_attr_map[i]);
 		ebitmap_init(&pdb->attr_type_map[i]);
@@ -1073,7 +1070,7 @@ int __cil_type_rule_to_avtab(policydb_t *pdb, const struct cil_db *db, struct ci
 	type_datum_t *sepol_src = NULL;
 	type_datum_t *sepol_tgt = NULL;
 	class_datum_t *sepol_obj = NULL;
-	struct cil_list *class_list;
+	struct cil_list *class_list = NULL;
 	type_datum_t *sepol_result = NULL;
 	ebitmap_t src_bitmap, tgt_bitmap;
 	ebitmap_node_t *node1, *node2;
@@ -1129,7 +1126,7 @@ int __cil_typetransition_to_avtab(policydb_t *pdb, const struct cil_db *db, stru
 	type_datum_t *sepol_src = NULL;
 	type_datum_t *sepol_tgt = NULL;
 	class_datum_t *sepol_obj = NULL;
-	struct cil_list *class_list;
+	struct cil_list *class_list = NULL;
 	type_datum_t *sepol_result = NULL;
 	ebitmap_t src_bitmap, tgt_bitmap;
 	ebitmap_node_t *node1, *node2;
@@ -1228,7 +1225,7 @@ int __perm_str_to_datum(char *perm_str, class_datum_t *sepol_class, uint32_t *da
 			goto exit;
 		}
 	}
-	*datum |= 1 << (sepol_perm->s.value - 1);
+	*datum |= UINT32_C(1) << (sepol_perm->s.value - 1);
 
 	return SEPOL_OK;
 
@@ -1526,7 +1523,7 @@ int cil_avrule_to_policydb(policydb_t *pdb, const struct cil_db *db, struct cil_
 /* index of the u32 containing the permission */
 #define XPERM_IDX(x) (x >> 5)
 /* set bits 0 through x-1 within the u32 */
-#define XPERM_SETBITS(x) ((1U << (x & 0x1f)) - 1)
+#define XPERM_SETBITS(x) ((UINT32_C(1) << (x & 0x1f)) - 1)
 /* low value for this u32 */
 #define XPERM_LOW(x) (x << 5)
 /* high value for this u32 */
@@ -1668,14 +1665,6 @@ exit:
 		}
 		cil_list_destroy(&xperms_list, CIL_FALSE);
 	}
-
-	// hashtab_t does not have a way to free keys or datum since it doesn't
-	// know what they are. We won't need the keys/datum after this function, so
-	// clean them up here.
-	free(avtab_key);
-	ebitmap_destroy(datum);
-	free(datum);
-
 	return rc;
 }
 
@@ -1883,6 +1872,15 @@ int cil_avrulex_to_hashtable(policydb_t *pdb, const struct cil_db *db, struct ci
 
 exit:
 	return rc;
+}
+
+static int __cil_avrulex_ioctl_destroy(hashtab_key_t k, hashtab_datum_t datum, __attribute__((unused)) void *args)
+{
+	free(k);
+	ebitmap_destroy(datum);
+	free(datum);
+
+	return SEPOL_OK;
 }
 
 int __cil_cond_to_policydb_helper(struct cil_tree_node *node, __attribute__((unused)) uint32_t *finished, void *extra_args)
@@ -2226,7 +2224,7 @@ int cil_booleanif_to_policydb(policydb_t *pdb, const struct cil_db *db, struct c
 	int rc = SEPOL_ERR;
 	struct cil_args_booleanif bool_args;
 	struct cil_booleanif *cil_boolif = (struct cil_booleanif*)node->data;
-	struct cil_tree_node *cb_node = node->cl_head;
+	struct cil_tree_node *cb_node;
 	struct cil_tree_node *true_node = NULL;
 	struct cil_tree_node *false_node = NULL;
 	struct cil_tree_node *tmp_node = NULL;
@@ -2337,7 +2335,7 @@ int cil_roletrans_to_policydb(policydb_t *pdb, const struct cil_db *db, struct c
 	role_datum_t *sepol_src = NULL;
 	type_datum_t *sepol_tgt = NULL;
 	class_datum_t *sepol_obj = NULL;
-	struct cil_list *class_list;
+	struct cil_list *class_list = NULL;
 	role_datum_t *sepol_result = NULL;
 	role_trans_t *new = NULL;
 	uint32_t *new_role = NULL;
@@ -2656,6 +2654,7 @@ int __cil_constrain_expr_to_sepol_expr_helper(policydb_t *pdb, const struct cil_
 	int rc = SEPOL_ERR;
 	struct cil_list_item *item;
 	enum cil_flavor flavor;
+	enum cil_flavor cil_op;
 	constraint_expr_t *op, *h1, *h2, *t1, *t2;
 	int is_leaf = CIL_FALSE;
 
@@ -2672,7 +2671,7 @@ int __cil_constrain_expr_to_sepol_expr_helper(policydb_t *pdb, const struct cil_
 		goto exit;
 	}
 
-	enum cil_flavor cil_op = (enum cil_flavor)(uintptr_t)item->data;
+	cil_op = (enum cil_flavor)(uintptr_t)item->data;
 	switch (cil_op) {
 	case CIL_NOT:
 		op->expr_type = CEXPR_NOT;
@@ -3164,7 +3163,7 @@ int cil_rangetransition_to_policydb(policydb_t *pdb, const struct cil_db *db, st
 	type_datum_t *sepol_src = NULL;
 	type_datum_t *sepol_tgt = NULL;
 	class_datum_t *sepol_class = NULL;
-	struct cil_list *class_list;
+	struct cil_list *class_list = NULL;
 	range_trans_t *newkey = NULL;
 	struct mls_range *newdatum = NULL;
 	ebitmap_t src_bitmap, tgt_bitmap;
@@ -3601,7 +3600,7 @@ int cil_default_to_policydb(policydb_t *pdb, struct cil_default *def)
 {
 	struct cil_list_item *curr;
 	class_datum_t *sepol_class;
-	struct cil_list *class_list;
+	struct cil_list *class_list = NULL;
 
 	cil_list_for_each(curr, def->class_datums) {
 		struct cil_list_item *c;
@@ -3656,7 +3655,7 @@ int cil_defaultrange_to_policydb(policydb_t *pdb, struct cil_defaultrange *def)
 {
 	struct cil_list_item *curr;
 	class_datum_t *sepol_class;
-	struct cil_list *class_list;
+	struct cil_list *class_list = NULL;
 
 	cil_list_for_each(curr, def->class_datums) {
 		struct cil_list_item *c;
@@ -4275,7 +4274,7 @@ static unsigned int avrulex_hash(__attribute__((unused)) hashtab_t h, const_hash
 
 	uint32_t hash = 0;
 
-#define mix(input) { \
+#define mix(input) do { \
 	uint32_t v = input; \
 	v *= c1; \
 	v = (v << r1) | (v >> (32 - r1)); \
@@ -4283,7 +4282,7 @@ static unsigned int avrulex_hash(__attribute__((unused)) hashtab_t h, const_hash
 	hash ^= v; \
 	hash = (hash << r2) | (hash >> (32 - r2)); \
 	hash = hash * m + n; \
-}
+} while (0)
 
 	mix(k->target_class);
 	mix(k->target_type);
@@ -4481,7 +4480,8 @@ static avrule_t *__cil_init_sepol_avrule(uint32_t kind, struct cil_tree_node *no
 	avrule_t *avrule;
 	struct cil_tree_node *source_node;
 	char *source_path;
-	int is_cil;
+	char *lm_kind;
+	uint32_t hll_line;
 
 	avrule = cil_malloc(sizeof(avrule_t));
 	avrule->specified = kind;
@@ -4493,11 +4493,11 @@ static avrule_t *__cil_init_sepol_avrule(uint32_t kind, struct cil_tree_node *no
 
 	avrule->source_filename = NULL;
 	avrule->source_line = node->line;
-	source_node = cil_tree_get_next_path(node, &source_path, &is_cil);
+	source_node = cil_tree_get_next_path(node, &lm_kind, &hll_line, &source_path);
 	if (source_node) {
 		avrule->source_filename = source_path;
-		if (!is_cil) {
-			avrule->source_line = node->hll_line;
+		if (lm_kind != CIL_KEY_SRC_CIL) {
+			avrule->source_line = hll_line + node->hll_offset - source_node->hll_offset - 1;
 		}
 	}
 
@@ -4760,7 +4760,7 @@ static struct cil_list *cil_classperms_from_sepol(policydb_t *pdb, uint16_t clas
 	cil_list_init(&cp->perms, CIL_PERM);
 	for (i = 0; i < sepol_class->permissions.nprim; i++) {
 		struct cil_perm *perm;
-		if ((data & (1 << i)) == 0) continue;
+		if ((data & (UINT32_C(1) << i)) == 0) continue;
 		perm = perm_value_to_cil[class][i+1];
 		if (!perm) goto exit;
 		cil_list_append(cp->perms, CIL_PERM, perm);
@@ -4825,6 +4825,7 @@ static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void 
 			avtab_ptr_t cur;
 			struct cil_avrule target;
 			struct cil_tree_node *n1 = NULL;
+			int count_bad = 0;
 
 			*violation = CIL_TRUE;
 
@@ -4838,10 +4839,13 @@ static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void 
 			for (cur = bad; cur; cur = cur->next) {
 				struct cil_list_item *i2;
 				struct cil_list *matching;
+				int num_matching = 0;
+				int count_matching = 0;
 
 				rc = cil_avrule_from_sepol(pdb, cur, &target, type_value_to_cil, class_value_to_cil, perm_value_to_cil);
 				if (rc != SEPOL_OK) {
 					cil_log(CIL_ERR, "Failed to convert sepol avrule to CIL\n");
+					bounds_destroy_bad(bad);
 					goto exit;
 				}
 				__cil_print_rule("  ", "allow", &target);
@@ -4855,6 +4859,9 @@ static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void 
 					goto exit;
 				}
 				cil_list_for_each(i2, matching) {
+					num_matching++;
+				}
+				cil_list_for_each(i2, matching) {
 					struct cil_tree_node *n2 = i2->data;
 					struct cil_avrule *r2 = n2->data;
 					if (n1 == n2) {
@@ -4864,9 +4871,19 @@ static int cil_check_type_bounds(const struct cil_db *db, policydb_t *pdb, void 
 						__cil_print_parents("    ", n2);
 						__cil_print_rule("      ", "allow", r2);
 					}
+					count_matching++;
+					if (count_matching >= 2) {
+						cil_log(CIL_ERR, "    Only first 2 of %d matching rules shown\n", num_matching);
+						break;
+					}
 				}
 				cil_list_destroy(&matching, CIL_FALSE);
 				cil_list_destroy(&target.perms.classperms, CIL_TRUE);
+				count_bad++;
+				if (count_bad >= 2) {
+					cil_log(CIL_ERR, "  Only first 2 of %d bad rules shown\n", numbad);
+					break;
+				}
 			}
 			bounds_destroy_bad(bad);
 		}
@@ -5037,6 +5054,7 @@ int cil_binary_create_allocated_pdb(const struct cil_db *db, sepol_policydb_t *p
 
 exit:
 	hashtab_destroy(role_trans_table);
+	hashtab_map(avrulex_ioctl_table, __cil_avrulex_ioctl_destroy, NULL);
 	hashtab_destroy(avrulex_ioctl_table);
 	free(type_value_to_cil);
 	free(class_value_to_cil);

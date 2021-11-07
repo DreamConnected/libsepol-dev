@@ -388,7 +388,6 @@ int cond_normalize_expr(policydb_t * p, cond_node_t * cn)
 	for (e = cn->expr; e != NULL; e = e->next) {
 		switch (e->expr_type) {
 		case COND_BOOL:
-			i = 0;
 			/* see if we've already seen this bool */
 			if (!bool_present(e->bool, cn->bool_ids, cn->nbools)) {
 				/* count em all but only record up to COND_MAX_BOOLS */
@@ -412,13 +411,13 @@ int cond_normalize_expr(policydb_t * p, cond_node_t * cn)
 		}
 
 		/* loop through all possible combinations of values for bools in expression */
-		for (test = 0x0; test < (0x1U << cn->nbools); test++) {
+		for (test = 0x0; test < (UINT32_C(1) << cn->nbools); test++) {
 			/* temporarily set the value for all the bools in the
 			 * expression using the corr.  bit in test */
 			for (j = 0; j < cn->nbools; j++) {
 				p->bool_val_to_struct[cn->bool_ids[j] -
 						      1]->state =
-				    (test & (0x1 << j)) ? 1 : 0;
+				    (test & (UINT32_C(1) << j)) ? 1 : 0;
 			}
 			k = cond_evaluate_expr(p, cn->expr);
 			if (k == -1) {
@@ -429,7 +428,7 @@ int cond_normalize_expr(policydb_t * p, cond_node_t * cn)
 			}
 			/* set the bit if expression evaluates true */
 			if (k)
-				cn->expr_pre_comp |= 0x1 << test;
+				cn->expr_pre_comp |= UINT32_C(1) << test;
 		}
 
 		/* restore bool default values */
@@ -715,7 +714,6 @@ static int cond_read_av_list(policydb_t * p, void *fp,
 
 	*ret_list = NULL;
 
-	len = 0;
 	rc = next_entry(buf, fp, sizeof(uint32_t));
 	if (rc < 0)
 		return -1;
@@ -769,7 +767,6 @@ static int cond_read_node(policydb_t * p, cond_node_t * node, void *fp)
 
 	node->cur_state = le32_to_cpu(buf[0]);
 
-	len = 0;
 	rc = next_entry(buf, fp, sizeof(uint32_t));
 	if (rc < 0)
 		goto err;

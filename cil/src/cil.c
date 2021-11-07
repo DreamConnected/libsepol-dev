@@ -50,10 +50,11 @@
 #include "cil_binary.h"
 #include "cil_policy.h"
 #include "cil_strpool.h"
+#include "cil_write_ast.h"
 
-int cil_sym_sizes[CIL_SYM_ARRAY_NUM][CIL_SYM_NUM] = {
+const int cil_sym_sizes[CIL_SYM_ARRAY_NUM][CIL_SYM_NUM] = {
 	{64, 64, 64, 1 << 13, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64},
-	{64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64},
+	{8, 8, 8, 32, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 	{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
@@ -141,6 +142,8 @@ char *CIL_KEY_HANDLEUNKNOWN_DENY;
 char *CIL_KEY_HANDLEUNKNOWN_REJECT;
 char *CIL_KEY_MACRO;
 char *CIL_KEY_IN;
+char *CIL_KEY_IN_BEFORE;
+char *CIL_KEY_IN_AFTER;
 char *CIL_KEY_MLS;
 char *CIL_KEY_DEFAULTRANGE;
 char *CIL_KEY_BLOCKINHERIT;
@@ -219,7 +222,9 @@ char *CIL_KEY_IOCTL;
 char *CIL_KEY_UNORDERED;
 char *CIL_KEY_SRC_INFO;
 char *CIL_KEY_SRC_CIL;
-char *CIL_KEY_SRC_HLL;
+char *CIL_KEY_SRC_HLL_LMS;
+char *CIL_KEY_SRC_HLL_LMX;
+char *CIL_KEY_SRC_HLL_LME;
 
 static void cil_init_keys(void)
 {
@@ -352,6 +357,8 @@ static void cil_init_keys(void)
 	CIL_KEY_DEFAULTTYPE = cil_strpool_add("defaulttype");
 	CIL_KEY_MACRO = cil_strpool_add("macro");
 	CIL_KEY_IN = cil_strpool_add("in");
+	CIL_KEY_IN_BEFORE = cil_strpool_add("before");
+	CIL_KEY_IN_AFTER = cil_strpool_add("after");
 	CIL_KEY_MLS = cil_strpool_add("mls");
 	CIL_KEY_DEFAULTRANGE = cil_strpool_add("defaultrange");
 	CIL_KEY_GLOB = cil_strpool_add("*");
@@ -383,8 +390,10 @@ static void cil_init_keys(void)
 	CIL_KEY_IOCTL = cil_strpool_add("ioctl");
 	CIL_KEY_UNORDERED = cil_strpool_add("unordered");
 	CIL_KEY_SRC_INFO = cil_strpool_add("<src_info>");
-	CIL_KEY_SRC_CIL = cil_strpool_add("<src_cil>");
-	CIL_KEY_SRC_HLL = cil_strpool_add("<src_hll>");
+	CIL_KEY_SRC_CIL = cil_strpool_add("cil");
+	CIL_KEY_SRC_HLL_LMS = cil_strpool_add("lms");
+	CIL_KEY_SRC_HLL_LMX = cil_strpool_add("lmx");
+	CIL_KEY_SRC_HLL_LME = cil_strpool_add("lme");
 }
 
 void cil_db_init(struct cil_db **db)
@@ -439,6 +448,7 @@ void cil_db_init(struct cil_db **db)
 	(*db)->handle_unknown = -1;
 	(*db)->mls = -1;
 	(*db)->multiple_decls = CIL_FALSE;
+	(*db)->qualified_names = CIL_FALSE;
 	(*db)->target_platform = SEPOL_TARGET_SELINUX;
 	(*db)->policy_version = POLICYDB_VERSION_MAX;
 }
@@ -539,7 +549,7 @@ int cil_compile(struct cil_db *db)
 	cil_log(CIL_INFO, "Building AST from Parse Tree\n");
 	rc = cil_build_ast(db, db->parse->root, db->ast->root);
 	if (rc != SEPOL_OK) {
-		cil_log(CIL_INFO, "Failed to build ast\n");
+		cil_log(CIL_ERR, "Failed to build AST\n");
 		goto exit;
 	}
 
@@ -549,26 +559,117 @@ int cil_compile(struct cil_db *db)
 	cil_log(CIL_INFO, "Resolving AST\n");
 	rc = cil_resolve_ast(db, db->ast->root);
 	if (rc != SEPOL_OK) {
-		cil_log(CIL_INFO, "Failed to resolve ast\n");
+		cil_log(CIL_ERR, "Failed to resolve AST\n");
 		goto exit;
 	}
 
 	cil_log(CIL_INFO, "Qualifying Names\n");
 	rc = cil_fqn_qualify(db->ast->root);
 	if (rc != SEPOL_OK) {
-		cil_log(CIL_INFO, "Failed to qualify names\n");
+		cil_log(CIL_ERR, "Failed to qualify names\n");
 		goto exit;
 	}
 
 	cil_log(CIL_INFO, "Compile post process\n");
 	rc = cil_post_process(db);
 	if (rc != SEPOL_OK ) {
-		cil_log(CIL_INFO, "Post process failed\n");
+		cil_log(CIL_ERR, "Post process failed\n");
 		goto exit;
 	}
 
 exit:
 
+	return rc;
+}
+
+int cil_write_parse_ast(FILE *out, cil_db_t *db)
+{
+	int rc = SEPOL_ERR;
+
+	if (db == NULL) {
+		goto exit;
+	}
+
+	cil_log(CIL_INFO, "Writing Parse AST\n");
+	rc = cil_write_ast(out, CIL_WRITE_AST_PHASE_PARSE, db->parse->root);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Failed to write parse ast\n");
+		goto exit;
+	}
+
+exit:
+	return rc;
+}
+
+int cil_write_build_ast(FILE *out, cil_db_t *db)
+{
+	int rc = SEPOL_ERR;
+
+	if (db == NULL) {
+		goto exit;
+	}
+
+	cil_log(CIL_INFO, "Building AST from Parse Tree\n");
+	rc = cil_build_ast(db, db->parse->root, db->ast->root);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Failed to build ast\n");
+		goto exit;
+	}
+
+	cil_log(CIL_INFO, "Destroying Parse Tree\n");
+	cil_tree_destroy(&db->parse);
+
+	cil_log(CIL_INFO, "Writing Build AST\n");
+	rc = cil_write_ast(out, CIL_WRITE_AST_PHASE_BUILD, db->ast->root);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Failed to write build ast\n");
+		goto exit;
+	}
+
+exit:
+	return rc;
+}
+
+int cil_write_resolve_ast(FILE *out, cil_db_t *db)
+{
+	int rc = SEPOL_ERR;
+
+	if (db == NULL) {
+		goto exit;
+	}
+
+	cil_log(CIL_INFO, "Building AST from Parse Tree\n");
+	rc = cil_build_ast(db, db->parse->root, db->ast->root);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Failed to build ast\n");
+		goto exit;
+	}
+
+	cil_log(CIL_INFO, "Destroying Parse Tree\n");
+	cil_tree_destroy(&db->parse);
+
+	cil_log(CIL_INFO, "Resolving AST\n");
+	rc = cil_resolve_ast(db, db->ast->root);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Failed to resolve ast\n");
+		goto exit;
+	}
+
+	cil_log(CIL_INFO, "Qualifying Names\n");
+	rc = cil_fqn_qualify(db->ast->root);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Failed to qualify names\n");
+		goto exit;
+	}
+
+	cil_log(CIL_INFO, "Writing Resolve AST\n");
+	rc = cil_write_ast(out, CIL_WRITE_AST_PHASE_RESOLVE, db->ast->root);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Failed to write resolve ast\n");
+		goto exit;
+	}
+
+exit:
 	return rc;
 }
 
@@ -1780,6 +1881,11 @@ void cil_set_multiple_decls(struct cil_db *db, int multiple_decls)
 	db->multiple_decls = multiple_decls;
 }
 
+void cil_set_qualified_names(struct cil_db *db, int qualified_names)
+{
+	db->qualified_names = qualified_names;
+}
+
 void cil_set_target_platform(struct cil_db *db, int target_platform)
 {
 	db->target_platform = target_platform;
@@ -1790,7 +1896,7 @@ void cil_set_policy_version(struct cil_db *db, int policy_version)
 	db->policy_version = policy_version;
 }
 
-void cil_symtab_array_init(symtab_t symtab[], int symtab_sizes[CIL_SYM_NUM])
+void cil_symtab_array_init(symtab_t symtab[], const int symtab_sizes[CIL_SYM_NUM])
 {
 	uint32_t i = 0;
 	for (i = 0; i < CIL_SYM_NUM; i++) {
@@ -1897,6 +2003,63 @@ int cil_get_symtab(struct cil_tree_node *ast_node, symtab_t **symtab, enum cil_s
 exit:
 	cil_tree_log(ast_node, CIL_ERR, "Failed to get symtab from node");
 	return SEPOL_ERR;	
+}
+
+int cil_string_to_uint32(const char *string, uint32_t *value, int base)
+{
+	unsigned long val;
+	char *end = NULL;
+	int rc = SEPOL_ERR;
+
+	if (string == NULL || value  == NULL) {
+		goto exit;
+	}
+
+	errno = 0;
+	val = strtoul(string, &end, base);
+	if (errno != 0 || end == string || *end != '\0') {
+		rc = SEPOL_ERR;
+		goto exit;
+	}
+
+	/* Ensure that the value fits a 32-bit integer without triggering -Wtype-limits */
+#if ULONG_MAX > UINT32_MAX
+	if (val > UINT32_MAX) {
+		rc = SEPOL_ERR;
+		goto exit;
+	}
+#endif
+
+	*value = val;
+
+	return SEPOL_OK;
+
+exit:
+	cil_log(CIL_ERR, "Failed to create uint32_t from string\n");
+	return rc;
+}
+
+int cil_string_to_uint64(const char *string, uint64_t *value, int base)
+{
+	char *end = NULL;
+	int rc = SEPOL_ERR;
+
+	if (string == NULL || value  == NULL) {
+		goto exit;
+	}
+
+	errno = 0;
+	*value = strtoull(string, &end, base);
+	if (errno != 0 || end == string || *end != '\0') {
+		rc = SEPOL_ERR;
+		goto exit;
+	}
+
+	return SEPOL_OK;
+
+exit:
+	cil_log(CIL_ERR, "Failed to create uint64_t from string\n");
+	return rc;
 }
 
 void cil_sort_init(struct cil_sort **sort)
@@ -2023,6 +2186,7 @@ void cil_in_init(struct cil_in **in)
 	*in = cil_malloc(sizeof(**in));
 
 	cil_symtab_array_init((*in)->symtab, cil_sym_sizes[CIL_SYM_ARRAY_IN]);
+	(*in)->is_after = CIL_FALSE;
 	(*in)->block_str = NULL;
 }
 
@@ -2660,7 +2824,6 @@ void cil_call_init(struct cil_call **call)
 void cil_optional_init(struct cil_optional **optional)
 {
 	*optional = cil_malloc(sizeof(**optional));
-	(*optional)->enabled = CIL_TRUE;
 	cil_symtab_datum_init(&(*optional)->datum);
 }
 
@@ -2727,6 +2890,7 @@ void cil_mls_init(struct cil_mls **mls)
 void cil_src_info_init(struct cil_src_info **info)
 {
 	*info = cil_malloc(sizeof(**info));
-	(*info)->is_cil = 0;
+	(*info)->kind = NULL;
+	(*info)->hll_line = 0;
 	(*info)->path = NULL;
 }
