@@ -366,7 +366,7 @@ int cil_post_nodecon_compare(const void *a, const void *b)
 	}
 }
 
-int cil_post_pirqcon_compare(const void *a, const void *b)
+static int cil_post_pirqcon_compare(const void *a, const void *b)
 {
 	int rc = SEPOL_ERR;
 	struct cil_pirqcon *apirqcon = *(struct cil_pirqcon**)a;
@@ -383,7 +383,7 @@ int cil_post_pirqcon_compare(const void *a, const void *b)
 	return rc;
 }
 
-int cil_post_iomemcon_compare(const void *a, const void *b)
+static int cil_post_iomemcon_compare(const void *a, const void *b)
 {
 	int rc = SEPOL_ERR;
 	struct cil_iomemcon *aiomemcon = *(struct cil_iomemcon**)a;
@@ -402,7 +402,7 @@ int cil_post_iomemcon_compare(const void *a, const void *b)
 	return rc;
 }
 
-int cil_post_ioportcon_compare(const void *a, const void *b)
+static int cil_post_ioportcon_compare(const void *a, const void *b)
 {
 	int rc = SEPOL_ERR;
 	struct cil_ioportcon *aioportcon = *(struct cil_ioportcon**)a;
@@ -421,7 +421,7 @@ int cil_post_ioportcon_compare(const void *a, const void *b)
 	return rc;
 }
 
-int cil_post_pcidevicecon_compare(const void *a, const void *b)
+static int cil_post_pcidevicecon_compare(const void *a, const void *b)
 {
 	int rc = SEPOL_ERR;
 	struct cil_pcidevicecon *apcidevicecon = *(struct cil_pcidevicecon**)a;
@@ -438,7 +438,7 @@ int cil_post_pcidevicecon_compare(const void *a, const void *b)
 	return rc;
 }
 
-int cil_post_devicetreecon_compare(const void *a, const void *b)
+static int cil_post_devicetreecon_compare(const void *a, const void *b)
 {
 	int rc = SEPOL_ERR;
 	struct cil_devicetreecon *adevicetreecon = *(struct cil_devicetreecon**)a;
@@ -466,35 +466,35 @@ int cil_post_fsuse_compare(const void *a, const void *b)
 	return rc;
 }
 
-int cil_post_filecon_context_compare(const void *a, const void *b)
+static int cil_post_filecon_context_compare(const void *a, const void *b)
 {
 	struct cil_filecon *a_filecon = *(struct cil_filecon**)a;
 	struct cil_filecon *b_filecon = *(struct cil_filecon**)b;
 	return context_compare(a_filecon->context, b_filecon->context);
 }
 
-int cil_post_ibpkeycon_context_compare(const void *a, const void *b)
+static int cil_post_ibpkeycon_context_compare(const void *a, const void *b)
 {
 	struct cil_ibpkeycon *a_ibpkeycon = *(struct cil_ibpkeycon **)a;
 	struct cil_ibpkeycon *b_ibpkeycon = *(struct cil_ibpkeycon **)b;
 	return context_compare(a_ibpkeycon->context, b_ibpkeycon->context);
 }
 
-int cil_post_portcon_context_compare(const void *a, const void *b)
+static int cil_post_portcon_context_compare(const void *a, const void *b)
 {
 	struct cil_portcon *a_portcon = *(struct cil_portcon**)a;
 	struct cil_portcon *b_portcon = *(struct cil_portcon**)b;
 	return context_compare(a_portcon->context, b_portcon->context);
 }
 
-int cil_post_genfscon_context_compare(const void *a, const void *b)
+static int cil_post_genfscon_context_compare(const void *a, const void *b)
 {
 	struct cil_genfscon *a_genfscon = *(struct cil_genfscon**)a;
 	struct cil_genfscon *b_genfscon = *(struct cil_genfscon**)b;
 	return context_compare(a_genfscon->context, b_genfscon->context);
 }
 
-int cil_post_netifcon_context_compare(const void *a, const void *b)
+static int cil_post_netifcon_context_compare(const void *a, const void *b)
 {
 	int rc;
 	struct cil_netifcon *a_netifcon = *(struct cil_netifcon**)a;
@@ -506,56 +506,56 @@ int cil_post_netifcon_context_compare(const void *a, const void *b)
 	return context_compare(a_netifcon->packet_context, b_netifcon->packet_context);
 }
 
-int cil_post_ibendportcon_context_compare(const void *a, const void *b)
+static int cil_post_ibendportcon_context_compare(const void *a, const void *b)
 {
 	struct cil_ibendportcon *a_ibendportcon = *(struct cil_ibendportcon **)a;
 	struct cil_ibendportcon *b_ibendportcon = *(struct cil_ibendportcon **)b;
 	return context_compare(a_ibendportcon->context, b_ibendportcon->context);
 }
 
-int cil_post_nodecon_context_compare(const void *a, const void *b)
+static int cil_post_nodecon_context_compare(const void *a, const void *b)
 {
 	struct cil_nodecon *a_nodecon = *(struct cil_nodecon **)a;
 	struct cil_nodecon *b_nodecon = *(struct cil_nodecon **)b;
 	return context_compare(a_nodecon->context, b_nodecon->context);
 }
 
-int cil_post_pirqcon_context_compare(const void *a, const void *b)
+static int cil_post_pirqcon_context_compare(const void *a, const void *b)
 {
 	struct cil_pirqcon *a_pirqcon = *(struct cil_pirqcon**)a;
 	struct cil_pirqcon *b_pirqcon = *(struct cil_pirqcon**)b;
 	return context_compare(a_pirqcon->context, b_pirqcon->context);
 }
 
-int cil_post_iomemcon_context_compare(const void *a, const void *b)
+static int cil_post_iomemcon_context_compare(const void *a, const void *b)
 {
 	struct cil_iomemcon *a_iomemcon = *(struct cil_iomemcon**)a;
 	struct cil_iomemcon *b_iomemcon = *(struct cil_iomemcon**)b;
 	return context_compare(a_iomemcon->context, b_iomemcon->context);
 }
 
-int cil_post_ioportcon_context_compare(const void *a, const void *b)
+static int cil_post_ioportcon_context_compare(const void *a, const void *b)
 {
 	struct cil_ioportcon *a_ioportcon = *(struct cil_ioportcon**)a;
 	struct cil_ioportcon *b_ioportcon = *(struct cil_ioportcon**)b;
 	return context_compare(a_ioportcon->context, b_ioportcon->context);
 }
 
-int cil_post_pcidevicecon_context_compare(const void *a, const void *b)
+static int cil_post_pcidevicecon_context_compare(const void *a, const void *b)
 {
 	struct cil_pcidevicecon *a_pcidevicecon = *(struct cil_pcidevicecon**)a;
 	struct cil_pcidevicecon *b_pcidevicecon = *(struct cil_pcidevicecon**)b;
 	return context_compare(a_pcidevicecon->context, b_pcidevicecon->context);
 }
 
-int cil_post_devicetreecon_context_compare(const void *a, const void *b)
+static int cil_post_devicetreecon_context_compare(const void *a, const void *b)
 {
 	struct cil_devicetreecon *a_devicetreecon = *(struct cil_devicetreecon**)a;
 	struct cil_devicetreecon *b_devicetreecon = *(struct cil_devicetreecon**)b;
 	return context_compare(a_devicetreecon->context, b_devicetreecon->context);
 }
 
-int cil_post_fsuse_context_compare(const void *a, const void *b)
+static int cil_post_fsuse_context_compare(const void *a, const void *b)
 {
 	struct cil_fsuse *a_fsuse = *(struct cil_fsuse**)a;
 	struct cil_fsuse *b_fsuse = *(struct cil_fsuse**)b;
@@ -2280,8 +2280,10 @@ static int __cil_post_report_conflict(struct cil_tree_node *node, uint32_t *fini
 static int __cil_post_process_context_rules(struct cil_sort *sort, int (*compar)(const void *, const void *), int (*concompar)(const void *, const void *), struct cil_db *db, enum cil_flavor flavor, const char *flavor_str)
 {
 	uint32_t count = sort->count;
-	uint32_t i, j = 0, removed = 0;
+	uint32_t i = 0, j, removed = 0;
+	int conflicting = 0;
 	int rc = SEPOL_OK;
+	enum cil_log_level log_level = cil_get_log_level();
 
 	if (count < 2) {
 		return SEPOL_OK;
@@ -2289,36 +2291,43 @@ static int __cil_post_process_context_rules(struct cil_sort *sort, int (*compar)
 
 	qsort(sort->array, sort->count, sizeof(sort->array), compar);
 
-	for (i=1; i<count; i++) {
+	for (j=1; j<count; j++) {
 		if (compar(&sort->array[i], &sort->array[j]) != 0) {
-			j++;
+			i++;
+			if (conflicting >= 4) {
+				/* 2 rules were written when conflicting == 1 */
+				cil_log(CIL_WARN, "  Only first 4 of %d conflicting rules shown\n", conflicting);
+			}
+			conflicting = 0;
 		} else {
 			removed++;
-			if (!db->multiple_decls ||
-			   concompar(&sort->array[i], &sort->array[j]) != 0) {
-				struct cil_list_item li;
-				int rc2;
-				cil_log(CIL_WARN, "Found conflicting %s rules\n",
-					flavor_str);
-				rc = SEPOL_ERR;
-				li.flavor = flavor;
-				li.data = sort->array[i];
-				rc2 = cil_tree_walk(db->ast->root,
-						    __cil_post_report_conflict,
-						    NULL, NULL, &li);
-				if (rc2 != SEPOL_OK) goto exit;
-				li.data = sort->array[j];
-				rc2 = cil_tree_walk(db->ast->root,
-						    __cil_post_report_conflict,
-						    NULL, NULL, &li);
-				if (rc2 != SEPOL_OK) goto exit;
+			if (!db->multiple_decls || concompar(&sort->array[i], &sort->array[j]) != 0) {
+				conflicting++;
+				if (log_level >= CIL_WARN) {
+					struct cil_list_item li;
+					int rc2;
+					li.flavor = flavor;
+					if (conflicting == 1) {
+						cil_log(CIL_WARN, "Found conflicting %s rules\n", flavor_str);
+						rc = SEPOL_ERR;
+						li.data = sort->array[i];
+						rc2 = cil_tree_walk(db->ast->root, __cil_post_report_conflict,
+											NULL, NULL, &li);
+						if (rc2 != SEPOL_OK) goto exit;
+					}
+					if (conflicting < 4 || log_level > CIL_WARN) {
+						li.data = sort->array[j];
+						rc2 = cil_tree_walk(db->ast->root, __cil_post_report_conflict,
+											NULL, NULL, &li);
+						if (rc2 != SEPOL_OK) goto exit;
+					}
+				}
 			}
 		}
-		if (i != j) {
-			sort->array[j] = sort->array[i];
+		if (i != j && !conflicting) {
+			sort->array[i] = sort->array[j];
 		}
 	}
-
 	sort->count = count - removed;
 
 exit:
@@ -2422,6 +2431,12 @@ static int cil_post_db(struct cil_db *db)
 	rc = __cil_post_process_context_rules(db->filecon, cil_post_filecon_compare, cil_post_filecon_context_compare, db, CIL_FILECON, CIL_KEY_FILECON);
 	if (rc != SEPOL_OK) {
 		cil_log(CIL_ERR, "Problems processing filecon rules\n");
+		goto exit;
+	}
+
+	rc = __cil_post_process_context_rules(db->pirqcon, cil_post_pirqcon_compare, cil_post_pirqcon_context_compare, db, CIL_PIRQCON, CIL_KEY_IOMEMCON);
+	if (rc != SEPOL_OK) {
+		cil_log(CIL_ERR, "Problems processing pirqcon rules\n");
 		goto exit;
 	}
 
