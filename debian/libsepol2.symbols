@@ -3,6 +3,7 @@ libsepol.so.2 libsepol2 #MINVER#
  LIBSEPOL_1.0@LIBSEPOL_1.0 2.5
  LIBSEPOL_1.1@LIBSEPOL_1.1 2.5
  LIBSEPOL_3.0@LIBSEPOL_3.0 3.0
+ LIBSEPOL_3.4@LIBSEPOL_3.4 3.4
  cil_add_file@LIBSEPOL_1.0 2.5
  cil_build_policydb@LIBSEPOL_1.1 2.5
  cil_compile@LIBSEPOL_1.1 2.5
@@ -29,6 +30,7 @@ libsepol.so.2 libsepol2 #MINVER#
  cil_write_policy_conf@LIBSEPOL_1.1 2.7~rc2
  cil_write_resolve_ast@LIBSEPOL_3.0 3.3
  expand_module_avrules@LIBSEPOL_1.0 2.5
+ sepol_av_perm_to_string@LIBSEPOL_3.4 3.4
  sepol_bool_clone@LIBSEPOL_1.0 2.5
  sepol_bool_compare2@LIBSEPOL_1.0 2.5
  sepol_bool_compare@LIBSEPOL_1.0 2.5
@@ -47,7 +49,11 @@ libsepol.so.2 libsepol2 #MINVER#
  sepol_bool_set@LIBSEPOL_1.0 2.5
  sepol_bool_set_name@LIBSEPOL_1.0 2.5
  sepol_bool_set_value@LIBSEPOL_1.0 2.5
+ sepol_change_sid@LIBSEPOL_3.4 3.4
  sepol_check_context@LIBSEPOL_1.0 2.5
+ sepol_compute_av@LIBSEPOL_3.4 3.4
+ sepol_compute_av_reason@LIBSEPOL_3.4 3.4
+ sepol_compute_av_reason_buffer@LIBSEPOL_3.4 3.4
  sepol_context_check@LIBSEPOL_1.0 2.5
  sepol_context_clone@LIBSEPOL_1.0 2.5
  sepol_context_create@LIBSEPOL_1.0 2.5
@@ -61,6 +67,7 @@ libsepol.so.2 libsepol2 #MINVER#
  sepol_context_set_role@LIBSEPOL_1.0 2.5
  sepol_context_set_type@LIBSEPOL_1.0 2.5
  sepol_context_set_user@LIBSEPOL_1.0 2.5
+ sepol_context_to_sid@LIBSEPOL_3.4 3.4
  sepol_context_to_string@LIBSEPOL_1.0 2.5
  sepol_debug@LIBSEPOL_1.0 2.5
  sepol_expand_module@LIBSEPOL_1.0 2.5
@@ -137,6 +144,7 @@ libsepol.so.2 libsepol2 #MINVER#
  sepol_kernel_policydb_to_conf@LIBSEPOL_1.1 2.7~rc2
  sepol_link_modules@LIBSEPOL_1.0 2.5
  sepol_link_packages@LIBSEPOL_1.0 2.5
+ sepol_member_sid@LIBSEPOL_3.4 3.4
  sepol_mls_check@LIBSEPOL_1.0 2.5
  sepol_mls_contains@LIBSEPOL_1.0 2.5
  sepol_module_package_create@LIBSEPOL_1.0 2.5
@@ -241,6 +249,9 @@ libsepol.so.2 libsepol2 #MINVER#
  sepol_set_expand_consume_base@LIBSEPOL_1.0 2.5
  sepol_set_policydb_from_file@LIBSEPOL_1.0 2.5
  sepol_set_preserve_tunables@LIBSEPOL_1.0 2.5
+ sepol_sid_to_context@LIBSEPOL_3.4 3.4
+ sepol_string_to_av_perm@LIBSEPOL_3.4 3.4
+ sepol_string_to_security_class@LIBSEPOL_3.4 3.4
  sepol_user_add_role@LIBSEPOL_1.0 2.5
  sepol_user_clone@LIBSEPOL_1.0 2.5
  sepol_user_compare2@LIBSEPOL_1.0 2.5
@@ -267,3 +278,4 @@ libsepol.so.2 libsepol2 #MINVER#
  sepol_user_set_mlsrange@LIBSEPOL_1.0 2.5
  sepol_user_set_name@LIBSEPOL_1.0 2.5
  sepol_user_set_roles@LIBSEPOL_1.0 2.5
+ sepol_validate_transition_reason_buffer@LIBSEPOL_3.4 3.4
