@@ -1,11 +1,11 @@
-libsepol (3.4-1) UNRELEASED; urgency=medium
+libsepol (3.4-1) unstable; urgency=medium
 
   * New upstream release
     - debian/libsepol2.symbols: Add newly exported symbols
   * Enable GPG key validation of the upstream tarball
   * debian/control: Bump Standards-Version to 4.6.0 (no further changes)
 
- -- Laurent Bigonville <bigon@debian.org>  Sat, 04 Jun 2022 11:08:27 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Sat, 04 Jun 2022 11:12:29 +0200
 
 libsepol (3.3-1) unstable; urgency=medium
 
