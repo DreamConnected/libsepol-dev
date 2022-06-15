@@ -1,3 +1,10 @@
+libsepol (3.4-2) unstable; urgency=medium
+
+  * fix validation of user declarations in modules, patch proposed upstream
+    (Closes: #1012503)
+
+ -- Laurent Bigonville <bigon@debian.org>  Wed, 15 Jun 2022 09:56:48 +0200
+
 libsepol (3.4-1) unstable; urgency=medium
 
   * New upstream release
