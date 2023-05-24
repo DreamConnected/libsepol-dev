@@ -1,3 +1,10 @@
+libsepol (3.4-2.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Fix "Inaccurate copyright file" (Closes: #1031798)
+
+ -- Tobias Frost <tobi@debian.org>  Wed, 24 May 2023 16:43:03 +0200
+
 libsepol (3.4-2) unstable; urgency=medium
 
   * fix validation of user declarations in modules, patch proposed upstream
