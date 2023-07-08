@@ -1,8 +1,9 @@
-libsepol (3.4-3) UNRELEASED; urgency=medium
+libsepol (3.5-1) UNRELEASED; urgency=medium
 
+  * New upstream release
   * debian/upstream/signing-key.asc: Add public key of Jason Zaman
 
- -- Laurent Bigonville <bigon@debian.org>  Sat, 08 Jul 2023 22:38:57 +0200
+ -- Laurent Bigonville <bigon@debian.org>  Sat, 08 Jul 2023 22:40:05 +0200
 
 libsepol (3.4-2.1) unstable; urgency=medium
 
