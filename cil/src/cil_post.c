@@ -1191,10 +1191,9 @@ static int __cil_cat_expr_range_to_bitmap_helper(struct cil_list_item *i1, struc
 	struct cil_tree_node *n2 = d2->nodes->head->data;
 	struct cil_cat *c1 = (struct cil_cat *)d1;
 	struct cil_cat *c2 = (struct cil_cat *)d2;
-	int i;
 
 	if (n1->flavor == CIL_CATSET || n2->flavor == CIL_CATSET) {
-		cil_log(CIL_ERR, "Category sets cannont be used in a category range\n");
+		cil_log(CIL_ERR, "Category sets cannot be used in a category range\n");
 		goto exit;
 	}
 
@@ -1213,12 +1212,10 @@ static int __cil_cat_expr_range_to_bitmap_helper(struct cil_list_item *i1, struc
 		goto exit;
 	}
 
-	for (i = c1->value; i <= c2->value; i++) {
-		if (ebitmap_set_bit(bitmap, i, 1)) {
-			cil_log(CIL_ERR, "Failed to set cat bit\n");
-			ebitmap_destroy(bitmap);
-			goto exit;
-		}
+	if (ebitmap_init_range(bitmap, c1->value, c2->value)) {
+		cil_log(CIL_ERR, "Failed to set cat bit\n");
+		ebitmap_destroy(bitmap);
+		goto exit;
 	}
 
 	return SEPOL_OK;
@@ -1234,7 +1231,6 @@ static int __cil_permissionx_expr_range_to_bitmap_helper(struct cil_list_item *i
 	char *p2 = i2->data;
 	uint16_t v1;
 	uint16_t v2;
-	uint32_t i;
 
 	rc = __cil_permx_str_to_int(p1, &v1);
 	if (rc != SEPOL_OK) {
@@ -1246,12 +1242,10 @@ static int __cil_permissionx_expr_range_to_bitmap_helper(struct cil_list_item *i
 		goto exit;
 	}
 
-	for (i = v1; i <= v2; i++) {
-		if (ebitmap_set_bit(bitmap, i, 1)) {
-			cil_log(CIL_ERR, "Failed to set permissionx bit\n");
-			ebitmap_destroy(bitmap);
-			goto exit;
-		}
+	if (ebitmap_init_range(bitmap, v1, v2)) {
+		cil_log(CIL_ERR, "Failed to set permissionx bits\n");
+		ebitmap_destroy(bitmap);
+		goto exit;
 	}
 
 	return SEPOL_OK;
@@ -1318,9 +1312,7 @@ static int __cil_expr_to_bitmap(struct cil_list *expr, ebitmap_t *out, int max, 
 		enum cil_flavor op = (enum cil_flavor)(uintptr_t)curr->data;
 
 		if (op == CIL_ALL) {
-			ebitmap_init(&b1); /* all zeros */
-			rc = ebitmap_not(&tmp, &b1, max);
-			ebitmap_destroy(&b1);
+			rc = ebitmap_init_range(&tmp, 0, max - 1);
 			if (rc != SEPOL_OK) {
 				cil_log(CIL_INFO, "Failed to expand 'all' operator\n");
 				ebitmap_destroy(&tmp);
@@ -1328,19 +1320,15 @@ static int __cil_expr_to_bitmap(struct cil_list *expr, ebitmap_t *out, int max, 
 			}
 		} else if (op == CIL_RANGE) {
 			if (flavor == CIL_CAT) {
-				ebitmap_init(&tmp);
 				rc = __cil_cat_expr_range_to_bitmap_helper(curr->next, curr->next->next, &tmp);
 				if (rc != SEPOL_OK) {
 					cil_log(CIL_INFO, "Failed to expand category range\n");
-					ebitmap_destroy(&tmp);
 					goto exit;
 				}
 			} else if (flavor == CIL_PERMISSIONX) {
-				ebitmap_init(&tmp);
 				rc = __cil_permissionx_expr_range_to_bitmap_helper(curr->next, curr->next->next, &tmp);
 				if (rc != SEPOL_OK) {
 					cil_log(CIL_INFO, "Failed to expand category range\n");
-					ebitmap_destroy(&tmp);
 					goto exit;
 				}
 			} else {
@@ -2302,6 +2290,7 @@ static int __cil_post_process_context_rules(struct cil_sort *sort, int (*compar)
 		} else {
 			removed++;
 			if (!db->multiple_decls || concompar(&sort->array[i], &sort->array[j]) != 0) {
+				rc = SEPOL_ERR;
 				conflicting++;
 				if (log_level >= CIL_WARN) {
 					struct cil_list_item li;
@@ -2309,7 +2298,6 @@ static int __cil_post_process_context_rules(struct cil_sort *sort, int (*compar)
 					li.flavor = flavor;
 					if (conflicting == 1) {
 						cil_log(CIL_WARN, "Found conflicting %s rules\n", flavor_str);
-						rc = SEPOL_ERR;
 						li.data = sort->array[i];
 						rc2 = cil_tree_walk(db->ast->root, __cil_post_report_conflict,
 											NULL, NULL, &li);

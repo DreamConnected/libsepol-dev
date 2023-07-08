@@ -624,7 +624,7 @@ exit:
 	return rc;
 }
 
-#define next_bit_in_range(i, p) ((i + 1 < sizeof(p)*8) && xperm_test((i + 1), p))
+#define next_bit_in_range(i, p) (((i) + 1 < sizeof(p)*8) && xperm_test(((i) + 1), p))
 
 static int xperms_to_cil(const av_extended_perms_t *xperms)
 {
@@ -2330,7 +2330,7 @@ static int user_to_cil(int indent, struct policydb *pdb, struct avrule_block *bl
 	}
 
 	if (block->flags & AVRULE_OPTIONAL) {
-		// sensitivites in user statements in optionals do not have the
+		// sensitivities in user statements in optionals do not have the
 		// standard -1 offset
 		sens_offset = 0;
 	}
