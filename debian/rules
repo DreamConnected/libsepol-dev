@@ -8,7 +8,7 @@ export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 
 DEB_HOST_MULTIARCH ?= $(shell dpkg-architecture -qDEB_HOST_MULTIARCH)
 export LIBDIR=/usr/lib/${DEB_HOST_MULTIARCH}
-export SHLIBDIR=/lib/${DEB_HOST_MULTIARCH}
+export SHLIBDIR=/usr/lib/${DEB_HOST_MULTIARCH}
 
 # Upstream recommends using this flag
 export DEB_CFLAGS_MAINT_APPEND = -fno-semantic-interposition

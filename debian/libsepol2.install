@@ -1,1 +1,1 @@
-lib/*/libsepol.so.*
+usr/lib/*/libsepol.so.*
