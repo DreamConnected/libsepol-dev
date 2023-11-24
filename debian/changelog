@@ -1,3 +1,11 @@
+libsepol (3.5-2) unstable; urgency=medium
+
+  * Move libsepol.so.2 to /usr.
+    The move is done directly (without using dh_movetousr) as I don't think
+    we'll have to backport this package. (Closes: #1055921)
+
+ -- Laurent Bigonville <bigon@debian.org>  Fri, 24 Nov 2023 15:46:38 +0100
+
 libsepol (3.5-1) unstable; urgency=medium
 
   * New upstream release
