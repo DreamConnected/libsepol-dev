@@ -1,3 +1,10 @@
+libsepol (3.7-1) unstable; urgency=medium
+
+  * New upstream release
+  * Removed the ru man directory
+
+ -- Russell Coker <russell@coker.com.au>  Tue, 06 Aug 2024 22:09:08 +1000
+
 libsepol (3.5-2) unstable; urgency=medium
 
   * Move libsepol.so.2 to /usr.
