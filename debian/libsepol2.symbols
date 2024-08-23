@@ -4,6 +4,7 @@ libsepol.so.2 libsepol2 #MINVER#
  LIBSEPOL_1.1@LIBSEPOL_1.1 2.5
  LIBSEPOL_3.0@LIBSEPOL_3.0 3.0
  LIBSEPOL_3.4@LIBSEPOL_3.4 3.4
+ LIBSEPOL_3.6@LIBSEPOL_3.6 3.7-1
  cil_add_file@LIBSEPOL_1.0 2.5
  cil_build_policydb@LIBSEPOL_1.1 2.5
  cil_compile@LIBSEPOL_1.1 2.5
@@ -28,6 +29,7 @@ libsepol.so.2 libsepol2 #MINVER#
  cil_write_build_ast@LIBSEPOL_3.0 3.3
  cil_write_parse_ast@LIBSEPOL_3.0 3.3
  cil_write_policy_conf@LIBSEPOL_1.1 2.7~rc2
+ cil_write_post_ast@LIBSEPOL_3.6 3.7-1
  cil_write_resolve_ast@LIBSEPOL_3.0 3.3
  expand_module_avrules@LIBSEPOL_1.0 2.5
  sepol_av_perm_to_string@LIBSEPOL_3.4 3.4

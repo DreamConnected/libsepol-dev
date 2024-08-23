@@ -1,3 +1,10 @@
+libsepol (3.7-2) unstable; urgency=medium
+
+  * Updated libsepol2.symbols for the latest entrypoints
+  * Add extra upstream signing key for Petr Lautrbach
+
+ -- Russell Coker <russell@coker.com.au>  Fri, 23 Aug 2024 18:00:54 +1000
+
 libsepol (3.7-1) unstable; urgency=medium
 
   * New upstream release
