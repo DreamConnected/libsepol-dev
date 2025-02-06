@@ -1,3 +1,12 @@
+libsepol (3.8-1) unstable; urgency=medium
+
+  * New upstream release:
+    Support nlmsg extended permissions
+    Add policy capability netlink_xperm
+    add support for xperms in conditional policies
+
+ -- Russell Coker <russell@coker.com.au>  Thu, 06 Feb 2025 19:24:17 +1100
+
 libsepol (3.7-2) unstable; urgency=medium
 
   * Updated libsepol2.symbols for the latest entrypoints
