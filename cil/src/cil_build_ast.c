@@ -137,6 +137,7 @@ static int cil_allow_multiple_decls(struct cil_db *db, enum cil_flavor f_new, en
 	switch (f_new) {
 	case CIL_TYPE:
 	case CIL_TYPEATTRIBUTE:
+	case CIL_ROLE:
 		if (db->multiple_decls) {
 			return CIL_TRUE;
 		}
@@ -1744,7 +1745,12 @@ int cil_gen_role(struct cil_db *db, struct cil_tree_node *parse_current, struct 
 
 	rc = cil_gen_node(db, ast_node, (struct cil_symtab_datum*)role, (hashtab_key_t)key, CIL_SYM_ROLES, CIL_ROLE);
 	if (rc != SEPOL_OK) {
-		goto exit;
+		if (rc == SEPOL_EEXIST) {
+			cil_destroy_role(role);
+			role = NULL;
+		} else {
+			goto exit;
+		}
 	}
 
 	return SEPOL_OK;
@@ -2153,8 +2159,10 @@ static int cil_fill_permissionx(struct cil_tree_node *parse_current, struct cil_
 
 	if (parse_current->data == CIL_KEY_IOCTL) {
 		permx->kind = CIL_PERMX_KIND_IOCTL;
+	} else if (parse_current->data == CIL_KEY_NLMSG) {
+		permx->kind = CIL_PERMX_KIND_NLMSG;
 	} else {
-		cil_log(CIL_ERR, "Unknown permissionx kind, %s. Must be \"ioctl\"\n", (char *)parse_current->data);
+		cil_log(CIL_ERR, "Unknown permissionx kind, %s. Must be \"ioctl\" or \"nlmsg\"\n", (char *)parse_current->data);
 		rc = SEPOL_ERR;
 		goto exit;
 	}
@@ -3170,16 +3178,6 @@ int cil_gen_aliasactual(struct cil_db *db, struct cil_tree_node *parse_current, 
 	}
 
 	rc = __cil_verify_syntax(parse_current, syntax, syntax_len);
-	if (rc != SEPOL_OK) {
-		goto exit;
-	}
-
-	rc = cil_verify_name(db, parse_current->next->data, flavor);
-	if (rc != SEPOL_OK) {
-		goto exit;
-	}
-
-	rc = cil_verify_name(db, parse_current->next->next->data, flavor);
 	if (rc != SEPOL_OK) {
 		goto exit;
 	}
@@ -6166,7 +6164,11 @@ static int check_for_illegal_statement(struct cil_tree_node *parse_current, stru
 			parse_current->data != CIL_KEY_AUDITALLOW &&
 			parse_current->data != CIL_KEY_TYPETRANSITION &&
 			parse_current->data != CIL_KEY_TYPECHANGE &&
-			parse_current->data != CIL_KEY_TYPEMEMBER) {
+			parse_current->data != CIL_KEY_TYPEMEMBER &&
+			((args->db->policy_version < POLICYDB_VERSION_COND_XPERMS) ||
+			  (parse_current->data != CIL_KEY_ALLOWX &&
+			   parse_current->data != CIL_KEY_DONTAUDITX &&
+			   parse_current->data != CIL_KEY_AUDITALLOWX))) {
 			if (((struct cil_booleanif*)args->boolif->data)->preserved_tunable) {
 				cil_tree_log(parse_current, CIL_ERR, "%s is not allowed in tunableif being treated as a booleanif", (char *)parse_current->data);
 			} else {

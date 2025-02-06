@@ -630,7 +630,8 @@ static int xperms_to_cil(const av_extended_perms_t *xperms)
 	int first = 1;
 
 	if ((xperms->specified != AVTAB_XPERMS_IOCTLFUNCTION)
-		&& (xperms->specified != AVTAB_XPERMS_IOCTLDRIVER))
+		&& (xperms->specified != AVTAB_XPERMS_IOCTLDRIVER)
+		&& (xperms->specified != AVTAB_XPERMS_NLMSG))
 		return -1;
 
 	for (bit = 0; bit < sizeof(xperms->perms)*8; bit++) {
@@ -652,7 +653,8 @@ static int xperms_to_cil(const av_extended_perms_t *xperms)
 		else
 			first = 0;
 
-		if (xperms->specified & AVTAB_XPERMS_IOCTLFUNCTION) {
+		if ((xperms->specified == AVTAB_XPERMS_IOCTLFUNCTION)
+		 || (xperms->specified == AVTAB_XPERMS_NLMSG)) {
 			value = xperms->driver<<8 | bit;
 			if (in_range) {
 				low_value = xperms->driver<<8 | low_bit;
@@ -661,7 +663,7 @@ static int xperms_to_cil(const av_extended_perms_t *xperms)
 			} else {
 				cil_printf("0x%hx", value);
 			}
-		} else if (xperms->specified & AVTAB_XPERMS_IOCTLDRIVER) {
+		} else if (xperms->specified == AVTAB_XPERMS_IOCTLDRIVER) {
 			value = bit << 8;
 			if (in_range) {
 				low_value = low_bit << 8;
@@ -680,6 +682,7 @@ static int avrulex_to_cil(int indent, struct policydb *pdb, uint32_t type, const
 {
 	int rc = -1;
 	const char *rule;
+	const char *xperm;
 	const struct class_perm_node *classperm;
 
 	switch (type) {
@@ -701,10 +704,19 @@ static int avrulex_to_cil(int indent, struct policydb *pdb, uint32_t type, const
 		goto exit;
 	}
 
+	if (xperms->specified == AVTAB_XPERMS_IOCTLFUNCTION || xperms->specified == AVTAB_XPERMS_IOCTLDRIVER) {
+		xperm = "ioctl";
+	} else if (xperms->specified == AVTAB_XPERMS_NLMSG) {
+		xperm = "nlmsg";
+	} else {
+		ERR(NULL, "Unknown avrule xperms->specified: %i", xperms->specified);
+		rc = -1;
+		goto exit;
+	}
 	for (classperm = classperms; classperm != NULL; classperm = classperm->next) {
 		cil_indent(indent);
 		cil_printf("(%s %s %s (%s %s (", rule, src, tgt,
-			   "ioctl", pdb->p_class_val_to_name[classperm->tclass - 1]);
+			   xperm, pdb->p_class_val_to_name[classperm->tclass - 1]);
 		xperms_to_cil(xperms);
 		cil_printf(")))\n");
 	}
@@ -2162,39 +2174,7 @@ static int role_to_cil(int indent, struct policydb *pdb, struct avrule_block *UN
 	switch (role->flavor) {
 	case ROLE_ROLE:
 		if (scope == SCOPE_DECL) {
-			// Only declare certain roles if we are reading a base module.
-			// These roles are defined in the base module and sometimes in
-			// other non-base modules. If we generated the roles regardless of
-			// the policy type, it would result in duplicate declarations,
-			// which isn't allowed in CIL. Patches have been made to refpolicy
-			// to remove these duplicate role declarations, but we need to be
-			// backwards compatible and support older policies. Since we know
-			// these roles are always declared in base, only print them when we
-			// see them in the base module. If the declarations appear in a
-			// non-base module, ignore their declarations.
-			//
-			// Note that this is a hack, and if a policy author does not define
-			// one of these roles in base, the declaration will not appear in
-			// the resulting policy, likely resulting in a compilation error in
-			// CIL.
-			//
-			// To make things more complicated, the auditadm_r and secadm_r
-			// roles could actually be in either the base module or a non-base
-			// module, or both. So we can't rely on this same behavior. So for
-			// these roles, don't declare them here, even if they are in a base
-			// or non-base module. Instead we will just declare them in the
-			// base module elsewhere.
-			int is_base_role = (!strcmp(key, "user_r") ||
-			                    !strcmp(key, "staff_r") ||
-			                    !strcmp(key, "sysadm_r") ||
-			                    !strcmp(key, "system_r") ||
-			                    !strcmp(key, "unconfined_r"));
-			int is_builtin_role = (!strcmp(key, "auditadm_r") ||
-			                       !strcmp(key, "secadm_r"));
-			if ((is_base_role && pdb->policy_type == SEPOL_POLICY_BASE) ||
-			    (!is_base_role && !is_builtin_role)) {
-				cil_println(indent, "(role %s)", key);
-			}
+			cil_println(indent, "(role %s)", key);
 		}
 
 		if (ebitmap_cardinality(&role->dominates) > 1) {
@@ -3980,17 +3960,6 @@ static int generate_default_object(void)
 	return 0;
 }
 
-static int generate_builtin_roles(void)
-{
-	// due to inconsistentencies between policies and CIL not allowing
-	// duplicate roles, some roles are always created, regardless of if they
-	// are declared in modules or not
-	cil_println(0, "(role auditadm_r)");
-	cil_println(0, "(role secadm_r)");
-
-	return 0;
-}
-
 static int generate_gen_require_attribute(void)
 {
 	cil_println(0, "(typeattribute " GEN_REQUIRE_ATTR ")");
@@ -4071,11 +4040,6 @@ int sepol_module_policydb_to_cil(FILE *fp, struct policydb *pdb, int linked)
 		// object_r is implicit in checkmodule, but not with CIL, create it
 		// as part of base
 		rc = generate_default_object();
-		if (rc != 0) {
-			goto exit;
-		}
-
-		rc = generate_builtin_roles();
 		if (rc != 0) {
 			goto exit;
 		}

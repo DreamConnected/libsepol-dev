@@ -209,6 +209,13 @@ static const struct policydb_compat_info policydb_compat[] = {
 	 .target_platform = SEPOL_TARGET_SELINUX,
 	},
 	{
+	 .type = POLICY_KERN,
+	 .version = POLICYDB_VERSION_COND_XPERMS,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_IBENDPORT + 1,
+	 .target_platform = SEPOL_TARGET_SELINUX,
+	},
+	{
 	 .type = POLICY_BASE,
 	 .version = MOD_POLICYDB_VERSION_BASE,
 	 .sym_num = SYM_NUM,
@@ -335,6 +342,13 @@ static const struct policydb_compat_info policydb_compat[] = {
 	 .target_platform = SEPOL_TARGET_SELINUX,
 	},
 	{
+	 .type = POLICY_BASE,
+	 .version = MOD_POLICYDB_VERSION_COND_XPERMS,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = OCON_IBENDPORT + 1,
+	 .target_platform = SEPOL_TARGET_SELINUX,
+	},
+	{
 	 .type = POLICY_MOD,
 	 .version = MOD_POLICYDB_VERSION_BASE,
 	 .sym_num = SYM_NUM,
@@ -456,6 +470,13 @@ static const struct policydb_compat_info policydb_compat[] = {
 	{
 	 .type = POLICY_MOD,
 	 .version = MOD_POLICYDB_VERSION_SELF_TYPETRANS,
+	 .sym_num = SYM_NUM,
+	 .ocon_num = 0,
+	 .target_platform = SEPOL_TARGET_SELINUX,
+	},
+	{
+	 .type = POLICY_MOD,
+	 .version = MOD_POLICYDB_VERSION_COND_XPERMS,
 	 .sym_num = SYM_NUM,
 	 .ocon_num = 0,
 	 .target_platform = SEPOL_TARGET_SELINUX,
@@ -1641,7 +1662,7 @@ int policydb_load_isids(policydb_t * p, sidtab_t * s)
  *
  * arguments:
  *   policydb_t *pol       module policy to modify
- *   uint32_t sym          the symbole table for insertion (SYM_*)
+ *   uint32_t sym          the symbol table for insertion (SYM_*)
  *   hashtab_key_t key     the key for the symbol - not cloned
  *   hashtab_datum_t data  the data for the symbol - not cloned
  *   scope                 scope of this symbol, either SCOPE_REQ or SCOPE_DECL
