@@ -1,3 +1,9 @@
+libsepol (3.8.1-1) unstable; urgency=medium
+
+  * New upstream release, only version number change
+
+ -- Russell Coker <russell@coker.com.au>  Sun, 16 Mar 2025 17:23:19 +1100
+
 libsepol (3.8-1) unstable; urgency=medium
 
   * New upstream release:
